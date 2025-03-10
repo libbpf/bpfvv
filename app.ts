@@ -233,6 +233,50 @@ const createApp = () => {
 
     // Load and parse the file into memory from the beggining to the end
     const loadInputFile = async (state: AppState): Promise<void> => {
+        const reader = state.fileBlob.stream()
+                        .pipeThrough(new TextDecoderStream())
+                        .getReader();
+        let remainder = '';
+        let offset = 0;
+        let idx = 0;
+        while (true) {
+            let lines = [];
+            const t1 = performance.now();
+            let chunk = await reader.read();
+            const t2 = performance.now();
+            if (chunk.done) {
+                if (remainder.length > 0)
+                    lines.push(remainder);
+            } else {
+                console.log(`${chunk.value?.length} chars read in ${(t2 - t1).toFixed(3)}ms`);
+                lines = chunk.value.split('\n');
+                lines[0] = remainder + lines[0];
+                if (lines.length > 1)
+                    remainder = lines.pop();
+                else
+                    remainder = '';
+            }
+            lines.forEach(rawLine => {
+                const parsedLine: ParsedLine = {
+                    idx: idx,
+                    offset: offset,
+                    raw: rawLine,
+                    insnLine: parseInsn(rawLine),
+                    bpfState: parseBpfState(state, idx, rawLine),
+                };
+                state.lines.push(parsedLine);
+                offset += rawLine.length + 1;
+                idx++;
+            });
+            updateLoadStatus();
+
+            if (chunk.done)
+                break;
+        }
+        updateView(state);
+    };
+
+    const loadInputFile0 = async (state: AppState): Promise<void> => {
         const chunkSize = 4096; // bytes
         let eof = false;
         let offset = 0;
@@ -240,9 +284,14 @@ const createApp = () => {
         while (!eof) {
             eof = (offset + chunkSize >= state.fileBlob.size);
             const end = Math.min(offset + chunkSize, state.fileBlob.size);
+            console.log(`chunk (${offset}, ${end})`);
+            const t1 = performance.now();
             const chunk = state.fileBlob.slice(offset, end);
+            const t2 = performance.now();
             const text = await chunk.text();
+            const t3 = performance.now();
             const lines = text.split('\n');
+            const t4 = performance.now();
             // remove last line as it is likely truncated
             if (lines.length > 1 && !eof)
                 lines.pop();
@@ -258,6 +307,19 @@ const createApp = () => {
                 offset += rawLine.length + 1;
                 idx++;
             });
+            const t5 = performance.now();
+            const total_t = t5 - t1;
+            console.log(`total: ${total_t}`);
+            let t = t2 - t1;
+            console.log(`slice: ${t} (${(t/total_t).toFixed(2)})`);
+            t = t3 - t2;
+            console.log(`.text(): ${t} (${(t/total_t).toFixed(2)})`);
+            t = t4 - t3;
+            console.log(`.split(): ${t} (${(t/total_t).toFixed(2)})`);
+            t = t5 - t4;
+            console.log(`parse: ${t} (${(t/total_t).toFixed(2)})`);
+
+
             updateLoadStatus();
         }
     };

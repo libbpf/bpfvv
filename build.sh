@@ -10,5 +10,5 @@ npm install
 cp index.html styles.css dist/
 
 if [ -n "$SERVE" ]; then
-    cd dist && python -m http.server 8000
+    cd dist && python3 -m http.server 8000
 fi
