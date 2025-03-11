@@ -52,8 +52,7 @@ const copyBpfState = (state: BpfState): BpfState => {
 }
 
 type ParsedLine = {
-    idx: number; // index of the line in the input file
-    offset: number; // byte offset in the input file pointing to the start of the line
+    idx: number; // index of the line in the input file and state.lines array
     raw: string;
     insnLine?: ParsedInsnLine;
     bpfState?: BpfState;
@@ -233,23 +232,28 @@ const createApp = () => {
 
     // Load and parse the file into memory from the beggining to the end
     const loadInputFile = async (state: AppState): Promise<void> => {
-        const chunkSize = 4096; // bytes
+        const chunkSize = 65536; // bytes
+        let firstChunk = true;
+        let remainder = '';
         let eof = false;
         let offset = 0;
         let idx = 0;
         while (!eof) {
+            const t1 = performance.now();
             eof = (offset + chunkSize >= state.fileBlob.size);
             const end = Math.min(offset + chunkSize, state.fileBlob.size);
             const chunk = state.fileBlob.slice(offset, end);
             const text = await chunk.text();
             const lines = text.split('\n');
-            // remove last line as it is likely truncated
-            if (lines.length > 1 && !eof)
-                lines.pop();
+            lines[0] = remainder + lines[0];
+            if (lines.length > 1) {
+                remainder = lines.pop();
+            } else {
+                remainder = '';
+            }
             lines.forEach(rawLine => {
                 const parsedLine: ParsedLine = {
                     idx: idx,
-                    offset: offset,
                     raw: rawLine,
                     insnLine: parseInsn(rawLine),
                     bpfState: parseBpfState(state, idx, rawLine),
@@ -258,7 +262,13 @@ const createApp = () => {
                 offset += rawLine.length + 1;
                 idx++;
             });
-            updateLoadStatus();
+            updateLoadStatus(offset + remainder.length, state.fileBlob.size);
+            if (firstChunk) {
+                firstChunk = false;
+                updateView(state);
+            }
+            const t2 = performance.now();
+            console.log(`${lines.length} lines read in ${(t2 - t1).toFixed(3)}ms`);
         }
     };
 
@@ -269,7 +279,6 @@ const createApp = () => {
         lines.forEach(rawLine => {
             const parsedLine: ParsedLine = {
                 idx: idx,
-                offset: offset,
                 raw: rawLine,
                 insnLine: parseInsn(rawLine),
                 bpfState: parseBpfState(state, idx, rawLine),
@@ -278,20 +287,16 @@ const createApp = () => {
             offset += rawLine.length + 1;
             idx++;
         });
-        updateLoadStatus(true);
+        updateLoadStatus(100, 100);
     };
 
-    const updateLoadStatus = async (loadedFromPaste: boolean = false): Promise<void> => {
-        if (state.lines.length === 0) {
+    const updateLoadStatus = async (loaded: number, total: number): Promise<void> => {
+        if (total === 0) {
             loadStatus.innerHTML = '';
             return;
         }
-        if (loadedFromPaste) {
-            loadStatus.innerHTML = `Loaded ${state.lines.length} lines`;
-            return;
-        }
         const lastLine = state.lines[state.lines.length - 1];
-        const percentage = lastLine.offset / state.fileBlob.size * 100;
+        const percentage = 100 * loaded / total;
         loadStatus.innerHTML = `Loaded ${percentage.toFixed(0)}% (${lastLine.idx + 1} lines)`;
     };
 
@@ -455,8 +460,6 @@ const createApp = () => {
         state.lines = [];
         state.fileBlob = file;
         loadInputFile(state);
-        // delay a bit to give loadInputFile time to load the first chunk
-        setTimeout(() => updateView(state), 20);
     };
 
     const handleFileInput = (e: Event): void => {
