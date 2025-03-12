@@ -1,7 +1,8 @@
 {
     "compilerOptions": {
         "target": "ES6",
-        "module": "commonjs",
+        "module": "ESNext",
+        "moduleResolution": "node",
         "outDir": "./dist",
         "rootDir": "./",
         "sourceMap": true,
@@ -13,7 +14,8 @@
         }
     },
     "include": [
-        "app.ts"
+        "app.ts",
+        "parser.ts"
     ],
     "exclude": [
         "node_modules",

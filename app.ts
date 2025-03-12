@@ -1,62 +1,4 @@
-type InsnArgs = {
-    src: string;
-    dst: string;
-    src_reg: string;
-    dst_reg: string;
-}
-
-type ParsedInsnLine = {
-    idx: number;
-    hex: string;
-    insn: InsnArgs;
-    comment: string;
-}
-
-enum Effect {
-    NONE = 0,
-    READ = 1,
-    WRITE = 2,
-}
-
-type BpfValue = {
-    value: string;
-    effect: Effect;
-}
-
-const makeValue = (value: string, effect: Effect = Effect.NONE): BpfValue => {
-    return { value, effect };
-}
-
-type BpfState = {
-    values: Map<string, BpfValue>;
-}
-
-const initialBpfState = (): BpfState => {
-    let values = new Map<string, BpfValue>();
-    for (let i = 0; i < 10; i++) {
-        values.set(`r${i}`, null);
-    }
-    values.set('r1', makeValue('ctx()'));
-    values.set('r10', makeValue('fp0'));
-    return { values: values };
-}
-
-const copyBpfState = (state: BpfState): BpfState => {
-    let values = new Map<string, BpfValue>();
-    for (const [key, val] of state.values.entries()) {
-        // Don't copy the effect, only the value
-        const bpfValue = val ? { value: val.value, effect: Effect.NONE } : null;
-        values.set(key, bpfValue);
-    }
-    return { values: values };
-}
-
-type ParsedLine = {
-    idx: number; // index of the line in the input file and state.lines array
-    raw: string;
-    insnLine?: ParsedInsnLine;
-    bpfState?: BpfState;
-}
+import { ParsedLine, parseInsn, parseBpfState, initialBpfState, BpfState, BpfValue, Effect } from './parser.js';
 
 type AppState = {
     fileBlob: Blob;
@@ -101,58 +43,6 @@ const createApp = () => {
         topLineIdx: 0,
     };
 
-    const parseInsn = (rawLine: string): ParsedInsnLine => {
-
-        const regex = /([0-9]+): \(([0-9a-f]+)\) (.*)\s+; (.*)/;
-        const match = rawLine.match(regex);
-        if (!match)
-            return null;
-
-        const insn_str = match[3].trim();
-        if (insn_str.startsWith('call ')) {
-            return {
-                idx: parseInt(match[1], 10),
-                hex: match[2],
-                insn: {
-                    src: insn_str,
-                    dst: insn_str,
-                    src_reg: null,
-                    dst_reg: 'r0',
-                },
-                comment: match[4].trim(),
-            };
-        }
-
-        const insn_match = insn_str.split(' = ');
-
-        let dst = null;
-        let src = null;
-        let dst_reg = null;
-        let src_reg = null;
-        if (insn_match) {
-            dst = insn_match[0];
-            const dst_match = dst?.match(/\br[0-9]\b/);
-            dst_reg = dst_match ? dst_match[0] : null;
-            if (insn_match.length > 1) {
-                src = insn_match[1];
-                const src_match = src?.match(/\br[0-9]\b/);
-                src_reg = src_match ? src_match[0] : null;
-            }
-        }
-
-        return {
-            idx: parseInt(match[1], 10),
-            hex: match[2],
-            insn: {
-                src: insn_match[1],
-                dst: insn_match[0],
-                src_reg: src_reg,
-                dst_reg: dst_reg,
-            },
-            comment: match[4].trim(),
-        };
-    }
-
     const mostRecentBpfState = (state: AppState, idx: number): BpfState => {
         let bpfState = null;
         for (let i = idx; i >= 0; i--) {
@@ -162,35 +52,6 @@ const createApp = () => {
         }
         return initialBpfState();
     }
-
-    const parseBpfState = (state: AppState, idx: number, rawLine: string): BpfState => {
-        const regex = /[0-9]+:\s+.*\s+; (.*)/;
-        const match = rawLine.match(regex);
-        if (!match)
-            return null;
-        const prevBpfState = mostRecentBpfState(state, idx-1);
-        let bpfState = copyBpfState(prevBpfState);
-        const str = match[0];
-        const exprs = str.split(' ');
-        for (const expr of exprs) {
-            const equalsIndex = expr.indexOf('=');
-            if (equalsIndex === -1)
-                continue;
-            const kv = [expr.substring(0, equalsIndex), expr.substring(equalsIndex + 1)];
-            let key = kv[0].trim().toLowerCase();
-            let effect = Effect.NONE;
-            if (!key)
-                continue;
-            if (key.endsWith('_w')) {
-                key = key.substring(0, key.length - 2);
-                effect = Effect.WRITE;
-            }
-            const value = makeValue(kv[1], effect);
-            bpfState.values.set(key, value);
-        };
-        return bpfState;
-    }
-
 
     const updateSelectedLine = (idx: number): void => {
         state.selectedLine = Math.max(0, Math.min(state.lines.length - 1, idx));
@@ -255,16 +116,20 @@ const createApp = () => {
                 else
                     remainder = '';
             }
+            let prevBpfState = initialBpfState();
             lines.forEach(rawLine => {
+                const bpfState = parseBpfState(prevBpfState, rawLine);
+                const insnLine = parseInsn(rawLine);
                 const parsedLine: ParsedLine = {
                     idx: idx,
                     raw: rawLine,
-                    insnLine: parseInsn(rawLine),
-                    bpfState: parseBpfState(state, idx, rawLine),
+                    insnLine: insnLine,
+                    bpfState: bpfState,
                 };
                 state.lines.push(parsedLine);
                 offset += rawLine.length + 1;
                 idx++;
+                prevBpfState = bpfState;
             });
             updateLoadStatus(offset + remainder.length, state.fileBlob.size);
             if (firstChunk) {
@@ -281,17 +146,21 @@ const createApp = () => {
     const loadInputText = async (state: AppState, text: string): Promise<void> => {
         let offset = 0;
         let idx = 0;
+        let prevBpfState = initialBpfState();
         const lines = text.split('\n');
         lines.forEach(rawLine => {
+            const insnLine = parseInsn(rawLine);
+            const bpfState = parseBpfState(prevBpfState, rawLine);
             const parsedLine: ParsedLine = {
                 idx: idx,
                 raw: rawLine,
-                insnLine: parseInsn(rawLine),
-                bpfState: parseBpfState(state, idx, rawLine),
+                insnLine: insnLine,
+                bpfState: bpfState,
             };
             state.lines.push(parsedLine);
             offset += rawLine.length + 1;
             idx++;
+            prevBpfState = bpfState;
         });
         updateLoadStatus(100, 100);
     };
