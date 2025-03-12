@@ -11,7 +11,7 @@ function cli_main() {
     try {
         const fileContents = fs.readFileSync(filePath, 'utf8');
         const lines = fileContents.split('\n');
-        const parsed = lines.map(parser.parseInsn);
+        const parsed = lines.map(parser.parseLine);
         console.log(JSON.stringify(parsed, null, 2));
         process.exit(0);
     } catch (error) {
