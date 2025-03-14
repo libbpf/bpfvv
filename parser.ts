@@ -138,6 +138,7 @@ export type ParsedLine = {
     insnLine?: ParsedInsnLine;
     bpfState?: BpfState;
     bpfIns?: BpfInstruction;
+    bpfStateExprs?: BpfStateExpr[];
 }
 
 export const parseInsn = (rawLine: string): ParsedInsnLine => {
@@ -192,31 +193,57 @@ export const parseInsn = (rawLine: string): ParsedInsnLine => {
     };
 }
 
-export const parseBpfState = (prevBpfState: BpfState, rawLine: string): BpfState => {
-    const regex = /[0-9]+:\s+.*\s+; (.*)/;
-    const match = rawLine.match(regex);
-    if (!match)
-        return prevBpfState;
-    let bpfState = copyBpfState(prevBpfState);
-    const str = match[0];
-    const exprs = str.split(' ');
-    for (const expr of exprs) {
-        const equalsIndex = expr.indexOf('=');
-        if (equalsIndex === -1)
-            continue;
-        const kv = [expr.substring(0, equalsIndex), expr.substring(equalsIndex + 1)];
-        let key = kv[0].trim().toLowerCase();
-        let effect = Effect.NONE;
-        if (!key)
-            continue;
-        if (key.endsWith('_w')) {
-            key = key.substring(0, key.length - 2);
-            effect = Effect.WRITE;
+type BpfStateExpr = {
+    id: string;
+    value: string;
+    rawKey: string;
+}
+
+const parseBpfStateExpr = (str: string): { expr: BpfStateExpr, rest: string } => {
+    const equalsIndex = str.indexOf('=');
+    if (equalsIndex === -1)
+        return { expr: null, rest: str };
+    const key = str.substring(0, equalsIndex);
+    let id = key;
+    if (key.endsWith('_w'))
+        id = key.substring(0, key.length - 2);
+    id = id.toLowerCase();
+
+    // the next value starts after a space outside of any parentheses
+    let i = equalsIndex + 1;
+    let stack = [];
+    while (i < str.length) {
+        if (str[i] === '(') {
+            stack.push(str[i]);
+        } if (str[i] === ')' && stack.length > 0) {
+            stack.pop();
+        } else if (str[i] === ' ' && stack.length === 0) {
+            break;
         }
-        const value = makeValue(kv[1], effect);
-        bpfState.values.set(key, value);
-    };
-    return bpfState;
+        i++;
+    }
+    const expr = {
+        id,
+        value: str.substring(equalsIndex + 1, i),
+        rawKey: key,
+    }
+    return { expr, rest: str.substring(i) };
+}
+
+export const parseBpfStateExprs = (str: string): { exprs: BpfStateExpr[], rest: string } => {
+    let { match, rest } = consumeString('; ', str);
+    if (!match)
+        return { exprs: [], rest: str };
+
+    let exprs = [];
+    while (rest.length > 0) {
+        const parsed = parseBpfStateExpr(rest);
+        rest = consumeSpaces(parsed.rest);
+        if (!parsed.expr)
+            break;
+        exprs.push(parsed.expr);
+    }
+    return { exprs, rest };
 }
 
 const RE_WHITESPACE = /\s+/;
@@ -398,31 +425,45 @@ export const parseOpcodeIns = (str: string, pc: number): { ins: BpfInstruction, 
     if (match) {
         const opcode = parseOpcodeHex(match[1]);
         if (opcode) {
-            const parsed = parseInstruction(consumeSpaces(rest), opcode);
-            if (parsed.ins)
-                parsed.ins.pc = pc;
-            return parsed;
+            let parsedIns = parseInstruction(consumeSpaces(rest), opcode);
+            if (parsedIns.ins) {
+                parsedIns.ins.pc = pc;
+            }
+            return parsedIns;
         }
     }
     return { ins: null, rest: str };
 }
 
 export const parseLine = (rawLine: string): ParsedLine => {
-    const { match, rest } = consumeRegex(RE_PROGRAM_COUNTER, rawLine);
+    let { match, rest } = consumeRegex(RE_PROGRAM_COUNTER, rawLine);
+    let ins : BpfInstruction = null;
     if (match) {
         const pc = parseInt(match[1], 10);
-        const parsed = parseOpcodeIns(consumeSpaces(rest), pc);
-        if (parsed.ins) {
-            return {
-                type: ParsedLineType.INSTRUCTION,
-                raw: rawLine,
-                bpfIns: parsed.ins,
-            };
+        const parsedIns = parseOpcodeIns(consumeSpaces(rest), pc);
+        if (parsedIns.ins) {
+            ins = parsedIns.ins;
         }
+        rest = parsedIns.rest;
+    }
+
+    let exprs : BpfStateExpr[] = [];
+    const parsedExprs = parseBpfStateExprs(rest);
+    if (parsedExprs.exprs) {
+        exprs = parsedExprs.exprs;
+    }
+
+    if (ins) {
+        return {
+            type: ParsedLineType.INSTRUCTION,
+            raw: rawLine,
+            bpfIns: ins,
+            bpfStateExprs: exprs,
+        };
     }
 
     return {
         type: ParsedLineType.UNRECOGNIZED,
         raw: rawLine,
-    }
+    };
 }
