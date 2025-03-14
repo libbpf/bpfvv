@@ -62,8 +62,13 @@ type BpfOpcode = {
     source: OpcodeSource;
 }
 
-type BpfCallInstruction = {
+type BpfJmpInstruction = {
     target: string;
+    cond?: {
+        left: BpfOperand;
+        op: string;
+        right: BpfOperand;
+    };
 }
 
 type BpfAluInstruction = {
@@ -77,7 +82,7 @@ type BpfInstruction = {
     opcode: BpfOpcode;
     reads: string[];
     writes: string[];
-    call?: BpfCallInstruction;
+    jmp?: BpfJmpInstruction;
     alu?: BpfAluInstruction;
 }
 
@@ -172,9 +177,10 @@ const RE_REGISTER = /^(r10|r[0-9]|w[0-9])/;
 const RE_MEMORY_REF = /^\*\((u8|u16|u32|u64) \*\)\((r10|r[0-9]) ([+-][0-9]+)\)/;
 const RE_IMM_VALUE = /^(0x[0-9a-f]+|[+-]?[0-9]+)/;
 const RE_CALL_TARGET = /^call ([0-9a-z_#]+)/;
+const RE_JMP_TARGET = /^goto (pc[+-][0-9]+)/;
 
-const BPF_OPERATORS = [ '=', '+=', '-=', '*=', '/=', '%=', '&=', '|=', '^=', '<<=', '>>=', 's>>=', 's<<='];
-
+const BPF_ALU_OPERATORS = [ '=', '+=', '-=', '*=', '/=', '%=', '&=', '|=', '^=', '<<=', '>>=', 's>>=', 's<<='];
+const BPF_COND_OPERATORS = [ '==', '!=', '<', '<=', '>', '>=']; // are < and > ever printed?
 
 const consumeRegex = (regex: RegExp, str: string): { match: string[], rest: string } => {
     const match = regex.exec(str);
@@ -296,7 +302,7 @@ const parseAluInstruction = (str: string, opcode: BpfOpcode): { ins: BpfInstruct
 
     rest = consumeSpaces(rest);
     let operator = null;
-    for (const op of BPF_OPERATORS) {
+    for (const op of BPF_ALU_OPERATORS) {
         const m = consumeString(op, rest);
         if (m.match) {
             operator = op;
@@ -328,14 +334,14 @@ const parseAluInstruction = (str: string, opcode: BpfOpcode): { ins: BpfInstruct
     return { ins, rest };
 }
 
-const parseCallInstruction = (str: string, opcode: BpfOpcode): { ins: BpfInstruction, rest: string } => {
+const parseCall = (str: string, opcode: BpfOpcode): { ins: BpfInstruction, rest: string } => {
     const { match, rest } = consumeRegex(RE_CALL_TARGET, str);
     if (!match)
         return { ins: null, rest: str };
     const target = match[1];
     const ins : BpfInstruction = {
         opcode: opcode,
-        call: {
+        jmp: {
             target: target,
         },
         reads: ['r1', 'r2', 'r3', 'r4', 'r5'],
@@ -344,17 +350,78 @@ const parseCallInstruction = (str: string, opcode: BpfOpcode): { ins: BpfInstruc
     return { ins, rest };
 }
 
+
+const parseCondOp = (str: string): { op: BpfOperand, rest: string } => {
+    let { match, rest } = consumeRegex(RE_REGISTER, str);
+    if (match)
+        return { op: registerOp(match[1]), rest };
+    let imm = consumeRegex(RE_IMM_VALUE, str);
+    if (imm.match)
+        return { op: immOp(imm.match[1]), rest: imm.rest };
+    return { op: null, rest };
+}
+
+const parseConditionalJmp = (str: string, opcode: BpfOpcode): { ins: BpfInstruction, rest: string } => {
+    let { match, rest } = consumeString("if ", str);
+    if (!match)
+        return { ins: null, rest: str };
+
+    let leftOp = parseCondOp(rest);
+    if (!leftOp.op)
+        return { ins: null, rest: str };
+    rest = consumeSpaces(leftOp.rest);
+
+    let operator = null;
+    for (const op of BPF_COND_OPERATORS) {
+        const m = consumeString(op, rest);
+        if (m.match) {
+            operator = op;
+            rest = consumeSpaces(m.rest);
+            break;
+        }
+    }
+    if (!operator)
+        return { ins: null, rest: str };
+
+    let rightOp = parseCondOp(rest);
+    if (!rightOp.op)
+        return { ins: null, rest: str };
+    rest = consumeSpaces(rightOp.rest);
+
+    let jmpTarget = consumeRegex(RE_JMP_TARGET, consumeSpaces(rest));
+    if (!jmpTarget.match)
+        return { ins: null, rest: str };
+    const target = jmpTarget.match[1];
+    rest = consumeSpaces(jmpTarget.rest);
+
+    const ins : BpfInstruction = {
+        opcode: opcode,
+        jmp: {
+            target: target,
+            cond: {
+                left: leftOp.op,
+                op: operator,
+                right: rightOp.op,
+            },
+        },
+        reads: [leftOp.op.id, rightOp.op.id],
+        writes: [], // technically goto writes pc, but we don't care about it (?)
+    };
+    return { ins, rest };
+}
+
 const parseJmpInstruction = (str: string, opcode: BpfOpcode): { ins: BpfInstruction, rest: string } => {
     switch (opcode.code) {
         case BpfJmpCode.CALL:
-            return parseCallInstruction(str, opcode);
-        case BpfJmpCode.JA:
+            return parseCall(str, opcode);
         case BpfJmpCode.JEQ:
         case BpfJmpCode.JGT:
         case BpfJmpCode.JGE:
         case BpfJmpCode.JSET:
         case BpfJmpCode.JSGT:
         case BpfJmpCode.JSGE:
+            return parseConditionalJmp(str, opcode);
+        case BpfJmpCode.JA:
         case BpfJmpCode.EXIT:
         default:
             return { ins: null, rest: str };
