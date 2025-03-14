@@ -1,16 +1,90 @@
-import { ParsedLine, parseInsn, parseBpfState, initialBpfState, BpfState, BpfValue, Effect } from './parser.js';
+import { ParsedLine, ParsedLineType, parseLine } from './parser.js';
+
+export enum Effect {
+    NONE = "NONE",
+    READ = "READ",
+    WRITE = "WRITE",
+    UPDATE = "UPDATE", // read then write, e.g. r0 += 1
+}
+
+export type BpfValue = {
+    value: string;
+    effect: Effect;
+}
+
+const makeValue = (value: string, effect: Effect = Effect.NONE): BpfValue => {
+    return { value, effect };
+}
+
+export type BpfState = {
+    values: Map<string, BpfValue>;
+    lastKnownWrites: Map<string, number>;
+}
+
+const initialBpfState = (): BpfState => {
+    let values = new Map<string, BpfValue>();
+    for (let i = 0; i < 10; i++) {
+        values.set(`r${i}`, null);
+    }
+    values.set('r1', makeValue('ctx()'));
+    values.set('r10', makeValue('fp0'));
+    let lastKnownWrites = new Map<string, number>();
+    lastKnownWrites.set('r1', 0);
+    lastKnownWrites.set('r10', 0);
+    return { values, lastKnownWrites };
+}
+
+const copyBpfState = (state: BpfState): BpfState => {
+    let values = new Map<string, BpfValue>();
+    for (const [key, val] of state.values.entries()) {
+        // Don't copy the effect, only the value
+        const bpfValue = val ? { value: val.value, effect: Effect.NONE } : null;
+        values.set(key, bpfValue);
+    }
+    let lastKnownWrites = new Map<string, number>();
+    for (const [key, val] of state.lastKnownWrites.entries()) {
+        lastKnownWrites.set(key, val);
+    }
+    return { values, lastKnownWrites };
+}
+
+const nextBpfState = (state: BpfState, line: ParsedLine): BpfState => {
+    if (line.type !== ParsedLineType.INSTRUCTION)
+        return state;
+    let newState = copyBpfState(state);
+    for (const expr of line.bpfStateExprs) {
+        let effect = Effect.NONE;
+        let read = line.bpfIns?.reads?.find(r => r === expr.id);
+        let written = line.bpfIns?.writes?.find(r => r === expr.id);
+        if (read && written)
+            effect = Effect.UPDATE;
+        else if (read)
+            effect = Effect.READ;
+        else if (written)
+            effect = Effect.WRITE;
+        newState.values.set(expr.id, makeValue(expr.value, effect));
+    }
+    for (const id of line.bpfIns?.writes || []) {
+        // if it's a write, but value is unknown, assume scratch
+        if (!newState.values.has(id))
+            newState.values.set(id, makeValue('', Effect.WRITE));
+        newState.lastKnownWrites.set(id, line.idx);
+    }
+    return newState;
+}
 
 type AppState = {
     fileBlob: Blob;
     lines: ParsedLine[];
+    bpfStates: BpfState[];
 
     visibleLines: number;
     totalHeight: number;
     lineHeight: number;
 
     topLineIdx: number; // index of the first line in the visible area
-    selectedLine: number;
-    focusReg: string | null;
+    selectedIdx: number;
+    dependencyIdxs: number[];
     maxParsedLineIdx: number;
 }
 
@@ -33,20 +107,22 @@ const createApp = () => {
     const state: AppState = {
         fileBlob: new Blob([]),
         lines: [],
+        bpfStates: [],
 
         visibleLines: 50,
         totalHeight: 0,
         lineHeight: 16,
-        selectedLine: 13,
-        focusReg: null,
+        selectedIdx: 13,
+        dependencyIdxs: [],
+
         maxParsedLineIdx: 0,
         topLineIdx: 0,
     };
 
     const mostRecentBpfState = (state: AppState, idx: number): BpfState => {
         let bpfState = null;
-        for (let i = idx; i >= 0; i--) {
-            bpfState = state.lines[i]?.bpfState;
+        for (let i = Math.min(idx, state.bpfStates.length - 1); i >= 0; i--) {
+            bpfState = state.bpfStates[i];
             if (bpfState)
                 return bpfState;
         }
@@ -54,8 +130,15 @@ const createApp = () => {
     }
 
     const updateSelectedLine = (idx: number): void => {
-        state.selectedLine = Math.max(0, Math.min(state.lines.length - 1, idx));
-        state.focusReg = state.lines[state.selectedLine]?.insnLine?.insn.src_reg;
+        state.selectedIdx = Math.max(0, Math.min(state.lines.length - 1, idx));
+        const ins = state.lines[state.selectedIdx].bpfIns;
+        const bpfState = state.bpfStates[state.selectedIdx];
+        state.dependencyIdxs = [];
+        for (const id of ins?.reads || []) { 
+            const dependencyIdx = bpfState.lastKnownWrites.get(id);
+            if (dependencyIdx)
+                state.dependencyIdxs.push(dependencyIdx);
+        }
     }
 
     const handleLineClick = async (e: MouseEvent) => {
@@ -67,26 +150,21 @@ const createApp = () => {
         updateView(state);
     };
 
-    const isFocusLine = (line: ParsedLine): boolean => {
-        if (!state.focusReg)
+    const isDependencyLine = (line: ParsedLine): boolean => {
+        if (line.idx >= state.selectedIdx)
             return false;
-        const dst_reg = line?.insnLine?.insn?.dst_reg;
-        if (!dst_reg || !dst_reg.startsWith('r'))
-            return false;
-        if (dst_reg === state.focusReg && line?.idx < state.selectedLine)
-            return true;
-        return false;
+        return state.dependencyIdxs.some(idx => idx === line.idx);
     }
 
     const formatLogLine = (line: ParsedLine, idx: number): string => {
         let highlightClass = 'normal';
-        if (idx === state.selectedLine)
+        if (idx === state.selectedIdx)
             highlightClass = 'selected';
         else if (line?.raw.includes('goto'))
             highlightClass = 'goto-line';
-        else if (isFocusLine(line))
+        else if (isDependencyLine(line))
             highlightClass = 'dependency';
-        else if (!line?.insnLine && !line?.bpfState)
+        else if (!line?.bpfIns && !line?.bpfStateExprs)
             highlightClass = 'ignorable';
         return `<div class="log-line ${highlightClass}" line-index="${idx}">${escapeHtml(line.raw)}</div>`
     }
@@ -101,6 +179,7 @@ const createApp = () => {
         let eof = false;
         let offset = 0;
         let idx = 0;
+        let bpfState = initialBpfState();
         while (!eof) {
             let lines = [];
             const { done, value } = await reader.read();
@@ -116,20 +195,14 @@ const createApp = () => {
                 else
                     remainder = '';
             }
-            let prevBpfState = initialBpfState();
             lines.forEach(rawLine => {
-                const bpfState = parseBpfState(prevBpfState, rawLine);
-                const insnLine = parseInsn(rawLine);
-                const parsedLine: ParsedLine = {
-                    idx: idx,
-                    raw: rawLine,
-                    insnLine: insnLine,
-                    bpfState: bpfState,
-                };
+                const parsedLine = parseLine(rawLine);
                 state.lines.push(parsedLine);
+                parsedLine.idx = idx;
+                bpfState = nextBpfState(bpfState, parsedLine);
+                state.bpfStates.push(bpfState);
                 offset += rawLine.length + 1;
                 idx++;
-                prevBpfState = bpfState;
             });
             updateLoadStatus(offset + remainder.length, state.fileBlob.size);
             if (firstChunk) {
@@ -146,21 +219,16 @@ const createApp = () => {
     const loadInputText = async (state: AppState, text: string): Promise<void> => {
         let offset = 0;
         let idx = 0;
-        let prevBpfState = initialBpfState();
+        let bpfState = initialBpfState();
         const lines = text.split('\n');
         lines.forEach(rawLine => {
-            const insnLine = parseInsn(rawLine);
-            const bpfState = parseBpfState(prevBpfState, rawLine);
-            const parsedLine: ParsedLine = {
-                idx: idx,
-                raw: rawLine,
-                insnLine: insnLine,
-                bpfState: bpfState,
-            };
+            const parsedLine = parseLine(rawLine);
             state.lines.push(parsedLine);
+            parsedLine.idx = idx;
+            bpfState = nextBpfState(bpfState, parsedLine);
+            state.bpfStates.push(bpfState);
             offset += rawLine.length + 1;
             idx++;
-            prevBpfState = bpfState;
         });
         updateLoadStatus(100, 100);
     };
@@ -193,7 +261,7 @@ const createApp = () => {
     }
 
     const updateStatePanel = async (state: AppState): Promise<void> => {
-        const bpfState = mostRecentBpfState(state, state.selectedLine);
+        const bpfState = mostRecentBpfState(state, state.selectedIdx);
         if (!bpfState)
             return;
 
@@ -203,7 +271,7 @@ const createApp = () => {
 
         const addRow = (label: string, value: BpfValue) => {
             const row = document.createElement('tr');
-            if (value?.effect === Effect.WRITE) {
+            if (value?.effect === Effect.WRITE || value?.effect === Effect.UPDATE) {
                 row.classList.add('effect-write');
             }
             const nameCell = document.createElement('td');
@@ -293,22 +361,22 @@ const createApp = () => {
         switch (e.key) {
             case 'ArrowDown':
             case 'j':
-                updateSelectedLine(state.selectedLine + 1);
-                if (state.selectedLine >= state.topLineIdx + state.visibleLines)
+                updateSelectedLine(state.selectedIdx + 1);
+                if (state.selectedIdx >= state.topLineIdx + state.visibleLines)
                     linesToScroll = 1;
                 break;
             case 'ArrowUp':
             case 'k':
-                updateSelectedLine(state.selectedLine - 1);
-                if (state.selectedLine < state.topLineIdx)
+                updateSelectedLine(state.selectedIdx - 1);
+                if (state.selectedIdx < state.topLineIdx)
                     linesToScroll = -1;
                 break;
             case 'PageDown':
-                updateSelectedLine(state.selectedLine + state.visibleLines);
+                updateSelectedLine(state.selectedIdx + state.visibleLines);
                 linesToScroll = state.visibleLines;
                 break;
             case 'PageUp':
-                updateSelectedLine(Math.max(state.selectedLine - state.visibleLines, 0));
+                updateSelectedLine(Math.max(state.selectedIdx - state.visibleLines, 0));
                 linesToScroll = -state.visibleLines;
                 break;
             case 'Home':
