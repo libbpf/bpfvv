@@ -73,6 +73,8 @@ const nextBpfState = (state: BpfState, line: ParsedLine): BpfState => {
     return newState;
 }
 
+const DEPENDENCIES_DEPTH = 4;
+
 type AppState = {
     fileBlob: Blob;
     lines: ParsedLine[];
@@ -84,8 +86,10 @@ type AppState = {
 
     topLineIdx: number; // index of the first line in the visible area
     selectedIdx: number;
-    dependencyIdxs: number[];
-    maxParsedLineIdx: number;
+    // dependencies by level, e.g. dependencies[0] is the dependencies of the selected line
+    // dependencies[1] is the dependencies of dependencies[0] and so on
+    // each level is the list of idx
+    dependencies: Set<number>[];
 }
 
 const createApp = () => {
@@ -113,9 +117,8 @@ const createApp = () => {
         totalHeight: 0,
         lineHeight: 16,
         selectedIdx: 13,
-        dependencyIdxs: [],
+        dependencies: [],
 
-        maxParsedLineIdx: 0,
         topLineIdx: 0,
     };
 
@@ -129,16 +132,42 @@ const createApp = () => {
         return initialBpfState();
     }
 
+    const computeDependencies = (state: AppState, target_idx: number): Set<number>[] => {
+        let targets = [target_idx];
+        let nTargets = 1;
+        let dependencies : Set<number>[] = [];
+        let levelDeps = new Set<number>();
+        let level = 0;
+        while (targets.length > 0 && level < DEPENDENCIES_DEPTH) {
+            const idx = targets.pop();
+            const bpfState = state.bpfStates[idx];
+            const ins = state.lines[idx].bpfIns;
+            for (const id of ins?.reads || []) {
+                let depIdx = bpfState.lastKnownWrites.get(id);
+                if (depIdx === idx && idx > 0) {
+                    // this is an Effect.UPDATE, so let's look at the previous bpfState
+                    const prevBpfState = state.bpfStates[idx-1];
+                    depIdx = prevBpfState.lastKnownWrites.get(id);
+                }
+                if (depIdx) {
+                    levelDeps.add(depIdx);
+                }
+            }
+            nTargets--;
+            if (nTargets === 0) {
+                targets = Array.from(levelDeps);
+                dependencies.push(levelDeps);
+                levelDeps = new Set<number>();
+                level++;
+                nTargets = targets.length;
+            }
+        }
+        return dependencies;
+    }
+
     const updateSelectedLine = (idx: number): void => {
         state.selectedIdx = Math.max(0, Math.min(state.lines.length - 1, idx));
-        const ins = state.lines[state.selectedIdx].bpfIns;
-        const bpfState = state.bpfStates[state.selectedIdx];
-        state.dependencyIdxs = [];
-        for (const id of ins?.reads || []) { 
-            const dependencyIdx = bpfState.lastKnownWrites.get(id);
-            if (dependencyIdx)
-                state.dependencyIdxs.push(dependencyIdx);
-        }
+        state.dependencies = computeDependencies(state, state.selectedIdx);
     }
 
     const handleLineClick = async (e: MouseEvent) => {
@@ -150,23 +179,32 @@ const createApp = () => {
         updateView(state);
     };
 
-    const isDependencyLine = (line: ParsedLine): boolean => {
+    const lineDependencyLevel = (line: ParsedLine): number => {
         if (line.idx >= state.selectedIdx)
-            return false;
-        return state.dependencyIdxs.some(idx => idx === line.idx);
+            return -1;
+        return state.dependencies.findIndex(level => level.has(line.idx));
     }
 
-    const formatLogLine = (line: ParsedLine, idx: number): string => {
+    const formatLogLine = (line: ParsedLine, idx: number): HTMLElement => {
+        const div = document.createElement('div');
         let highlightClass = 'normal';
         if (idx === state.selectedIdx)
             highlightClass = 'selected';
         else if (line?.raw.includes('goto'))
             highlightClass = 'goto-line';
-        else if (isDependencyLine(line))
-            highlightClass = 'dependency';
         else if (!line?.bpfIns && !line?.bpfStateExprs)
             highlightClass = 'ignorable';
-        return `<div class="log-line ${highlightClass}" line-index="${idx}">${escapeHtml(line.raw)}</div>`
+
+        let depLevel = lineDependencyLevel(line);
+        if (depLevel >= 0) {
+            highlightClass = '';
+            const k = depLevel / DEPENDENCIES_DEPTH;
+            div.style.backgroundColor = `rgb(${128 + 128 * k}, 255, ${128 + 128 * k})`;
+        }
+        div.className = `log-line ${highlightClass}`;
+        div.setAttribute('line-index', idx.toString());
+        div.textContent = line.raw;
+        return div;
     }
 
     // Load and parse the file into memory from the beggining to the end
@@ -251,13 +289,12 @@ const createApp = () => {
     };
 
     const formatVisibleLines = async (state: AppState): Promise<void> => {
-        const lines = [];
+        contentLines.innerHTML = '';
         for (let idx = state.topLineIdx; idx < state.topLineIdx + state.visibleLines; idx++) {
             const line = state.lines[idx];
             if (line)
-                lines.push(formatLogLine(line, idx));
+                contentLines.appendChild(formatLogLine(line, idx));
         }
-        contentLines.innerHTML = lines.join('');
     }
 
     const updateStatePanel = async (state: AppState): Promise<void> => {
