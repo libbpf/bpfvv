@@ -35,6 +35,22 @@ enum BpfAluCode {
     END = 0xd,
 }
 
+enum BpfJmpCode {
+    JA = 0x0,
+    JEQ = 0x1,
+    JGT = 0x2,
+    JGE = 0x3,
+    JSET = 0x5,
+    JSGT = 0x6,
+    JSGE = 0x7,
+    CALL = 0x8,
+    EXIT = 0x9,
+    JLT = 0xa,
+    JLE = 0xb,
+    JSLT = 0xc,
+    JSLE = 0xd,
+}
+
 enum OpcodeSource {
     K = 'K', // use 32-bit ‘imm’ value as source operand
     X = 'X', // use ‘src_reg’ register value as source operand
@@ -42,18 +58,27 @@ enum OpcodeSource {
 
 type BpfOpcode = {
     iclass: BpfInstructionClass;
-    code: BpfAluCode;
+    code: BpfAluCode | BpfJmpCode;
     source: OpcodeSource;
+}
+
+type BpfCallInstruction = {
+    target: string;
+}
+
+type BpfAluInstruction = {
+    operator: string;
+    dst: BpfOperand;
+    src: BpfOperand;
 }
 
 type BpfInstruction = {
     pc?: number;
     opcode: BpfOpcode;
-    operator: string;
-    dst: BpfOperand;
-    src: BpfOperand;
     reads: string[];
     writes: string[];
+    call?: BpfCallInstruction;
+    alu?: BpfAluInstruction;
 }
 
 enum OperandType {
@@ -140,13 +165,16 @@ export const parseBpfStateExprs = (str: string): { exprs: BpfStateExpr[], rest: 
     return { exprs, rest };
 }
 
-const RE_WHITESPACE = /\s+/;
+const RE_WHITESPACE = /^\s+/;
 const RE_PROGRAM_COUNTER = /^([0-9]+):/;
 const RE_BPF_OPCODE = /^\(([0-9a-f][0-9a-f])\)/;
 const RE_REGISTER = /^(r10|r[0-9]|w[0-9])/;
 const RE_MEMORY_REF = /^\*\((u8|u16|u32|u64) \*\)\((r10|r[0-9]) ([+-][0-9]+)\)/;
 const RE_IMM_VALUE = /^(0x[0-9a-f]+|[+-]?[0-9]+)/;
+const RE_CALL_TARGET = /^call ([0-9a-z_#]+)/;
+
 const BPF_OPERATORS = [ '=', '+=', '-=', '*=', '/=', '%=', '&=', '|=', '^=', '<<=', '>>=', 's>>=', 's<<='];
+
 
 const consumeRegex = (regex: RegExp, str: string): { match: string[], rest: string } => {
     const match = regex.exec(str);
@@ -288,14 +316,49 @@ const parseAluInstruction = (str: string, opcode: BpfOpcode): { ins: BpfInstruct
 
     const ins : BpfInstruction = {
         opcode: opcode,
-        dst: dst,
-        src: src,
-        operator: operator,
+        alu: {
+            operator: operator,
+            dst: dst,
+            src: src,
+        },
         reads: collectReads(operator, dst, src),
         writes: [dst.id],
     };
 
     return { ins, rest };
+}
+
+const parseCallInstruction = (str: string, opcode: BpfOpcode): { ins: BpfInstruction, rest: string } => {
+    const { match, rest } = consumeRegex(RE_CALL_TARGET, str);
+    if (!match)
+        return { ins: null, rest: str };
+    const target = match[1];
+    const ins : BpfInstruction = {
+        opcode: opcode,
+        call: {
+            target: target,
+        },
+        reads: ['r1', 'r2', 'r3', 'r4', 'r5'],
+        writes: ['r0', 'r1', 'r2', 'r3', 'r4', 'r5'],
+    };
+    return { ins, rest };
+}
+
+const parseJmpInstruction = (str: string, opcode: BpfOpcode): { ins: BpfInstruction, rest: string } => {
+    switch (opcode.code) {
+        case BpfJmpCode.CALL:
+            return parseCallInstruction(str, opcode);
+        case BpfJmpCode.JA:
+        case BpfJmpCode.JEQ:
+        case BpfJmpCode.JGT:
+        case BpfJmpCode.JGE:
+        case BpfJmpCode.JSET:
+        case BpfJmpCode.JSGT:
+        case BpfJmpCode.JSGE:
+        case BpfJmpCode.EXIT:
+        default:
+            return { ins: null, rest: str };
+    }
 }
 
 const parseInstruction = (str: string, opcode: BpfOpcode): { ins: BpfInstruction, rest: string } => {
@@ -309,6 +372,7 @@ const parseInstruction = (str: string, opcode: BpfOpcode): { ins: BpfInstruction
             return parseAluInstruction(str, opcode);
         case BpfInstructionClass.JMP:
         case BpfInstructionClass.JMP32:
+            return parseJmpInstruction(str, opcode);
         default:
             return { ins: null, rest: str };
     }
@@ -338,7 +402,7 @@ export const parseLine = (rawLine: string): ParsedLine => {
         if (parsedIns.ins) {
             ins = parsedIns.ins;
         }
-        rest = parsedIns.rest;
+        rest = consumeSpaces(parsedIns.rest);
     }
 
     if (ins) {
