@@ -243,8 +243,11 @@ const parseMemoryRef = (str: string): { op: BpfOperand, rest: string } => {
     if (address_reg === 'r10') {
         id = 'fp' + offset;
     } else {
-        const plus = offset < 0 ? '' : '+';
-        id = address_reg + plus + offset + '/' + MEMORY_REF_COUNTER++; // example: 'r1+16/133'
+        // We do not currently use these ids, and they blow up the lastKnownWrites map in the app
+        // So let's use a dummy id for now, like for immediates
+        id = "MEM";
+        // const plus = offset < 0 ? '' : '+';
+        // id = address_reg + plus + offset + '/' + MEMORY_REF_COUNTER++; // example: 'r1+16/133'
     }
     const op = { id, type: OperandType.MEM, size, memref: { address_reg, offset } };
     return { op, rest };
