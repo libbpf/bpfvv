@@ -95,12 +95,15 @@ enum OperandType {
 
 type BpfOperand = {
     type: OperandType;
-    id: string; // r0-r10 for regs, 'fp-off' for stack, unique id for mem refs
+    id: string; // r0-r10 for regs, 'fp-off' for stack
     size: number;
     memref?: {
         address_reg: string;
         offset: number;
     };
+    // location in the original log string
+    rawOffset?: number; // negative: -10 means length-10
+    rawSize?: number;
 }
 
 
@@ -299,11 +302,12 @@ const parseAluInstruction = (str: string, opcode: BpfOpcode): { ins: BpfInstruct
 
     let _dst = parseAluDst(str);
     dst = _dst.op;
-    rest = _dst.rest;
     if (!dst)
         return { ins: null, rest: str };
+    dst.rawOffset = -str.length;
+    dst.rawSize = str.length - _dst.rest.length;
+    rest = consumeSpaces(_dst.rest);
 
-    rest = consumeSpaces(rest);
     let operator = null;
     for (const op of BPF_ALU_OPERATORS) {
         const m = consumeString(op, rest);
@@ -318,10 +322,11 @@ const parseAluInstruction = (str: string, opcode: BpfOpcode): { ins: BpfInstruct
 
     let _src = parseAluSrc(rest);
     src = _src.op;
-    rest = _src.rest;
     if (!src)
         return { ins: null, rest: str };
-    rest = consumeSpaces(rest);
+    src.rawOffset = -rest.length;
+    src.rawSize = rest.length - _src.rest.length;
+    rest = consumeSpaces(_src.rest);
 
     const ins : BpfInstruction = {
         opcode: opcode,
