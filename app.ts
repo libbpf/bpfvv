@@ -81,6 +81,7 @@ type AppState = {
     fileBlob: Blob;
     lines: ParsedLine[];
     bpfStates: BpfState[];
+    formattedLines: HTMLElement[];
 
     visibleLines: number;
     totalHeight: number;
@@ -114,11 +115,12 @@ const createApp = () => {
         fileBlob: new Blob([]),
         lines: [],
         bpfStates: [],
+        formattedLines: [],
 
         visibleLines: 50,
         totalHeight: 0,
         lineHeight: 16,
-        selectedIdx: 13,
+        selectedIdx: 0,
         dependencies: [],
 
         topLineIdx: 0,
@@ -187,24 +189,56 @@ const createApp = () => {
         return state.dependencies.findIndex(level => level.has(line.idx));
     }
 
-    const formatLogLine = (line: ParsedLine, idx: number): HTMLElement => {
-        const div = document.createElement('div');
-        let highlightClass = 'normal';
-        if (idx === state.selectedIdx)
-            highlightClass = 'selected';
-        else if (!line?.bpfIns && !line?.bpfStateExprs)
-            highlightClass = 'ignorable';
-
-        let depLevel = lineDependencyLevel(line);
-        if (depLevel >= 0) {
-            highlightClass = '';
-            const k = depLevel / DEPENDENCIES_DEPTH;
-            div.style.backgroundColor = `rgb(${128 + 128 * k}, 255, ${128 + 128 * k})`;
+    const ALL_HIGHLIGHT_CLASSES = ['normal', 'selected', 'ignorable'];
+    const setHighlightClass = (div: HTMLElement, highlightClass: string): void => {
+        for (const cls of ALL_HIGHLIGHT_CLASSES) {
+            div.classList.remove(cls);
         }
-        div.className = `log-line ${highlightClass}`;
-        div.setAttribute('line-index', idx.toString());
-        div.textContent = line.raw;
+        if (highlightClass)
+            div.classList.add(highlightClass);
+    }
+
+    const logLineDiv = (line: ParsedLine): HTMLElement => {
+        const div = document.createElement('div');
+        if (!line?.bpfIns && !line?.bpfStateExprs)
+            setHighlightClass(div, 'ignorable');
+        else
+            setHighlightClass(div, 'normal');
+        div.classList.add('log-line');
+        div.setAttribute('line-index', line.idx.toString());
+
+        if (line.bpfIns?.alu) {
+            const dst = line.bpfIns.alu.dst;
+            const dstStart = line.raw.length + dst.rawOffset;
+            const dstEnd = dstStart + dst.rawSize;
+            const src = line.bpfIns.alu.src;
+            const srcStart = line.raw.length + src.rawOffset;
+            const srcEnd = srcStart + src.rawSize;
+            let inner = line.raw.slice(0, dstStart);
+            inner += `<span class="mem-slot" id="${dst.id}">`;
+            inner += line.raw.slice(dstStart, dstEnd);
+            inner += '</span>';
+            inner += line.raw.slice(dstEnd, srcStart);
+            inner += `<span class="mem-slot" id="${src.id}">`;
+            inner += line.raw.slice(srcStart, srcEnd);
+            inner += '</span>';
+            inner += line.raw.slice(srcEnd);
+            div.innerHTML = inner;
+        } else {
+            div.textContent = line.raw;
+        }
         return div;
+    }
+
+    const loadRawLine = (state: AppState, rawLine: string) => {
+        const parsedLine = parseLine(rawLine);
+        state.lines.push(parsedLine);
+        const idx = state.lines.length - 1;
+        parsedLine.idx = idx;
+        const bpfState = nextBpfState(mostRecentBpfState(state, idx), parsedLine);
+        state.bpfStates.push(bpfState);
+        const formattedLine = logLineDiv(parsedLine);
+        state.formattedLines.push(formattedLine);
     }
 
     // Load and parse the file into memory from the beggining to the end
@@ -216,8 +250,6 @@ const createApp = () => {
         let remainder = '';
         let eof = false;
         let offset = 0;
-        let idx = 0;
-        let bpfState = initialBpfState();
         while (!eof) {
             let lines = [];
             const { done, value } = await reader.read();
@@ -234,13 +266,8 @@ const createApp = () => {
                     remainder = '';
             }
             lines.forEach(rawLine => {
-                const parsedLine = parseLine(rawLine);
-                state.lines.push(parsedLine);
-                parsedLine.idx = idx;
-                bpfState = nextBpfState(bpfState, parsedLine);
-                state.bpfStates.push(bpfState);
+                loadRawLine(state, rawLine);
                 offset += rawLine.length + 1;
-                idx++;
             });
             updateLoadStatus(offset + remainder.length, state.fileBlob.size);
             if (firstChunk) {
@@ -255,18 +282,9 @@ const createApp = () => {
     };
 
     const loadInputText = async (state: AppState, text: string): Promise<void> => {
-        let offset = 0;
-        let idx = 0;
-        let bpfState = initialBpfState();
         const lines = text.split('\n');
         lines.forEach(rawLine => {
-            const parsedLine = parseLine(rawLine);
-            state.lines.push(parsedLine);
-            parsedLine.idx = idx;
-            bpfState = nextBpfState(bpfState, parsedLine);
-            state.bpfStates.push(bpfState);
-            offset += rawLine.length + 1;
-            idx++;
+            loadRawLine(state, rawLine);
         });
         updateLoadStatus(100, 100);
     };
@@ -288,13 +306,74 @@ const createApp = () => {
         ).join('\n');
     };
 
-    const formatVisibleLines = async (state: AppState): Promise<void> => {
-        contentLines.innerHTML = '';
-        for (let idx = state.topLineIdx; idx < state.topLineIdx + state.visibleLines; idx++) {
+    const contentLineIdx = (line: HTMLElement): number => {
+        const idx = line?.getAttribute('line-index');
+        if (!idx)
+            return -1;
+        return parseInt(idx, 10);
+    }
+
+    const updateLineFormatting = (state: AppState): void => {
+        for (const child of contentLines.children) {
+            const div = child as HTMLElement;
+            const idx = contentLineIdx(div);
+            if (idx === -1)
+                continue;
+
+            // reset the background color
+            div.style.removeProperty("background-color");
+
+            if (idx === state.selectedIdx) {
+                setHighlightClass(div, 'selected');
+                continue;
+            }
+
             const line = state.lines[idx];
-            if (line)
-                contentLines.appendChild(formatLogLine(line, idx));
+            if (!line?.bpfIns && !line?.bpfStateExprs) {
+                setHighlightClass(div, 'ignorable');
+                continue;
+            }
+
+            let depLevel = lineDependencyLevel(line);
+            if (depLevel >= 0) {
+                setHighlightClass(div, '');
+                const k = depLevel / DEPENDENCIES_DEPTH;
+                div.style.backgroundColor = `rgb(${128 + 128 * k}, 255, ${128 + 128 * k})`;
+            } else {
+                setHighlightClass(div, 'normal');
+            }
         }
+    }
+
+    const updateContentLines = async (state: AppState): Promise<void> => {
+        const viewStart = state.topLineIdx;
+        const viewEnd = viewStart + state.visibleLines;
+
+        const removeList = [];
+        for (const child of contentLines.children) {
+            const idx = contentLineIdx(child as HTMLElement);
+            if (idx < viewStart || idx >= viewEnd)
+                removeList.push(child);
+        }
+        for (const child of removeList) {
+            contentLines.removeChild(child);
+        }
+
+        let firstRenderedIdx = contentLineIdx(contentLines.firstChild as HTMLElement);
+        let lastRenderedIdx = contentLineIdx(contentLines.lastChild as HTMLElement);
+
+        if (lastRenderedIdx === -1) {
+            lastRenderedIdx = viewStart - 1;
+        }
+
+        for (let i = firstRenderedIdx - 1; i >= viewStart; i--) {
+            contentLines.insertBefore(state.formattedLines[i], contentLines.firstChild);
+        }
+        for (let i = lastRenderedIdx + 1; i < viewEnd; i++) {
+            contentLines.appendChild(state.formattedLines[i]);
+        }
+
+        updateLineFormatting(state);
     }
 
     const updateStatePanel = async (state: AppState): Promise<void> => {
@@ -368,7 +447,7 @@ const createApp = () => {
             inputText.style.display = 'none';
             updateVisibleLinesValue(state);
             updateLineNumbers(state.topLineIdx, state.visibleLines);
-            formatVisibleLines(state);
+            updateContentLines(state);
             updateStatePanel(state);
         }
     };
