@@ -256,6 +256,15 @@ const createApp = () => {
         return html;
     }
 
+    const jmpInstructionHtml = (line: ParsedLine): string => {
+        if (line.bpfIns.opcode.code === BpfJmpCode.JA) {
+            return `goto ${line.bpfIns.jmp.target}`;
+        }
+        const leftHtml = memSlotHtml(line, line.bpfIns.jmp.cond.left);
+        const rightHtml = memSlotHtml(line, line.bpfIns.jmp.cond.right);
+        return `if (${leftHtml} ${line.bpfIns.jmp.cond.op} ${rightHtml}) goto ${line.bpfIns.jmp.target}`;
+    }
+
     const logLineDiv = (line: ParsedLine): HTMLElement => {
         const div = document.createElement('div');
         if (!line?.bpfIns && !line?.bpfStateExprs)
@@ -272,6 +281,8 @@ const createApp = () => {
             div.innerHTML = `${dstHtml} ${ins.alu.operator} ${srcHtml}`;
         } else if (ins?.jmp && ins.opcode.code === BpfJmpCode.CALL) {
             div.innerHTML = callInstructionHtml(line);
+        } else if (ins?.jmp) {
+            div.innerHTML = jmpInstructionHtml(line);
         } else {
             div.textContent = line.raw;
         }

@@ -387,6 +387,10 @@ const parseConditionalJmp = (str: string, opcode: BpfOpcode): { ins: BpfInstruct
     let leftOp = parseCondOp(rest);
     if (!leftOp.op)
         return { ins: null, rest: str };
+    leftOp.op.location = {
+        offset: -rest.length,
+        size: rest.length - leftOp.rest.length,
+    };
     rest = consumeSpaces(leftOp.rest);
 
     let operator = null;
@@ -404,6 +408,10 @@ const parseConditionalJmp = (str: string, opcode: BpfOpcode): { ins: BpfInstruct
     let rightOp = parseCondOp(rest);
     if (!rightOp.op)
         return { ins: null, rest: str };
+    rightOp.op.location = {
+        offset: -rest.length,
+        size: rest.length - rightOp.rest.length,
+    };
     rest = consumeSpaces(rightOp.rest);
 
     let jmpTarget = consumeRegex(RE_JMP_TARGET, consumeSpaces(rest));
@@ -428,6 +436,24 @@ const parseConditionalJmp = (str: string, opcode: BpfOpcode): { ins: BpfInstruct
     return { ins, rest };
 }
 
+const parseUnconditionalJmp = (str: string, opcode: BpfOpcode): { ins: BpfInstruction, rest: string } => {
+    let { match, rest } = consumeString("goto ", str);
+    if (!match)
+        return { ins: null, rest: str };
+    const target = consumeRegex(RE_JMP_TARGET, str);
+    if (!target.match)
+        return { ins: null, rest: str };
+    const ins : BpfInstruction = {
+        opcode: opcode,
+        jmp: {
+            target: target.match[1],
+        },
+        reads: [],
+        writes: [],
+    };
+    return { ins, rest };
+}
+
 const parseJmpInstruction = (str: string, opcode: BpfOpcode): { ins: BpfInstruction, rest: string } => {
     switch (opcode.code) {
         case BpfJmpCode.CALL:
@@ -440,6 +466,7 @@ const parseJmpInstruction = (str: string, opcode: BpfOpcode): { ins: BpfInstruct
         case BpfJmpCode.JSGE:
             return parseConditionalJmp(str, opcode);
         case BpfJmpCode.JA:
+            return parseUnconditionalJmp(str, opcode);
         case BpfJmpCode.EXIT:
         default:
             return { ins: null, rest: str };
