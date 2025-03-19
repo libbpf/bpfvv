@@ -125,14 +125,15 @@ const createApp = () => {
         topLineIdx: 0,
     };
 
-    const mostRecentBpfState = (state: AppState, idx: number): BpfState => {
+    const mostRecentBpfState = (state: AppState, idx: number): { state: BpfState, idx: number } => {
         let bpfState = null;
-        for (let i = Math.min(idx, state.bpfStates.length - 1); i >= 0; i--) {
+        idx = Math.max(0, Math.min(idx, state.bpfStates.length - 1));
+        for (let i = idx; i >= 0; i--) {
             bpfState = state.bpfStates[i];
             if (bpfState)
-                return bpfState;
+                return { state: bpfState, idx: i };
         }
-        return initialBpfState();
+        return { state: initialBpfState(), idx: 0 };
     }
 
     const collectMemSlotDependencies = (state: AppState, memSlotId: string): Set<number> => {
@@ -294,7 +295,7 @@ const createApp = () => {
         state.lines.push(parsedLine);
         const idx = state.lines.length - 1;
         parsedLine.idx = idx;
-        const bpfState = nextBpfState(mostRecentBpfState(state, idx), parsedLine);
+        const bpfState = nextBpfState(mostRecentBpfState(state, idx).state, parsedLine);
         state.bpfStates.push(bpfState);
         const formattedLine = logLineDiv(parsedLine);
         state.formattedLines.push(formattedLine);
@@ -474,25 +475,40 @@ const createApp = () => {
     }
 
     const updateStatePanel = async (state: AppState): Promise<void> => {
-        const bpfState = mostRecentBpfState(state, state.selectedLineIdx);
-        if (!bpfState)
-            return;
+        const { state: bpfState, idx } = mostRecentBpfState(state, state.selectedLineIdx);
+        const prevBpfState = mostRecentBpfState(state, idx - 1).state;
 
         const statePanel = document.getElementById('state-panel') as HTMLElement;
         const table = statePanel.querySelector('table');
         table.innerHTML = '';
 
-        const addRow = (label: string, value: BpfValue) => {
+        const addRow = (id: string) => {
+            const value = bpfState.values.get(id);
+            const prevValue = prevBpfState.values.get(id);
             const row = document.createElement('tr');
-            if (value?.effect === Effect.WRITE || value?.effect === Effect.UPDATE) {
-                row.classList.add('effect-write');
+            let content = '';
+            switch (value?.effect) {
+                case Effect.WRITE:
+                case Effect.UPDATE:
+                    row.classList.add('effect-write');
+                    let v1 = value?.value || 'scratched';
+                    let v2 = prevValue?.value || '';
+                    if (v1 !== v2)
+                        content = `${v1} <= ${v2}`;
+                    else
+                        content = v1;
+                    break;
+                case Effect.READ:
+                default:
+                    content = value?.value || '';
+                    break;
             }
             const nameCell = document.createElement('td');
-            nameCell.textContent = label
+            nameCell.textContent = id;
             nameCell.style.width = '7ch';
             const valueCell = document.createElement('td');
             const valueSpan = document.createElement('span');
-            valueSpan.textContent = escapeHtml(value?.value || '');
+            valueSpan.textContent = content;
             valueCell.appendChild(valueSpan);
             row.appendChild(nameCell);
             row.appendChild(valueCell);
@@ -501,26 +517,28 @@ const createApp = () => {
 
         // first add the registers
         for (let i = 0; i <= 10; i++) {
-            addRow(`r${i}`, bpfState.values.get(`r${i}`));
+            addRow(`r${i}`);
         }
 
         // then the stack
         for (let i = 512; i >= 0; i--) {
             const key = `fp-${i}`;
             if (bpfState.values.has(key))
-                addRow(key, bpfState.values.get(key));
+                addRow(key);
         }
 
         // then the rest
         const sortedValues = [];
-        for (const [key, value] of bpfState.values.entries()) {
+        for (const key of bpfState.values.keys()) {
             if (!key.startsWith('r') && !key.startsWith('fp-')) {
-                sortedValues.push([key, value]);
+                sortedValues.push(key);
             }
         }
-        sortedValues.sort((a, b) => a[0].localeCompare(b[0]));
-        for (const [key, value] of sortedValues) {
-            addRow(key, value);
+        sortedValues.sort((a, b) => a.localeCompare(b));
+        for (const key of sortedValues) {
+            if (key == 'MEM')
+                continue;
+            addRow(key);
         }
     }
 
