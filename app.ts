@@ -1,4 +1,4 @@
-import { ParsedLine, ParsedLineType, parseLine } from './parser.js';
+import { BpfJmpCode, BpfOperand, OperandType, ParsedLine, ParsedLineType, parseLine } from './parser.js';
 
 export enum Effect {
     NONE = "NONE",
@@ -142,24 +142,26 @@ const createApp = () => {
             return new Set<number>();
         // if user clicked on a mem slot that is written to,
         // then switch target to the first read slot
-        if (ins.writes.find(id => id === memSlotId) && ins.reads.length > 0) {
+        if (!ins.reads.find(id => id === memSlotId)
+                && ins.writes.find(id => id === memSlotId)
+                && ins.reads.length > 0) {
             memSlotId = ins.reads[0];
         }
         let bpfState : BpfState = state.bpfStates[state.selectedLineIdx];
         const deps = new Set<number>();
         while (true) {
             let depIdx = bpfState.lastKnownWrites.get(memSlotId);
-            if (!depIdx)
-                break;
-            if (deps.has(depIdx)) {
+            if (depIdx === targetIdx) {
                 // this is an Effect.UPDATE, so let's look at the previous bpfState
                 const prevBpfState = state.bpfStates[targetIdx-1];
                 depIdx = prevBpfState.lastKnownWrites.get(memSlotId);
             }
+            if (!depIdx)
+                break;
             deps.add(depIdx);
             targetIdx = depIdx;
             const depIns = state.lines[depIdx].bpfIns;
-            if (depIns.reads.length != 1)
+            if (!depIns?.reads || depIns.reads.length != 1)
                 break;
             memSlotId = depIns.reads[0];
             bpfState = state.bpfStates[depIdx];
@@ -218,6 +220,42 @@ const createApp = () => {
             div.classList.add(highlightClass);
     }
 
+    const memSlotHtml = (line: ParsedLine, op: BpfOperand): string => {
+        const start = line.raw.length + op.location.offset;
+        const end = start + op.location.size;
+        const memSlotString = line.raw.slice(start, end);
+        switch (op.type) {
+            case OperandType.REG:
+            case OperandType.FP:
+                return `<span class="mem-slot" id="${op.id}">${memSlotString}</span>`;
+            case OperandType.MEM:
+                // find register position and make a span around it
+                const regStart = memSlotString.search(/r[0-9]/);
+                const regEnd = regStart + 2;
+                const reg = memSlotString.slice(regStart, regEnd);
+                return `${memSlotString.slice(0, regStart)}<span class="mem-slot" id="${reg}">${reg}</span>${memSlotString.slice(regEnd)}`;
+            default:
+                return memSlotString;
+        }
+    }
+
+    const callInstructionHtml = (line: ParsedLine): string => {
+        const ins = line.bpfIns;
+        const rSpan = (reg: string) => `<span class="mem-slot" id="${reg}">${reg}</span>`;
+        let html = `${rSpan("r0")} = `;
+        const start = line.raw.length + ins.location.offset;
+        const end = start + ins.location.size;
+        html += line.raw.slice(start, end);
+        html += '(';
+        for (let i = 1; i <= 5; i++) {
+            html += `${rSpan(`r${i}`)}`;
+            if (i < 5)
+                html += ', ';
+        }
+        html += ')';
+        return html;
+    }
+
     const logLineDiv = (line: ParsedLine): HTMLElement => {
         const div = document.createElement('div');
         if (!line?.bpfIns && !line?.bpfStateExprs)
@@ -227,23 +265,13 @@ const createApp = () => {
         div.classList.add('log-line');
         div.setAttribute('line-index', line.idx.toString());
 
-        if (line.bpfIns?.alu) {
-            const dst = line.bpfIns.alu.dst;
-            const dstStart = line.raw.length + dst.rawOffset;
-            const dstEnd = dstStart + dst.rawSize;
-            const src = line.bpfIns.alu.src;
-            const srcStart = line.raw.length + src.rawOffset;
-            const srcEnd = srcStart + src.rawSize;
-            let inner = line.raw.slice(0, dstStart);
-            inner += `<span class="mem-slot" id="${dst.id}">`;
-            inner += line.raw.slice(dstStart, dstEnd);
-            inner += '</span>';
-            inner += line.raw.slice(dstEnd, srcStart);
-            inner += `<span class="mem-slot" id="${src.id}">`;
-            inner += line.raw.slice(srcStart, srcEnd);
-            inner += '</span>';
-            inner += line.raw.slice(srcEnd);
-            div.innerHTML = inner;
+        const ins = line.bpfIns;
+        if (ins?.alu) {
+            const dstHtml = memSlotHtml(line, ins.alu.dst);
+            const srcHtml = memSlotHtml(line, ins.alu.src);
+            div.innerHTML = `${dstHtml} ${ins.alu.operator} ${srcHtml}`;
+        } else if (ins?.jmp && ins.opcode.code === BpfJmpCode.CALL) {
+            div.innerHTML = callInstructionHtml(line);
         } else {
             div.textContent = line.raw;
         }
@@ -319,11 +347,15 @@ const createApp = () => {
         loadStatus.innerHTML = `Loaded ${percentage.toFixed(0)}% (${lastLine.idx + 1} lines)`;
     };
 
-    const updateLineNumbers = async (startLine: number, count: number): Promise<void> => {
-        lineNumbers.innerHTML = Array.from(
-            { length: count },
-            (_, i) => `${startLine + i + 1}`
-        ).join('\n');
+    const updateLineNumbers = async (state: AppState): Promise<void> => {
+        const pcLines = [];
+        for (const child of contentLines.children) {
+            const idx = contentLineIdx(child as HTMLElement);
+            const ins = idx >= 0 ? state.lines[idx].bpfIns : null;
+            const pc = ins?.pc ? `${ins.pc}:` : '';
+            pcLines.push(pc);
+        }
+        lineNumbers.innerHTML = pcLines.join('\n');
     };
 
     const contentLineIdx = (line: HTMLElement): number => {
@@ -427,6 +459,7 @@ const createApp = () => {
         }
 
         updateLineFormatting(state);
+        updateLineNumbers(state);
     }
 
     const updateStatePanel = async (state: AppState): Promise<void> => {
@@ -444,7 +477,8 @@ const createApp = () => {
                 row.classList.add('effect-write');
             }
             const nameCell = document.createElement('td');
-            nameCell.textContent = label;
+            nameCell.textContent = label
+            nameCell.style.width = '7ch';
             const valueCell = document.createElement('td');
             const valueSpan = document.createElement('span');
             valueSpan.textContent = escapeHtml(value?.value || '');
@@ -499,7 +533,6 @@ const createApp = () => {
             mainContent.style.display = 'flex';
             inputText.style.display = 'none';
             updateVisibleLinesValue(state);
-            updateLineNumbers(state.topLineIdx, state.visibleLines);
             updateContentLines(state);
             updateStatePanel(state);
         }

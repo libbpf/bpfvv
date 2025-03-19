@@ -35,7 +35,7 @@ enum BpfAluCode {
     END = 0xd,
 }
 
-enum BpfJmpCode {
+export enum BpfJmpCode {
     JA = 0x0,
     JEQ = 0x1,
     JGT = 0x2,
@@ -77,6 +77,11 @@ type BpfAluInstruction = {
     src: BpfOperand;
 }
 
+export type RawLineLocation = {
+    offset: number; // negative: -10 means length-10
+    size: number;
+}
+
 type BpfInstruction = {
     pc?: number;
     opcode: BpfOpcode;
@@ -84,9 +89,10 @@ type BpfInstruction = {
     writes: string[];
     jmp?: BpfJmpInstruction;
     alu?: BpfAluInstruction;
+    location?: RawLineLocation;
 }
 
-enum OperandType {
+export enum OperandType {
     UNKNOWN = 'UNKNOWN',
     REG = 'REG',
     FP = 'FP',
@@ -94,7 +100,7 @@ enum OperandType {
     MEM = 'MEM',
 }
 
-type BpfOperand = {
+export type BpfOperand = {
     type: OperandType;
     id: string; // r0-r10 for regs, 'fp-off' for stack
     size: number;
@@ -102,9 +108,7 @@ type BpfOperand = {
         address_reg: string;
         offset: number;
     };
-    // location in the original log string
-    rawOffset?: number; // negative: -10 means length-10
-    rawSize?: number;
+    location?: RawLineLocation;
 }
 
 
@@ -303,8 +307,10 @@ const parseAluInstruction = (str: string, opcode: BpfOpcode): { ins: BpfInstruct
     dst = _dst.op;
     if (!dst)
         return { ins: null, rest: str };
-    dst.rawOffset = -str.length;
-    dst.rawSize = str.length - _dst.rest.length;
+    dst.location = {
+        offset: -str.length,
+        size: str.length - _dst.rest.length
+    };
     rest = consumeSpaces(_dst.rest);
 
     let operator = null;
@@ -323,8 +329,10 @@ const parseAluInstruction = (str: string, opcode: BpfOpcode): { ins: BpfInstruct
     src = _src.op;
     if (!src)
         return { ins: null, rest: str };
-    src.rawOffset = -rest.length;
-    src.rawSize = rest.length - _src.rest.length;
+    src.location = {
+        offset: -rest.length,
+        size: rest.length - _src.rest.length
+    };
     rest = consumeSpaces(_src.rest);
 
     const ins : BpfInstruction = {
@@ -354,9 +362,12 @@ const parseCall = (str: string, opcode: BpfOpcode): { ins: BpfInstruction, rest:
         reads: ['r1', 'r2', 'r3', 'r4', 'r5'],
         writes: ['r0', 'r1', 'r2', 'r3', 'r4', 'r5'],
     };
+    ins.location = {
+        offset: -str.length,
+        size: match[0].length,
+    };
     return { ins, rest };
 }
-
 
 const parseCondOp = (str: string): { op: BpfOperand, rest: string } => {
     let { match, rest } = consumeRegex(RE_REGISTER, str);
