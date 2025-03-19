@@ -89,8 +89,9 @@ type BpfInstruction = {
 enum OperandType {
     UNKNOWN = 'UNKNOWN',
     REG = 'REG',
-    MEM = 'MEM',
+    FP = 'FP',
     IMM = 'IMM',
+    MEM = 'MEM',
 }
 
 type BpfOperand = {
@@ -242,17 +243,15 @@ const parseMemoryRef = (str: string): { op: BpfOperand, rest: string } => {
     const size = CAST_TO_SIZE.get(match[1]);
     const address_reg = match[2];
     const offset = parseInt(match[3], 10);
-    let id;
+    // We do not currently use memory ids, and they blow up the lastKnownWrites map in the app
+    // So let's use a dummy id for now, like for immediates
+    let id = "MEM";
+    let type = OperandType.MEM;
     if (address_reg === 'r10') {
         id = 'fp' + offset;
-    } else {
-        // We do not currently use these ids, and they blow up the lastKnownWrites map in the app
-        // So let's use a dummy id for now, like for immediates
-        id = "MEM";
-        // const plus = offset < 0 ? '' : '+';
-        // id = address_reg + plus + offset + '/' + MEMORY_REF_COUNTER++; // example: 'r1+16/133'
+        type = OperandType.FP;
     }
-    const op = { id, type: OperandType.MEM, size, memref: { address_reg, offset } };
+    const op = { id, type, size, memref: { address_reg, offset } };
     return { op, rest };
 }
 

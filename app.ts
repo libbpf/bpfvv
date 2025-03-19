@@ -7,7 +7,7 @@ export enum Effect {
     UPDATE = "UPDATE", // read then write, e.g. r0 += 1
 }
 
-export type BpfValue = {
+type BpfValue = {
     value: string;
     effect: Effect;
 }
@@ -16,7 +16,7 @@ const makeValue = (value: string, effect: Effect = Effect.NONE): BpfValue => {
     return { value, effect };
 }
 
-export type BpfState = {
+type BpfState = {
     values: Map<string, BpfValue>;
     lastKnownWrites: Map<string, number>;
 }
@@ -88,11 +88,9 @@ type AppState = {
     lineHeight: number;
 
     topLineIdx: number; // index of the first line in the visible area
-    selectedIdx: number;
-    // dependencies by level, e.g. dependencies[0] is the dependencies of the selected line
-    // dependencies[1] is the dependencies of dependencies[0] and so on
-    // each level is the list of idx
-    dependencies: Set<number>[];
+    selectedLineIdx: number;
+    selectedMemSlotId: string; // 'r1', 'fp-244' etc.
+    memSlotDependencies: Set<number>; // set of idx
 }
 
 const createApp = () => {
@@ -120,8 +118,9 @@ const createApp = () => {
         visibleLines: 50,
         totalHeight: 0,
         lineHeight: 16,
-        selectedIdx: 0,
-        dependencies: [],
+        selectedLineIdx: 0,
+        selectedMemSlotId: '',
+        memSlotDependencies: new Set<number>(),
 
         topLineIdx: 0,
     };
@@ -136,62 +135,83 @@ const createApp = () => {
         return initialBpfState();
     }
 
-    const computeDependencies = (state: AppState, target_idx: number): Set<number>[] => {
-        let targets = [target_idx];
-        let nTargets = 1;
-        let dependencies : Set<number>[] = [];
-        let levelDeps = new Set<number>();
-        let level = 0;
-        while (targets.length > 0 && level < DEPENDENCIES_DEPTH) {
-            const idx = targets.pop();
-            const bpfState = state.bpfStates[idx];
-            const ins = state.lines[idx].bpfIns;
-            for (const id of ins?.reads || []) {
-                let depIdx = bpfState.lastKnownWrites.get(id);
-                if (depIdx === idx && idx > 0) {
-                    // this is an Effect.UPDATE, so let's look at the previous bpfState
-                    const prevBpfState = state.bpfStates[idx-1];
-                    depIdx = prevBpfState.lastKnownWrites.get(id);
-                }
-                if (depIdx) {
-                    levelDeps.add(depIdx);
-                }
-            }
-            nTargets--;
-            if (nTargets === 0) {
-                targets = Array.from(levelDeps);
-                dependencies.push(levelDeps);
-                levelDeps = new Set<number>();
-                level++;
-                nTargets = targets.length;
-            }
+    const collectMemSlotDependencies = (state: AppState, memSlotId: string): Set<number> => {
+        let targetIdx = state.selectedLineIdx;
+        const ins = state.lines[state.selectedLineIdx].bpfIns;
+        if (!ins)
+            return new Set<number>();
+        // if user clicked on a mem slot that is written to,
+        // then switch target to the first read slot
+        if (ins.writes.find(id => id === memSlotId) && ins.reads.length > 0) {
+            memSlotId = ins.reads[0];
         }
-        return dependencies;
+        let bpfState : BpfState = state.bpfStates[state.selectedLineIdx];
+        const deps = new Set<number>();
+        while (true) {
+            let depIdx = bpfState.lastKnownWrites.get(memSlotId);
+            if (!depIdx)
+                break;
+            if (deps.has(depIdx)) {
+                // this is an Effect.UPDATE, so let's look at the previous bpfState
+                const prevBpfState = state.bpfStates[targetIdx-1];
+                depIdx = prevBpfState.lastKnownWrites.get(memSlotId);
+            }
+            deps.add(depIdx);
+            targetIdx = depIdx;
+            const depIns = state.lines[depIdx].bpfIns;
+            if (depIns.reads.length != 1)
+                break;
+            memSlotId = depIns.reads[0];
+            bpfState = state.bpfStates[depIdx];
+        }
+        return deps;
     }
 
-    const updateSelectedLine = (idx: number): void => {
-        state.selectedIdx = Math.max(0, Math.min(state.lines.length - 1, idx));
-        state.dependencies = computeDependencies(state, state.selectedIdx);
+    const resetSelectedMemSlot = (state: AppState): void => {
+        state.selectedMemSlotId = '';
+        state.memSlotDependencies = new Set<number>();
+    }
+
+    const updateSelectedLine = (idx: number, memSlotId: string = ''): void => {
+        state.selectedLineIdx = Math.max(0, Math.min(state.lines.length - 1, idx));
+        if (memSlotId && memSlotId !== 'MEM') {
+            state.selectedMemSlotId = memSlotId;
+            state.memSlotDependencies = collectMemSlotDependencies(state, memSlotId);
+        } else {
+            resetSelectedMemSlot(state);
+        }
     }
 
     const handleLineClick = async (e: MouseEvent) => {
-        const clickedLine = (e.target as HTMLElement).closest('.log-line');
+        const target = e.target as HTMLElement;
+        const clickedLine = target.closest('.log-line');
         if (!clickedLine)
             return;
         const lineIndex = parseInt(clickedLine.getAttribute('line-index') || '0', 10);
-        updateSelectedLine(lineIndex);
+        const memSlot = target.closest('.mem-slot');
+        updateSelectedLine(lineIndex, memSlot?.id || '');
         updateView(state);
     };
 
-    const lineDependencyLevel = (line: ParsedLine): number => {
-        if (line.idx >= state.selectedIdx)
-            return -1;
-        return state.dependencies.findIndex(level => level.has(line.idx));
-    }
+    const handleMouseOver = (e: MouseEvent): void => {
+        const hoveredElement = e.target as HTMLElement;
+        const memSlot = hoveredElement.closest('.mem-slot');
+        if (memSlot) {
+            memSlot.classList.add('hovered-mem-slot');
+        }
+    };
 
-    const ALL_HIGHLIGHT_CLASSES = ['normal', 'selected', 'ignorable'];
-    const setHighlightClass = (div: HTMLElement, highlightClass: string): void => {
-        for (const cls of ALL_HIGHLIGHT_CLASSES) {
+    const handleMouseOut = (e: MouseEvent): void => {
+        const hoveredElement = e.target as HTMLElement;
+        const memSlot = hoveredElement.closest('.mem-slot');
+        if (memSlot) {
+            memSlot.classList.remove('hovered-mem-slot');
+        }
+    };
+
+    const LINE_HIGHLIGHT_CLASSES = ['normal-line', 'selected-line', 'ignorable-line', 'faded-line'];
+    const setLineHighlightClass = (div: HTMLElement, highlightClass: string): void => {
+        for (const cls of LINE_HIGHLIGHT_CLASSES) {
             div.classList.remove(cls);
         }
         if (highlightClass)
@@ -201,9 +221,9 @@ const createApp = () => {
     const logLineDiv = (line: ParsedLine): HTMLElement => {
         const div = document.createElement('div');
         if (!line?.bpfIns && !line?.bpfStateExprs)
-            setHighlightClass(div, 'ignorable');
+            setLineHighlightClass(div, 'ignorable-line');
         else
-            setHighlightClass(div, 'normal');
+            setLineHighlightClass(div, 'normal-line');
         div.classList.add('log-line');
         div.setAttribute('line-index', line.idx.toString());
 
@@ -313,34 +333,67 @@ const createApp = () => {
         return parseInt(idx, 10);
     }
 
-    const updateLineFormatting = (state: AppState): void => {
+    const setDefaultLineFormatting = (): void => {
         for (const child of contentLines.children) {
             const div = child as HTMLElement;
             const idx = contentLineIdx(div);
             if (idx === -1)
                 continue;
 
-            // reset the background color
-            div.style.removeProperty("background-color");
+            // reset selections
+            const memSlots = div.querySelectorAll('.mem-slot');
+            memSlots.forEach(memSlot => {
+                memSlot.classList.remove('selected-mem-slot');
+                memSlot.classList.remove('dependency-mem-slot');
+            });
 
-            if (idx === state.selectedIdx) {
-                setHighlightClass(div, 'selected');
+            if (idx === state.selectedLineIdx)
+                setLineHighlightClass(div, 'selected-line');
+            else if (state.lines[idx]?.bpfIns || state.lines[idx]?.bpfStateExprs)
+                setLineHighlightClass(div, 'normal-line');
+            else
+                setLineHighlightClass(div, 'ignorable-line');
+        }
+    }
+
+    const updateLineFormatting = (state: AppState): void => {
+        setDefaultLineFormatting();
+        const selectedLine = state.lines[state.selectedLineIdx];
+        const isSelectedLineParsed = selectedLine?.bpfIns || selectedLine?.bpfStateExprs;
+
+        if (!isSelectedLineParsed || !state.selectedMemSlotId)
+            return;
+
+        for (const child of contentLines.children) {
+            const div = child as HTMLElement;
+            const idx = contentLineIdx(div);
+            if (idx === -1)
+                continue;
+
+            if (idx === state.selectedLineIdx || state.memSlotDependencies.has(idx)) {
+                if (state.selectedMemSlotId) {
+                    div.querySelectorAll('.mem-slot').forEach(memSlot => {
+                        memSlot.classList.add('dependency-mem-slot');
+                    });
+                }
+                if (idx === state.selectedLineIdx) {
+                    setLineHighlightClass(div, 'selected-line');
+                    const memSlotSpan = div.querySelector(`#${state.selectedMemSlotId}`) as HTMLElement;
+                    if (memSlotSpan)
+                        setLineHighlightClass(memSlotSpan, 'selected-mem-slot');
+                }
+                else
+                    setLineHighlightClass(div, 'normal-line');
                 continue;
             }
 
             const line = state.lines[idx];
             if (!line?.bpfIns && !line?.bpfStateExprs) {
-                setHighlightClass(div, 'ignorable');
-                continue;
-            }
-
-            let depLevel = lineDependencyLevel(line);
-            if (depLevel >= 0) {
-                setHighlightClass(div, '');
-                const k = depLevel / DEPENDENCIES_DEPTH;
-                div.style.backgroundColor = `rgb(${128 + 128 * k}, 255, ${128 + 128 * k})`;
+                setLineHighlightClass(div, 'ignorable-line');
+            } else if (isSelectedLineParsed) {
+                setLineHighlightClass(div, 'faded-line');
             } else {
-                setHighlightClass(div, 'normal');
+                setLineHighlightClass(div, 'normal-line');
             }
         }
     }
@@ -377,7 +430,7 @@ const createApp = () => {
     }
 
     const updateStatePanel = async (state: AppState): Promise<void> => {
-        const bpfState = mostRecentBpfState(state, state.selectedIdx);
+        const bpfState = mostRecentBpfState(state, state.selectedLineIdx);
         if (!bpfState)
             return;
 
@@ -477,22 +530,22 @@ const createApp = () => {
         switch (e.key) {
             case 'ArrowDown':
             case 'j':
-                updateSelectedLine(state.selectedIdx + 1);
-                if (state.selectedIdx >= state.topLineIdx + state.visibleLines)
+                updateSelectedLine(state.selectedLineIdx + 1);
+                if (state.selectedLineIdx >= state.topLineIdx + state.visibleLines)
                     linesToScroll = 1;
                 break;
             case 'ArrowUp':
             case 'k':
-                updateSelectedLine(state.selectedIdx - 1);
-                if (state.selectedIdx < state.topLineIdx)
+                updateSelectedLine(state.selectedLineIdx - 1);
+                if (state.selectedLineIdx < state.topLineIdx)
                     linesToScroll = -1;
                 break;
             case 'PageDown':
-                updateSelectedLine(state.selectedIdx + state.visibleLines);
+                updateSelectedLine(state.selectedLineIdx + state.visibleLines);
                 linesToScroll = state.visibleLines;
                 break;
             case 'PageUp':
-                updateSelectedLine(Math.max(state.selectedIdx - state.visibleLines, 0));
+                updateSelectedLine(Math.max(state.selectedLineIdx - state.visibleLines, 0));
                 linesToScroll = -state.visibleLines;
                 break;
             case 'Home':
@@ -501,6 +554,9 @@ const createApp = () => {
             case 'End':
                 gotoEnd();
                 return;
+            case 'Escape':
+                resetSelectedMemSlot(state);
+                break;
             default:
                 return;
         }
@@ -562,6 +618,8 @@ const createApp = () => {
     gotoStartButton.addEventListener('click', gotoStart);
     gotoEndButton.addEventListener('click', gotoEnd);
     contentLines.addEventListener('click', handleLineClick);
+    contentLines.addEventListener('mouseover', handleMouseOver);
+    contentLines.addEventListener('mouseout', handleMouseOut);
 
     updateView(state);
 
@@ -575,6 +633,8 @@ const createApp = () => {
         gotoLineButton.removeEventListener('click', gotoLine);
         gotoEndButton.removeEventListener('click', gotoEnd);
         contentLines.removeEventListener('click', handleLineClick);
+        contentLines.removeEventListener('mouseover', handleMouseOver);
+        contentLines.removeEventListener('mouseout', handleMouseOut);
         window.removeEventListener('resize', handleResize);
     };
 };

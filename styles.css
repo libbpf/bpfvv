@@ -94,16 +94,16 @@ body {
     gap: 10px;
 }
 
-.selected {
-    background-color: #bec0ff;
+.selected-line {
+    background-color: #eeeeff;
 }
 
-.dependency {
-    background-color: #c8ffc8;
+.ignorable-line {
+    color: #cccccc;
 }
 
-.ignorable {
-    color: #a0a0a0;
+.faded-line {
+    color: #888888;
 }
 
 .log-line {
@@ -139,4 +139,17 @@ body {
 
 .effect-write {
     background-color: #ffdddd;
+}
+
+.hovered-mem-slot {
+    border: 1px solid black;
+}
+
+.dependency-mem-slot {
+    font-weight: bold;
+}
+
+.selected-mem-slot {
+    border: 1px solid black;
+    font-weight: bold;
 }
