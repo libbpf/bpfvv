@@ -179,3 +179,27 @@ body {
     align-items: center;
     width: 100%;
 }
+
+#mem-slot-tooltip {
+    position: fixed;
+    display: none;
+    background-color: white;
+    padding: 5px 10px;
+    font-family: monospace;
+    font-size: 12px;
+    z-index: 1000;
+    pointer-events: none;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    border-style: solid;
+    border-color: black;
+    border-width: 1px;
+}
+
+#mem-slot-tooltip-arrow {
+    content: '';
+    position: absolute;
+    transform: translateX(-50%);
+    border-width: 0 5px 5px 5px;
+    border-style: solid;
+    border-color: transparent transparent #333 transparent;
+}

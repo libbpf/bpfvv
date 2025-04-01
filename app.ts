@@ -221,11 +221,51 @@ const createApp = (url: string) => {
         updateView(state);
     };
 
+    const getTooltip = (): HTMLElement => {
+        let tooltip = document.getElementById('mem-slot-tooltip');
+        if (!tooltip) {
+            tooltip = document.createElement('div');
+            tooltip.id = 'mem-slot-tooltip';
+            document.body.appendChild(tooltip);
+        }
+        return tooltip;
+    }
+
+    const getTooltipArrow = (): HTMLElement => {
+        let arrow = document.getElementById('mem-slot-tooltip-arrow');
+        if (!arrow) {
+            arrow = document.createElement('div');
+            arrow.id = 'mem-slot-tooltip-arrow';
+            document.body.appendChild(arrow);
+        }
+        return arrow;
+    }
+
     const handleMouseOver = (e: MouseEvent): void => {
         const hoveredElement = e.target as HTMLElement;
         const memSlot = hoveredElement.closest('.mem-slot');
         if (memSlot) {
+            const tooltip = getTooltip();
+            const arrow = getTooltipArrow();
+            const idx = contentLineIdx(memSlot.parentElement);
+            const displayValue = memSlotDisplayValue(state, memSlot.id, idx);
             memSlot.classList.add('hovered-mem-slot');
+            if (displayValue) {
+                // Text needs to be set first, so that position is calculated correctly
+                tooltip.innerHTML = displayValue;
+                tooltip.style.display = 'block';
+                const rect = memSlot.getBoundingClientRect();
+                const tooltipLeft = Math.max(0, rect.left - tooltip.offsetWidth / 2 + rect.width / 2);
+                tooltip.style.left = `${tooltipLeft}px`;
+                tooltip.style.top = `${rect.bottom + 5}px`;
+                arrow.style.display = 'block';
+                const arrowLeft = Math.max(0, rect.left + rect.width / 2);
+                arrow.style.left = `${arrowLeft}px`;
+                arrow.style.top = `${rect.bottom}px`;
+            } else {
+                tooltip.style.display = 'none';
+                arrow.style.display = 'none';
+            }
         }
     };
 
@@ -234,6 +274,10 @@ const createApp = (url: string) => {
         const memSlot = hoveredElement.closest('.mem-slot');
         if (memSlot) {
             memSlot.classList.remove('hovered-mem-slot');
+            const tooltip = getTooltip();
+            const arrow = getTooltipArrow();
+            tooltip.style.display = 'none';
+            arrow.style.display = 'none';
         }
     };
 
@@ -500,52 +544,65 @@ const createApp = (url: string) => {
         updateLineNumbers(state);
     }
 
+    const memSlotDisplayValue = (state: AppState, memSlotId: string, idx: number): string => {
+        const { state: bpfState, idx: bpfStateIdx } = mostRecentBpfState(state, idx);
+        const prevBpfState = mostRecentBpfState(state, bpfStateIdx - 1).state;
+        const prevValue = prevBpfState.values.get(memSlotId);
+        const value = bpfState.values.get(memSlotId);
+        const ins = state.lines[idx].bpfIns;
+        let content = '';
+        switch (value?.effect) {
+            case Effect.WRITE:
+            case Effect.UPDATE:
+                if (memSlotId == 'MEM') {
+                    // show the value of register that was stored
+                    const reg = ins?.alu?.src.id;
+                    if (reg) {
+                        const regValue = bpfState.values.get(reg);
+                        content = `${RIGHT_ARROW} ${regValue?.value}`;
+                    }
+                    break;
+                }
+                let newVal = value?.value;
+                let oldVal = prevValue?.value || '';
+                if (newVal === oldVal)
+                    content = newVal;
+                else if (newVal)
+                    content = `${oldVal} ${RIGHT_ARROW} ${newVal}`;
+                else
+                    content = `${oldVal} <span style="color:grey">-> scratched</span>`;
+                break;
+            case Effect.READ:
+            case Effect.NONE:
+            default:
+                content = value?.value || '';
+                break;
+        }
+        return content;
+    }
+
     const RIGHT_ARROW = '->';
 
     const updateStatePanel = async (state: AppState): Promise<void> => {
         const { state: bpfState, idx } = mostRecentBpfState(state, state.selectedLineIdx);
-        const ins = state.lines[idx].bpfIns;
-        const prevBpfState = mostRecentBpfState(state, idx - 1).state;
-
         const statePanel = document.getElementById('state-panel') as HTMLElement;
         const table = statePanel.querySelector('table');
         table.innerHTML = '';
 
         const addRow = (id: string) => {
-            const value = bpfState.values.get(id);
-            const prevValue = prevBpfState.values.get(id);
+            let content = memSlotDisplayValue(state, id, idx);
             const row = document.createElement('tr');
-            let content = '';
+            const value = bpfState.values.get(id);
             switch (value?.effect) {
                 case Effect.WRITE:
                 case Effect.UPDATE:
                     row.classList.add('effect-write');
-                    if (id == 'MEM') {
-                        // show the value of register that was stored
-                        const reg = ins?.alu?.src.id;
-                        if (reg) {
-                            const regValue = bpfState.values.get(reg);
-                            content = `${regValue?.value} ${RIGHT_ARROW}`;
-                        }
-                        break;
-                    }
-
-                    let newVal = value?.value;
-                    let oldVal = prevValue?.value || '';
-                    if (newVal === oldVal)
-                        content = newVal;
-                    else if (newVal)
-                        content = `${oldVal} ${RIGHT_ARROW} ${newVal}`;
-                    else
-                        content = `${oldVal} <span style="color:grey">-> scratched</span>`;
                     break;
                 case Effect.READ:
                     row.classList.add('effect-read');
-                    content = value?.value || '';
                     break;
                 case Effect.NONE:
                 default:
-                    content = value?.value || '';
                     break;
             }
             const nameCell = document.createElement('td');
