@@ -199,6 +199,11 @@ const createApp = (url: string) => {
         state.memSlotDependencies = new Set<number>();
     }
 
+    const updateSelectedLineHint = (idx: number): void => {
+        const hintLine = document.getElementById('hint-selected-line') as HTMLElement;
+        hintLine.innerHTML = `<span style="font-weight: bold;">[selected] Raw line ${idx+1}:</span> ${state.lines[idx].raw}`;
+    }
+
     const setSelectedLine = (idx: number, memSlotId: string = ''): void => {
         state.selectedLineIdx = Math.max(0, Math.min(state.lines.length - 1, idx));
         if (memSlotId && memSlotId !== 'MEM') {
@@ -207,6 +212,7 @@ const createApp = (url: string) => {
         } else {
             resetSelectedMemSlot(state);
         }
+        updateSelectedLineHint(state.selectedLineIdx);
     }
 
     const handleLineClick = async (e: MouseEvent) => {
@@ -240,9 +246,20 @@ const createApp = (url: string) => {
         return arrow;
     }
 
-    const handleMouseOver = (e: MouseEvent): void => {
-        const hoveredElement = e.target as HTMLElement;
-        const memSlot = hoveredElement.closest('.mem-slot');
+    const logLineMouseOver = (lineElement: HTMLElement): void => {
+        const hintLine = document.getElementById('hint-hovered-line') as HTMLElement;
+        if (lineElement) {
+            const idx = parseInt(lineElement.getAttribute('line-index') || '0', 10);
+            const content = state.lines[idx].raw;
+            if (idx != state.selectedLineIdx)
+                lineElement.classList.add('hovered-line');
+            hintLine.innerHTML = `<span style="font-weight: bold;">Raw line ${idx+1}:</span> ${content}`;
+        } else {
+            hintLine.innerHTML = '<span style="color: transparent;">hint text</span>';
+        }
+    }
+
+    const memSlotMouseOver = (memSlot: HTMLElement): void => {
         if (memSlot) {
             const tooltip = getTooltip();
             const arrow = getTooltipArrow();
@@ -266,11 +283,17 @@ const createApp = (url: string) => {
                 arrow.style.display = 'none';
             }
         }
+    }
+
+    const handleMouseOver = (e: MouseEvent): void => {
+        const hoveredElement = e.target as HTMLElement;
+        const logLine = hoveredElement.closest('.log-line') as HTMLElement;
+        const memSlot = hoveredElement.closest('.mem-slot') as HTMLElement;
+        logLineMouseOver(logLine);
+        memSlotMouseOver(memSlot);
     };
 
-    const handleMouseOut = (e: MouseEvent): void => {
-        const hoveredElement = e.target as HTMLElement;
-        const memSlot = hoveredElement.closest('.mem-slot');
+    const memSlotMouseOut = (memSlot: HTMLElement): void => {
         if (memSlot) {
             memSlot.classList.remove('hovered-mem-slot');
             const tooltip = getTooltip();
@@ -278,9 +301,22 @@ const createApp = (url: string) => {
             tooltip.style.display = 'none';
             arrow.style.display = 'none';
         }
+    }
+
+    const logLineMouseOut = (logLine: HTMLElement): void => {
+        if (logLine)
+            logLine.classList.remove('hovered-line');
+    }
+
+    const handleMouseOut = (e: MouseEvent): void => {
+        const hoveredElement = e.target as HTMLElement;
+        const logLine = hoveredElement.closest('.log-line') as HTMLElement;
+        const memSlot = hoveredElement.closest('.mem-slot') as HTMLElement;
+        logLineMouseOut(logLine);
+        memSlotMouseOut(memSlot);
     };
 
-    const LINE_HIGHLIGHT_CLASSES = ['normal-line', 'selected-line', 'ignorable-line', 'faded-line'];
+    const LINE_HIGHLIGHT_CLASSES = ['normal-line', 'selected-line', 'ignorable-line', 'faded-line', 'hovered-line'];
     const setLineHighlightClass = (div: HTMLElement, highlightClass: string): void => {
         for (const cls of LINE_HIGHLIGHT_CLASSES) {
             div.classList.remove(cls);

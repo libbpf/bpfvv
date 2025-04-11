@@ -101,6 +101,10 @@ body {
 }
 
 .selected-line {
+    background-color: #ccccff;
+}
+
+.hovered-line {
     background-color: #eeeeff;
 }
 
@@ -208,4 +212,10 @@ body {
     border-width: 0 5px 5px 5px;
     border-style: solid;
     border-color: transparent transparent #333 transparent;
+}
+
+.hint-line {
+    font-size: 14px;
+    color: black;
+    font-family: monospace;
 }
