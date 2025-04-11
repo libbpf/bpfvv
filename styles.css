@@ -53,11 +53,15 @@ body {
     border-radius: 4px 0 0 4px;
     line-height: 1.4;
     text-align: right;
-    color: #666;
+    color: #888888;
     user-select: none;
     min-width: 3em;
     overflow: hidden;
     white-space: pre;
+}
+
+#line-numbers-pc {
+    color: #444444;
 }
 
 .log-content {

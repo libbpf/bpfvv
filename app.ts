@@ -125,7 +125,8 @@ const createApp = (url: string) => {
     const mainContent = document.getElementById('main-content') as HTMLElement;
     const logContent = document.getElementById('log-content') as HTMLElement;
     const contentLines = document.getElementById('content-lines') as HTMLElement;
-    const lineNumbers = document.getElementById('line-numbers') as HTMLElement;
+    const lineNumbersPc = document.getElementById('line-numbers-pc') as HTMLElement;
+    const lineNumbersIdx = document.getElementById('line-numbers-idx') as HTMLElement;
 
     const exampleLink = document.getElementById('example-link') as HTMLAnchorElement;
     if (exampleLink) {
@@ -430,13 +431,16 @@ const createApp = (url: string) => {
 
     const updateLineNumbers = async (state: AppState): Promise<void> => {
         const pcLines = [];
+        const idxLines = [];
         for (const child of contentLines.children) {
             const idx = contentLineIdx(child as HTMLElement);
             const ins = idx >= 0 ? state.lines[idx].bpfIns : null;
             const pc = typeof ins?.pc === 'number' ? `${ins.pc}:` : '';
             pcLines.push(pc);
+            idxLines.push(`${idx+1}`);
         }
-        lineNumbers.innerHTML = pcLines.join('\n');
+        lineNumbersPc.innerHTML = pcLines.join('\n');
+        lineNumbersIdx.innerHTML = idxLines.join('\n');
     };
 
     const setContentLinesTop = (top: string): void => {
@@ -444,7 +448,8 @@ const createApp = (url: string) => {
         const logContentRect = logContent.getBoundingClientRect();
         const contentLinesRect = contentLines.getBoundingClientRect();
         const delta = contentLinesRect.top - logContentRect.top;
-        lineNumbers.style.top = `${logContentRect.top + delta}px`;
+        lineNumbersPc.style.top = `${logContentRect.top + delta}px`;
+        lineNumbersIdx.style.top = `${logContentRect.top + delta}px`;
     }
 
     const contentLineIdx = (line: HTMLElement): number => {
