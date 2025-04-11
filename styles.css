@@ -62,19 +62,21 @@ body {
 
 .log-content {
     flex: 1;
-    overflow: auto;
+    overflow-y: scroll;
     border: 1px solid #ccc;
     border-radius: 0 4px 4px 0;
     background: white;
+}
+
+.scroll-tape {
+    position: relative;
 }
 
 .content-lines {
     padding: 10px;
     line-height: 1.4;
     white-space: pre;
-    /* white-space: pre-wrap;
-    word-wrap: break-word;
-    overflow-wrap: break-word; */
+    position: relative;
 }
 
 .state-panel {

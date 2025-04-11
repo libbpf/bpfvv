@@ -85,7 +85,6 @@ type AppState = {
     formattedLines: HTMLElement[];
 
     visibleLines: number;
-    totalHeight: number;
     lineHeight: number;
 
     topLineIdx: number; // index of the first line in the visible area
@@ -141,7 +140,6 @@ const createApp = (url: string) => {
         formattedLines: [],
 
         visibleLines: 50,
-        totalHeight: 0,
         lineHeight: 16,
         selectedLineIdx: 0,
         selectedMemSlotId: '',
@@ -200,7 +198,7 @@ const createApp = (url: string) => {
         state.memSlotDependencies = new Set<number>();
     }
 
-    const updateSelectedLine = (idx: number, memSlotId: string = ''): void => {
+    const setSelectedLine = (idx: number, memSlotId: string = ''): void => {
         state.selectedLineIdx = Math.max(0, Math.min(state.lines.length - 1, idx));
         if (memSlotId && memSlotId !== 'MEM') {
             state.selectedMemSlotId = memSlotId;
@@ -217,7 +215,7 @@ const createApp = (url: string) => {
             return;
         const lineIndex = parseInt(clickedLine.getAttribute('line-index') || '0', 10);
         const memSlot = target.closest('.mem-slot');
-        updateSelectedLine(lineIndex, memSlot?.id || '');
+        setSelectedLine(lineIndex, memSlot?.id || '');
         updateView(state);
     };
 
@@ -416,6 +414,7 @@ const createApp = (url: string) => {
             loadRawLine(state, rawLine);
         });
         updateLoadStatus(100, 100);
+        updateView(state);
         gotoEnd();
     };
 
@@ -439,6 +438,14 @@ const createApp = (url: string) => {
         }
         lineNumbers.innerHTML = pcLines.join('\n');
     };
+
+    const setContentLinesTop = (top: string): void => {
+        contentLines.style.top = top;
+        const logContentRect = logContent.getBoundingClientRect();
+        const contentLinesRect = contentLines.getBoundingClientRect();
+        const delta = contentLinesRect.top - logContentRect.top;
+        lineNumbers.style.top = `${logContentRect.top + delta}px`;
+    }
 
     const contentLineIdx = (line: HTMLElement): number => {
         const idx = line?.getAttribute('line-index');
@@ -513,7 +520,7 @@ const createApp = (url: string) => {
     }
 
     const updateContentLines = async (state: AppState): Promise<void> => {
-        const viewStart = state.topLineIdx;
+        const viewStart = normalIdx(state.topLineIdx);
         const viewEnd = Math.min(viewStart + state.visibleLines, state.lines.length);
 
         const removeList = [];
@@ -541,7 +548,7 @@ const createApp = (url: string) => {
         }
 
         updateLineFormatting(state);
-        updateLineNumbers(state);
+        await updateLineNumbers(state);
     }
 
     const memSlotDisplayValue = (state: AppState, memSlotId: string, idx: number): string => {
@@ -642,15 +649,24 @@ const createApp = (url: string) => {
         }
     }
 
-    const updateVisibleLinesValue = (state: AppState): void => {
+    const tmpLogLineDiv = (): HTMLElement => {
         const tmp = document.createElement('div');
         tmp.className = 'log-line';
-        tmp.textContent = 'Test';
+        tmp.textContent = 'tmp';
         tmp.style.visibility = 'hidden';
+        return tmp;
+    }
+
+    const updateVisibleLinesValue = (state: AppState): void => {
+        const tmp = tmpLogLineDiv();
         contentLines.appendChild(tmp);
         const height = tmp.offsetHeight;
         contentLines.removeChild(tmp);
+        state.lineHeight = height;
         state.visibleLines = Math.max(1, Math.floor(logContent.offsetHeight / height) - 1);
+        const scrollTape = document.getElementById('scroll-tape') as HTMLElement;
+        const maxIdx = state.lines.length - state.visibleLines;
+        scrollTape.style.height = `${height * maxIdx}px`;
     };
 
     const updateView = async (state: AppState): Promise<void> => {
@@ -672,43 +688,73 @@ const createApp = (url: string) => {
         updateView(state);
     };
 
-    const updateTopLineIdx = (state: AppState, delta: number): void => {
-        let newPosition = Math.min(state.lines.length - state.visibleLines, state.topLineIdx + delta);
-        newPosition = Math.max(0, newPosition);
-        state.topLineIdx = newPosition;
+    const normalIdx = (idx: number): number => {
+        const maxIdx = Math.max(0, state.lines.length - state.visibleLines);
+        return Math.min(Math.max(0, Math.floor(idx)), maxIdx);
+    }
+
+    const setTopLineIdx = (state: AppState, idx: number): void => {
+        const newIdx = normalIdx(idx);
+        state.topLineIdx = newIdx;
     };
 
-    const handleScroll = async (e: WheelEvent) => {
-        e.preventDefault();
-        // scroll 4 lines at a time
-        const linesToScroll = Math.sign(e.deltaY) * 4;
-        updateTopLineIdx(state, linesToScroll);
+    const updateScrollFromTopLineIdx = (state: AppState): void => {
+        const percent = state.topLineIdx / (state.lines.length - state.visibleLines);
+        logContent.scrollTop = percent * (logContent.scrollHeight - logContent.clientHeight);
+    };
+
+    const handleScrollEnd = () => {
+        handleScroll();
+    };
+
+    // Virtual scroll bar is tricky.
+    // handleScroll is fired quite often, and it is also called when scroll-related
+    // properties of logContent change
+    // So the view (contentLines content and position within scrollTape)
+    // has to be dependent on logContent.scrollTop, and not the other way around.
+    // Because of that, for example, a key press hanlders updates scrollTop in order to trigger handleScroll()
+    let handleScrollLastUpdate = 0;
+    let lastKnownScrollTop = 0;
+    const handleScroll = () => {
+        // this reduces flickering in case handleScroll is fired frequently
+        const now = Date.now();
+        if (now - handleScrollLastUpdate < (1000 / 24) || Math.abs(lastKnownScrollTop - logContent.scrollTop) < 1) {
+            updateView(state);
+            return;
+        }
+        handleScrollLastUpdate = now;
+
+        const percent = logContent.scrollTop / (logContent.scrollHeight - logContent.clientHeight);
+        const maxIdx = state.lines.length - state.visibleLines;
+        let newTopIdx = normalIdx(percent * maxIdx);
+        // This is a hack when log is big, and user clicks on the scroll bar button.
+        // The scrollTop delta is tiny, so we adjust the topLineIdx by 1 to make the view change.
+        if (newTopIdx == state.topLineIdx) {
+            newTopIdx += lastKnownScrollTop < logContent.scrollTop ? 1 : -1;
+        }
+        console.log(`handleScroll: ${newTopIdx}`);
+        lastKnownScrollTop = logContent.scrollTop;
+        setTopLineIdx(state, newTopIdx);
+        setContentLinesTop(`${logContent.scrollTop}px`);
         updateView(state);
     };
 
-    // Handle keyboard navigation
     const handleKeyDown = async (e: KeyboardEvent) => {
-        let linesToScroll = 0;
+        let delta = 0;
         switch (e.key) {
             case 'ArrowDown':
             case 'j':
-                updateSelectedLine(state.selectedLineIdx + 1);
-                if (state.selectedLineIdx >= state.topLineIdx + state.visibleLines)
-                    linesToScroll = 1;
+                delta = 1;
                 break;
             case 'ArrowUp':
             case 'k':
-                updateSelectedLine(state.selectedLineIdx - 1);
-                if (state.selectedLineIdx < state.topLineIdx)
-                    linesToScroll = -1;
+                delta = -1;
                 break;
             case 'PageDown':
-                updateSelectedLine(state.selectedLineIdx + state.visibleLines);
-                linesToScroll = state.visibleLines;
+                delta = state.visibleLines;
                 break;
             case 'PageUp':
-                updateSelectedLine(Math.max(state.selectedLineIdx - state.visibleLines, 0));
-                linesToScroll = -state.visibleLines;
+                delta = -state.visibleLines;
                 break;
             case 'Home':
                 gotoStart();
@@ -722,14 +768,14 @@ const createApp = (url: string) => {
             default:
                 return;
         }
-        updateTopLineIdx(state, linesToScroll);
+        e.preventDefault();
+        setSelectedLine(state.selectedLineIdx + delta);
+        if (delta < 0 && state.selectedLineIdx < state.topLineIdx + 8
+            || delta > 0 && state.selectedLineIdx > state.topLineIdx + state.visibleLines - 8) {
+            setTopLineIdx(state, state.topLineIdx + delta * 2);
+            updateScrollFromTopLineIdx(state);
+        }
         updateView(state);
-    };
-
-    const escapeHtml = (text: string): string => {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
     };
 
     const processFile = async (file: File): Promise<void> => {
@@ -746,14 +792,12 @@ const createApp = (url: string) => {
 
     const gotoStart = () => {
         state.topLineIdx = 0;
-        updateSelectedLine(0);
-        updateView(state);
+        updateScrollFromTopLineIdx(state);
     };
 
     const gotoEnd = () => {
-        state.topLineIdx = Math.max(0, state.lines.length - state.visibleLines);
-        updateSelectedLine(state.lines.length - 1);
-        updateView(state);
+        state.topLineIdx = normalIdx(state.lines.length);
+        updateScrollFromTopLineIdx(state);
     };
 
     const gotoLine = () => {
@@ -770,7 +814,8 @@ const createApp = (url: string) => {
     };
 
     fileInput.addEventListener('change', handleFileInput);
-    logContent.addEventListener('wheel', handleScroll);
+    logContent.addEventListener('scroll', handleScroll);
+    logContent.addEventListener('scrollend', handleScrollEnd);
     document.addEventListener('keydown', handleKeyDown);
     inputText.addEventListener('paste', handlePaste);
     window.addEventListener('resize', handleResize);
@@ -801,7 +846,7 @@ const createApp = (url: string) => {
     // Return cleanup function
     return () => {
         fileInput.removeEventListener('change', handleFileInput);
-        logContent.removeEventListener('wheel', handleScroll);
+        logContent.removeEventListener('scroll', handleScroll);
         document.removeEventListener('keydown', handleKeyDown);
         inputText.removeEventListener('paste', handlePaste);
         gotoStartButton.removeEventListener('click', gotoStart);
