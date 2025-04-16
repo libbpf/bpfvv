@@ -62,6 +62,15 @@ type BpfOpcode = {
     source: OpcodeSource;
 }
 
+export enum BpfJmpKind {
+    NONE = 0,
+    EXIT = 1,
+    UNCONDITIONAL_GOTO = 2,
+    CONDITIONAL_GOTO = 3,
+    HELPER_CALL = 4,
+    BPF2BPF_CALL = 5,
+}
+
 type BpfJmpInstruction = {
     target: string;
     cond?: {
@@ -69,6 +78,7 @@ type BpfJmpInstruction = {
         op: string;
         right: BpfOperand;
     };
+    kind: BpfJmpKind;
 }
 
 type BpfAluInstruction = {
@@ -129,7 +139,11 @@ type BpfStateExpr = {
     id: string;
     value: string;
     rawKey: string;
+    frame?: number;
 }
+
+export const BPF_SCRATCH_REGS = ['r1', 'r2', 'r3', 'r4', 'r5'];
+export const BPF_CALLEE_SAVED_REGS = ['r6', 'r7', 'r8', 'r9'];
 
 const parseBpfStateExpr = (str: string): { expr: BpfStateExpr, rest: string } => {
     const equalsIndex = str.indexOf('=');
@@ -167,12 +181,20 @@ export const parseBpfStateExprs = (str: string): { exprs: BpfStateExpr[], rest: 
     if (!match)
         return { exprs: [], rest: str };
 
+    let frame = consumeRegex(RE_FRAME_ID, rest);
+    let frameId = 0;
+    if (frame.match) {
+        frameId = parseInt(frame.match[1], 10);
+        rest = frame.rest;
+    }
+
     let exprs = [];
     while (rest.length > 0) {
         const parsed = parseBpfStateExpr(rest);
         rest = consumeSpaces(parsed.rest);
         if (!parsed.expr)
             break;
+        parsed.expr.frame = frameId;
         exprs.push(parsed.expr);
     }
     return { exprs, rest };
@@ -184,11 +206,12 @@ const RE_BPF_OPCODE = /^\(([0-9a-f][0-9a-f])\)/;
 const RE_REGISTER = /^(r10|r[0-9]|w[0-9])/;
 const RE_MEMORY_REF = /^\*\((u8|u16|u32|u64) \*\)\((r10|r[0-9]) ([+-][0-9]+)\)/;
 const RE_IMM_VALUE = /^(0x[0-9a-f]+|[+-]?[0-9]+)/;
-const RE_CALL_TARGET = /^call ([0-9a-z_#]+)/;
+const RE_CALL_TARGET = /^call ([0-9a-z_#+-]+)/;
 const RE_JMP_TARGET = /^goto (pc[+-][0-9]+)/;
+const RE_FRAME_ID = /^frame([0-9]+): /;
 
 const BPF_ALU_OPERATORS = [ '=', '+=', '-=', '*=', '/=', '%=', '&=', '|=', '^=', '<<=', '>>=', 's>>=', 's<<='];
-const BPF_COND_OPERATORS = [ '==', '!=', '<', '<=', '>', '>=']; // are < and > ever printed?
+const BPF_COND_OPERATORS = [ '==', '!=', '<', '<=', '>', '>=', 's<', 's<=', 's>', 's>='];
 
 const consumeRegex = (regex: RegExp, str: string): { match: string[], rest: string } => {
     const match = regex.exec(str);
@@ -349,19 +372,44 @@ const parseAluInstruction = (str: string, opcode: BpfOpcode): { ins: BpfInstruct
     return { ins, rest };
 }
 
+const helperCall = (opcode: BpfOpcode, target: string): BpfInstruction => {
+    return {
+        opcode: opcode,
+        jmp: {
+            target: target,
+            kind: BpfJmpKind.HELPER_CALL,
+        },
+        reads: BPF_SCRATCH_REGS,
+        writes: ['r0', ...BPF_SCRATCH_REGS],
+    }
+}
+
+const bpf2bpfCall = (opcode: BpfOpcode, target: string): BpfInstruction => {
+    return {
+        opcode: opcode,
+        jmp: {
+            target: target,
+            kind: BpfJmpKind.BPF2BPF_CALL,
+        },
+        reads: BPF_SCRATCH_REGS,
+        writes: ['r0', ...BPF_CALLEE_SAVED_REGS],
+    };
+}
+
 const parseCall = (str: string, opcode: BpfOpcode): { ins: BpfInstruction, rest: string } => {
     const { match, rest } = consumeRegex(RE_CALL_TARGET, str);
     if (!match)
         return { ins: null, rest: str };
     const target = match[1];
-    const ins : BpfInstruction = {
-        opcode: opcode,
-        jmp: {
-            target: target,
-        },
-        reads: ['r1', 'r2', 'r3', 'r4', 'r5'],
-        writes: ['r0', 'r1', 'r2', 'r3', 'r4', 'r5'],
-    };
+
+    let ins : BpfInstruction;
+    // TODO: is this heuristic good enough?
+    if (target.startsWith('pc+') || target.startsWith('pc-')) {
+        ins = bpf2bpfCall(opcode, target);
+    } else {
+        ins = helperCall(opcode, target);
+    }
+
     ins.location = {
         offset: -str.length,
         size: match[0].length,
@@ -429,6 +477,7 @@ const parseConditionalJmp = (str: string, opcode: BpfOpcode): { ins: BpfInstruct
                 op: operator,
                 right: rightOp.op,
             },
+            kind: BpfJmpKind.CONDITIONAL_GOTO,
         },
         reads: [leftOp.op.id, rightOp.op.id],
         writes: [], // technically goto writes pc, but we don't care about it (?)
@@ -447,6 +496,7 @@ const parseUnconditionalJmp = (str: string, opcode: BpfOpcode): { ins: BpfInstru
         opcode: opcode,
         jmp: {
             target: target.match[1],
+            kind: BpfJmpKind.UNCONDITIONAL_GOTO,
         },
         reads: [],
         writes: [],
