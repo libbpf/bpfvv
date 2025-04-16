@@ -504,6 +504,26 @@ const parseUnconditionalJmp = (str: string, opcode: BpfOpcode): { ins: BpfInstru
     return { ins, rest };
 }
 
+const parseExit = (str: string, opcode: BpfOpcode): { ins: BpfInstruction, rest: string } => {
+    const match = consumeString('exit', str);
+    if (!match)
+        return { ins: null, rest: str };
+    const ins : BpfInstruction = {
+        opcode,
+        jmp: {
+            target: 'exit',
+            kind: BpfJmpKind.EXIT,
+        },
+        reads: [],
+        // exit (return) writes all regs because
+        // r0 is set to return value
+        // r1-r5 are considered scratched by the caller
+        // r6-r9 are callee saved, and so will be restored by the caller
+        writes: ['r0', ...BPF_SCRATCH_REGS, ...BPF_CALLEE_SAVED_REGS],
+    };
+    return { ins, rest: match.rest };
+}
+
 const parseJmpInstruction = (str: string, opcode: BpfOpcode): { ins: BpfInstruction, rest: string } => {
     switch (opcode.code) {
         case BpfJmpCode.CALL:
@@ -518,6 +538,7 @@ const parseJmpInstruction = (str: string, opcode: BpfOpcode): { ins: BpfInstruct
         case BpfJmpCode.JA:
             return parseUnconditionalJmp(str, opcode);
         case BpfJmpCode.EXIT:
+            return parseExit(str, opcode);
         default:
             return { ins: null, rest: str };
     }
