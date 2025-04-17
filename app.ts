@@ -1,4 +1,14 @@
-import { BpfJmpCode, BpfOperand, OperandType, ParsedLine, ParsedLineType, parseLine } from './parser.js';
+import {
+    BPF_CALLEE_SAVED_REGS,
+    BPF_SCRATCH_REGS,
+    BpfJmpCode,
+    BpfJmpKind,
+    BpfOperand,
+    OperandType,
+    ParsedLine,
+    ParsedLineType,
+    parseLine
+} from './parser.js';
 
 export enum Effect {
     NONE = "NONE",
@@ -22,6 +32,9 @@ const makeValue = (value: string, effect: Effect = Effect.NONE): BpfValue => {
 type BpfState = {
     values: Map<string, BpfValue>;
     lastKnownWrites: Map<string, number>;
+    frame: number;
+    idx: number;
+    pc: number;
 }
 
 const initialBpfState = (): BpfState => {
@@ -34,7 +47,13 @@ const initialBpfState = (): BpfState => {
     let lastKnownWrites = new Map<string, number>();
     lastKnownWrites.set('r1', 0);
     lastKnownWrites.set('r10', 0);
-    return { values, lastKnownWrites };
+    return {
+        values,
+        lastKnownWrites,
+        frame: 0,
+        idx: 0,
+        pc: 0,
+     };
 }
 
 const copyBpfState = (state: BpfState): BpfState => {
@@ -48,14 +67,85 @@ const copyBpfState = (state: BpfState): BpfState => {
     for (const [key, val] of state.lastKnownWrites.entries()) {
         lastKnownWrites.set(key, val);
     }
-    return { values, lastKnownWrites };
+    return {
+        values,
+        lastKnownWrites,
+        frame: state.frame,
+        idx: state.idx,
+        pc: state.pc
+    };
+}
+
+// The stack of saved BpfStates, only needed while we are loading the log
+const SAVED_BPF_STATES : BpfState[] = [];
+
+const pushStackFrame = (state: BpfState): BpfState => {
+    // In a new stack frame we only copy the scratch (argument) registers
+    // Everything else is cleared
+    SAVED_BPF_STATES.push(copyBpfState(state));
+
+    let values = new Map<string, BpfValue>();
+    for (const r of BPF_SCRATCH_REGS) {
+        const val = state.values.get(r)?.value;
+        values.set(r, { value: val, effect: Effect.READ });
+    }
+    for (const r of ['r0', ...BPF_CALLEE_SAVED_REGS]) {
+        values.set(r, { value: '', effect: Effect.WRITE });
+    }
+    values.set('r10', makeValue('fp0'));
+
+    let lastKnownWrites = new Map<string, number>();
+    for (const r of BPF_SCRATCH_REGS) {
+        lastKnownWrites.set(r, state.lastKnownWrites.get(r));
+    }
+
+    return {
+        values,
+        lastKnownWrites,
+        frame: state.frame + 1,
+        idx: state.idx,
+        pc: state.pc
+    };
+}
+
+const popStackFrame = (exitingState: BpfState): BpfState => {
+    // no need to copy the full state here, it was copied on push
+    const state = SAVED_BPF_STATES.pop();
+    for (const r of BPF_SCRATCH_REGS) {
+        state.values.set(r, { value: '', effect: Effect.WRITE });
+        state.lastKnownWrites.delete(r);
+    }
+    // copy r0 info from the exiting state
+    const val = exitingState.values.get('r0')?.value || '';
+    state.values.set('r0', { value: val, effect: Effect.NONE });
+    state.lastKnownWrites.set('r0', exitingState.lastKnownWrites.get('r0'));
+    return state;
 }
 
 const nextBpfState = (state: BpfState, line: ParsedLine): BpfState => {
     if (line.type !== ParsedLineType.INSTRUCTION)
         return state;
-    let newState = copyBpfState(state);
 
+    const setIdxAndPc = (bpfState: BpfState) => {
+        bpfState.idx = line.idx;
+        bpfState.pc = line.bpfIns?.pc;
+    }
+
+    let newState : BpfState;
+    switch (line.bpfIns?.jmp?.kind) {
+        case BpfJmpKind.BPF2BPF_CALL:
+            newState = pushStackFrame(state);
+            setIdxAndPc(newState);
+            return newState;
+        case BpfJmpKind.EXIT:
+            newState = popStackFrame(state);
+            setIdxAndPc(newState);
+            return newState;
+        default:
+            break;
+    }
+
+    newState = copyBpfState(state);
     let effects = new Map<string, Effect>();
     for (const id of line.bpfIns?.reads || []) {
         effects.set(id, Effect.READ);
@@ -75,6 +165,7 @@ const nextBpfState = (state: BpfState, line: ParsedLine): BpfState => {
         newState.values.set(expr.id, makeValue(expr.value, effect));
     }
 
+    setIdxAndPc(newState);
     return newState;
 }
 
@@ -85,7 +176,6 @@ type AppState = {
     formattedLines: HTMLElement[];
 
     visibleLines: number;
-    lineHeight: number;
 
     topLineIdx: number; // index of the first line in the visible area
     selectedLineIdx: number;
@@ -141,7 +231,6 @@ const createApp = (url: string) => {
         formattedLines: [],
 
         visibleLines: 50,
-        lineHeight: 16,
         selectedLineIdx: 0,
         selectedMemSlotId: '',
         memSlotDependencies: new Set<number>(),
@@ -263,7 +352,7 @@ const createApp = (url: string) => {
         if (memSlot) {
             const tooltip = getTooltip();
             const arrow = getTooltipArrow();
-            const idx = contentLineIdx(memSlot.parentElement);
+            const idx = contentLineIdx(memSlot.closest('.log-line'));
             const displayValue = memSlotDisplayValue(state, memSlot.id, idx);
             memSlot.classList.add('hovered-mem-slot');
             if (displayValue) {
@@ -344,16 +433,19 @@ const createApp = (url: string) => {
         }
     }
 
-    const callInstructionHtml = (line: ParsedLine): string => {
+    const regSpan = (reg: string): string => {
+        return `<span class="mem-slot" id="${reg}">${reg}</span>`;
+    }
+
+    const callHtml = (line: ParsedLine): string => {
         const ins = line.bpfIns;
-        const rSpan = (reg: string) => `<span class="mem-slot" id="${reg}">${reg}</span>`;
-        let html = `${rSpan("r0")} = `;
+        let html = '';
         const start = line.raw.length + ins.location.offset;
         const end = start + ins.location.size;
         html += line.raw.slice(start, end);
         html += '(';
         for (let i = 1; i <= 5; i++) {
-            html += `${rSpan(`r${i}`)}`;
+            html += `${regSpan(`r${i}`)}`;
             if (i < 5)
                 html += ', ';
         }
@@ -361,8 +453,19 @@ const createApp = (url: string) => {
         return html;
     }
 
+    const helperCallInstructionHtml = (line: ParsedLine): string => {
+        return `${regSpan("r0")} = ` + callHtml(line);
+    }
+
+    const bpf2bpfCallInstructionHtml = (line: ParsedLine, frame: number): string => {
+        let html = callHtml(line);
+        html += ` { ; enter new stack frame ${frame}`
+        return `<b>${html}</b>`;
+    }
+
     const jmpInstructionHtml = (line: ParsedLine): string => {
-        if (line.bpfIns.opcode.code === BpfJmpCode.JA) {
+        const code = line?.bpfIns?.opcode?.code;
+        if (code === BpfJmpCode.JA) {
             return `goto ${line.bpfIns.jmp.target}`;
         }
         const leftHtml = memSlotHtml(line, line.bpfIns.jmp.cond.left);
@@ -370,7 +473,17 @@ const createApp = (url: string) => {
         return `if (${leftHtml} ${line.bpfIns.jmp.cond.op} ${rightHtml}) goto ${line.bpfIns.jmp.target}`;
     }
 
-    const logLineDiv = (line: ParsedLine): HTMLElement => {
+    const exitInstructionHtml = (frame: number): string => {
+        return `<b>} exit ; return to stack frame ${frame}</b>`;
+    }
+
+    const indent = (s: string, depth: number): string => {
+        for (let i = 0; i < depth; i++)
+            s = "    " + s; // 4 spaces
+        return s;
+    }
+
+    const logLineDiv = (line: ParsedLine, bpfState: BpfState): HTMLElement => {
         const div = document.createElement('div');
         if (!line?.bpfIns && !line?.bpfStateExprs)
             setLineHighlightClass(div, 'ignorable-line');
@@ -380,17 +493,25 @@ const createApp = (url: string) => {
         div.setAttribute('line-index', line.idx.toString());
 
         const ins = line.bpfIns;
+        let html = '';
+        let indentDepth = bpfState.frame;
         if (ins?.alu) {
             const dstHtml = memSlotHtml(line, ins.alu.dst);
             const srcHtml = memSlotHtml(line, ins.alu.src);
-            div.innerHTML = `${dstHtml} ${ins.alu.operator} ${srcHtml}`;
-        } else if (ins?.jmp && ins.opcode.code === BpfJmpCode.CALL) {
-            div.innerHTML = callInstructionHtml(line);
+            html = `${dstHtml} ${ins.alu.operator} ${srcHtml}`;
+        } else if (ins?.jmp?.kind == BpfJmpKind.BPF2BPF_CALL) {
+            html = bpf2bpfCallInstructionHtml(line, bpfState.frame);
+            indentDepth -= 1;
+        } else if (ins?.jmp?.kind == BpfJmpKind.EXIT) {
+            html = exitInstructionHtml(bpfState.frame);
+        } else if (ins?.jmp?.kind == BpfJmpKind.HELPER_CALL) {
+            html = helperCallInstructionHtml(line);
         } else if (ins?.jmp) {
-            div.innerHTML = jmpInstructionHtml(line);
+            html = jmpInstructionHtml(line);
         } else {
-            div.textContent = line.raw;
+            html = line.raw;
         }
+        div.innerHTML = indent(html, indentDepth);
         return div;
     }
 
@@ -401,7 +522,7 @@ const createApp = (url: string) => {
         parsedLine.idx = idx;
         const bpfState = nextBpfState(mostRecentBpfState(state, idx).state, parsedLine);
         state.bpfStates.push(bpfState);
-        const formattedLine = logLineDiv(parsedLine);
+        const formattedLine = logLineDiv(parsedLine, bpfState);
         state.formattedLines.push(formattedLine);
     }
 
@@ -634,9 +755,15 @@ const createApp = (url: string) => {
     const updateStatePanel = async (state: AppState): Promise<void> => {
         const { state: bpfState, idx } = mostRecentBpfState(state, state.selectedLineIdx);
         const statePanel = document.getElementById('state-panel') as HTMLElement;
+        const header = document.getElementById('state-panel-header') as HTMLElement;
         const table = statePanel.querySelector('table');
-        table.innerHTML = '';
 
+        let headerHtml = `<div>Line: ${bpfState.idx + 1}</div>`;
+        headerHtml += `<div>PC: ${bpfState.pc}</div>`;
+        headerHtml += `<div>Frame: ${bpfState.frame}</div>`;
+        header.innerHTML = headerHtml;
+
+        table.innerHTML = '';
         const addRow = (id: string) => {
             let content = memSlotDisplayValue(state, id, idx);
             const row = document.createElement('tr');
@@ -662,6 +789,13 @@ const createApp = (url: string) => {
             valueCell.appendChild(valueSpan);
             row.appendChild(nameCell);
             row.appendChild(valueCell);
+
+            // clear class list in case we the selected line is not an instruction
+            const line = state.lines[state.selectedLineIdx];
+            if (line?.type !== ParsedLineType.INSTRUCTION) {
+                row.className = '';
+            }
+
             table.appendChild(row);
         }
 
@@ -703,7 +837,6 @@ const createApp = (url: string) => {
         contentLines.appendChild(tmp);
         const height = tmp.offsetHeight;
         contentLines.removeChild(tmp);
-        state.lineHeight = height;
         state.visibleLines = Math.max(1, Math.floor(logContent.offsetHeight / height) - 1);
         const scrollTape = document.getElementById('scroll-tape') as HTMLElement;
         const maxIdx = state.lines.length - state.visibleLines;
@@ -754,17 +887,12 @@ const createApp = (url: string) => {
     // So the view (contentLines content and position within scrollTape)
     // has to be dependent on logContent.scrollTop, and not the other way around.
     // Because of that, for example, a key press hanlders updates scrollTop in order to trigger handleScroll()
-    let handleScrollLastUpdate = 0;
     let lastKnownScrollTop = 0;
     const handleScroll = () => {
-        // this reduces flickering in case handleScroll is fired frequently
-        const now = Date.now();
-        if (now - handleScrollLastUpdate < (1000 / 24) || Math.abs(lastKnownScrollTop - logContent.scrollTop) < 1) {
+        if (Math.abs(lastKnownScrollTop - logContent.scrollTop) < 1) {
             updateView(state);
             return;
         }
-        handleScrollLastUpdate = now;
-
         const percent = logContent.scrollTop / (logContent.scrollHeight - logContent.clientHeight);
         const maxIdx = state.lines.length - state.visibleLines;
         let newTopIdx = normalIdx(percent * maxIdx);
@@ -773,7 +901,6 @@ const createApp = (url: string) => {
         if (newTopIdx == state.topLineIdx) {
             newTopIdx += lastKnownScrollTop < logContent.scrollTop ? 1 : -1;
         }
-        console.log(`handleScroll: ${newTopIdx}`);
         lastKnownScrollTop = logContent.scrollTop;
         setTopLineIdx(state, newTopIdx);
         setContentLinesTop(`${logContent.scrollTop}px`);
@@ -811,12 +938,13 @@ const createApp = (url: string) => {
         }
         e.preventDefault();
         setSelectedLine(state.selectedLineIdx + delta);
-        if (delta < 0 && state.selectedLineIdx < state.topLineIdx + 8
-            || delta > 0 && state.selectedLineIdx > state.topLineIdx + state.visibleLines - 8) {
-            setTopLineIdx(state, state.topLineIdx + delta * 2);
+        // if selected line is not "in the middle" of the view, move the view
+        if (!(state.topLineIdx + 2 < state.selectedLineIdx && state.selectedLineIdx < state.topLineIdx + state.visibleLines - 2)) {
+            setTopLineIdx(state, normalIdx(state.selectedLineIdx - state.visibleLines / 2));
             updateScrollFromTopLineIdx(state);
+        } else {
+            updateView(state);
         }
-        updateView(state);
     };
 
     const processFile = async (file: File): Promise<void> => {
