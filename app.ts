@@ -832,15 +832,20 @@ const createApp = (url: string) => {
         return tmp;
     }
 
-    const updateVisibleLinesValue = (state: AppState): void => {
+    const getLogLineHeight = () : number => {
         const tmp = tmpLogLineDiv();
         contentLines.appendChild(tmp);
         const height = tmp.offsetHeight;
         contentLines.removeChild(tmp);
-        state.visibleLines = Math.max(1, Math.floor(logContent.offsetHeight / height) - 1);
+        return height;
+    }
+
+    const updateVisibleLinesValue = (state: AppState): void => {
+        const lineHeight = getLogLineHeight();
+        state.visibleLines = Math.max(1, Math.floor(logContent.offsetHeight / lineHeight) - 1);
         const scrollTape = document.getElementById('scroll-tape') as HTMLElement;
         const maxIdx = state.lines.length - state.visibleLines;
-        scrollTape.style.height = `${height * maxIdx}px`;
+        scrollTape.style.height = `${lineHeight * maxIdx}px`;
     };
 
     const updateView = async (state: AppState): Promise<void> => {
@@ -889,7 +894,7 @@ const createApp = (url: string) => {
     // Because of that, for example, a key press hanlders updates scrollTop in order to trigger handleScroll()
     let lastKnownScrollTop = 0;
     const handleScroll = () => {
-        if (Math.abs(lastKnownScrollTop - logContent.scrollTop) < 1) {
+        if (Math.abs(lastKnownScrollTop - logContent.scrollTop) < getLogLineHeight() / 3) {
             updateView(state);
             return;
         }
