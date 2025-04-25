@@ -22,19 +22,13 @@
             <button id="goto-start">&lt;&lt;</button>
             <button id="goto-end">&gt;&gt;</button>
         </div>
-        <textarea id="input-text"
-                  class="log-content"
-                  placeholder="Paste the verifier log here or choose a file">
+        <textarea id="input-text" placeholder="Paste the verifier log here or choose a file">
         </textarea>
         <div id="main-content" class="main-content">
-            <div class="text-container">
+            <div id="log-container">
                 <div id="line-numbers-idx" class="line-numbers"></div>
                 <div id="line-numbers-pc" class="line-numbers"></div>
-                <div id="log-content" class="log-content">
-                    <div id="scroll-tape">
-                        <div id="content-lines" class="content-lines"></div>
-                    </div>
-                </div>
+                <div id="formatted-log-lines"></div>
             </div>
             <div id="state-panel" class="state-panel">
                 <div id="state-panel-header"></div>

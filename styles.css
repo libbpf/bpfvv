@@ -36,12 +36,16 @@ body {
     font-size: 14px;
 }
 
-.text-container {
+#log-container {
     display: flex;
     flex-direction: row;
     flex: 0.5;
     min-width: 0;
     gap: 0;
+    overflow: auto;
+}
+
+#input-text {
     height: 100%;
 }
 
@@ -56,31 +60,22 @@ body {
     color: #888888;
     user-select: none;
     min-width: 3em;
-    overflow: hidden;
     white-space: pre;
+    height: fit-content;
 }
 
 #line-numbers-pc {
     color: #444444;
 }
 
-.log-content {
-    flex: 1;
-    overflow-y: scroll;
+#formatted-log-lines {
     border: 1px solid #ccc;
     border-radius: 0 4px 4px 0;
     background: white;
-}
-
-.scroll-tape {
-    position: relative;
-}
-
-.content-lines {
     padding: 10px;
     line-height: 1.4;
     white-space: pre;
-    position: relative;
+    height: fit-content;
 }
 
 .state-panel {
@@ -118,6 +113,10 @@ body {
 
 .log-line {
     min-height: 1.4em;
+}
+
+.dependency-line {
+    background-color: #eeeeee;
 }
 
 .state-panel table {

@@ -173,11 +173,6 @@ type AppState = {
     fileBlob: Blob;
     lines: ParsedLine[];
     bpfStates: BpfState[];
-    formattedLines: HTMLElement[];
-
-    visibleLines: number;
-
-    topLineIdx: number; // index of the first line in the visible area
     selectedLineIdx: number;
     selectedMemSlotId: string; // 'r1', 'fp-244' etc.
     memSlotDependencies: Set<number>; // set of idx
@@ -213,10 +208,11 @@ const createApp = (url: string) => {
 
     const inputText = document.getElementById('input-text') as HTMLTextAreaElement;
     const mainContent = document.getElementById('main-content') as HTMLElement;
-    const logContent = document.getElementById('log-content') as HTMLElement;
-    const contentLines = document.getElementById('content-lines') as HTMLElement;
     const lineNumbersPc = document.getElementById('line-numbers-pc') as HTMLElement;
     const lineNumbersIdx = document.getElementById('line-numbers-idx') as HTMLElement;
+
+    const logContainer = document.getElementById('log-container') as HTMLElement;
+    const logLines = document.getElementById('formatted-log-lines') as HTMLElement;
 
     const exampleLink = document.getElementById('example-link') as HTMLAnchorElement;
     if (exampleLink) {
@@ -228,14 +224,9 @@ const createApp = (url: string) => {
         fileBlob: new Blob([]),
         lines: [],
         bpfStates: [],
-        formattedLines: [],
-
-        visibleLines: 50,
         selectedLineIdx: 0,
         selectedMemSlotId: '',
         memSlotDependencies: new Set<number>(),
-
-        topLineIdx: 0,
     };
 
     const mostRecentBpfState = (state: AppState, idx: number): { state: BpfState, idx: number } => {
@@ -294,7 +285,7 @@ const createApp = (url: string) => {
     }
 
     const setSelectedLine = (idx: number, memSlotId: string = ''): void => {
-        state.selectedLineIdx = Math.max(0, Math.min(state.lines.length - 1, idx));
+        state.selectedLineIdx = normalIdx(idx);
         if (memSlotId && memSlotId !== 'MEM') {
             state.selectedMemSlotId = memSlotId;
             state.memSlotDependencies = collectMemSlotDependencies(state, memSlotId);
@@ -405,7 +396,14 @@ const createApp = (url: string) => {
         memSlotMouseOut(memSlot);
     };
 
-    const LINE_HIGHLIGHT_CLASSES = ['normal-line', 'selected-line', 'ignorable-line', 'faded-line', 'hovered-line'];
+    const LINE_HIGHLIGHT_CLASSES = [
+        'normal-line',
+        'selected-line',
+        'ignorable-line',
+        'faded-line',
+        'hovered-line',
+        'dependency-line'
+    ];
     const setLineHighlightClass = (div: HTMLElement, highlightClass: string): void => {
         for (const cls of LINE_HIGHLIGHT_CLASSES) {
             div.classList.remove(cls);
@@ -515,15 +513,31 @@ const createApp = (url: string) => {
         return div;
     }
 
+    const loadComplete = async (state: AppState): Promise<void> => {
+        await Promise.all([
+            updateView(state),
+            updateLoadStatus(100, 100)
+        ]);
+        gotoEnd();
+    }
+
+    const textDiv = (text: string): HTMLElement => {
+        const div = document.createElement('div');
+        div.innerHTML = text;
+        return div;
+    }
+
     const loadRawLine = (state: AppState, rawLine: string) => {
         const parsedLine = parseLine(rawLine);
-        state.lines.push(parsedLine);
-        const idx = state.lines.length - 1;
+        const idx = state.lines.length;
         parsedLine.idx = idx;
         const bpfState = nextBpfState(mostRecentBpfState(state, idx).state, parsedLine);
+        const pcText = typeof parsedLine.bpfIns?.pc === 'number' ? `${parsedLine.bpfIns.pc}:` : '\n';
+        state.lines.push(parsedLine);
         state.bpfStates.push(bpfState);
-        const formattedLine = logLineDiv(parsedLine, bpfState);
-        state.formattedLines.push(formattedLine);
+        logLines.appendChild(logLineDiv(parsedLine, bpfState));
+        lineNumbersPc.appendChild(textDiv(pcText));
+        lineNumbersIdx.appendChild(textDiv(`${idx+1}`));
     }
 
     // Load and parse the file into memory from the beggining to the end
@@ -564,16 +578,15 @@ const createApp = (url: string) => {
             // Note: it wasn't necessary with Blob.slice() because it yields implicitly.
             await new Promise(resolve => setTimeout(resolve, 0));
         }
+        loadComplete(state);
     };
 
     const loadInputText = async (state: AppState, text: string): Promise<void> => {
         const lines = text.split('\n');
         lines.forEach(rawLine => {
             loadRawLine(state, rawLine);
-        });
-        updateLoadStatus(100, 100);
-        updateView(state);
-        gotoEnd();
+        })
+        loadComplete(state);
     };
 
     const updateLoadStatus = async (loaded: number, total: number): Promise<void> => {
@@ -586,29 +599,6 @@ const createApp = (url: string) => {
         loadStatus.innerHTML = `Loaded ${percentage.toFixed(0)}% (${lastLine.idx + 1} lines)`;
     };
 
-    const updateLineNumbers = async (state: AppState): Promise<void> => {
-        const pcLines = [];
-        const idxLines = [];
-        for (const child of contentLines.children) {
-            const idx = contentLineIdx(child as HTMLElement);
-            const ins = idx >= 0 ? state.lines[idx].bpfIns : null;
-            const pc = typeof ins?.pc === 'number' ? `${ins.pc}:` : '';
-            pcLines.push(pc);
-            idxLines.push(`${idx+1}`);
-        }
-        lineNumbersPc.innerHTML = pcLines.join('\n');
-        lineNumbersIdx.innerHTML = idxLines.join('\n');
-    };
-
-    const setContentLinesTop = (top: string): void => {
-        contentLines.style.top = top;
-        const logContentRect = logContent.getBoundingClientRect();
-        const contentLinesRect = contentLines.getBoundingClientRect();
-        const delta = contentLinesRect.top - logContentRect.top;
-        lineNumbersPc.style.top = `${logContentRect.top + delta}px`;
-        lineNumbersIdx.style.top = `${logContentRect.top + delta}px`;
-    }
-
     const contentLineIdx = (line: HTMLElement): number => {
         const idx = line?.getAttribute('line-index');
         if (!idx)
@@ -616,101 +606,94 @@ const createApp = (url: string) => {
         return parseInt(idx, 10);
     }
 
-    const setDefaultLineFormatting = (): void => {
-        for (const child of contentLines.children) {
-            const div = child as HTMLElement;
-            const idx = contentLineIdx(div);
-            if (idx === -1)
-                continue;
-
-            // reset selections
-            const memSlots = div.querySelectorAll('.mem-slot');
-            memSlots.forEach(memSlot => {
-                memSlot.classList.remove('selected-mem-slot');
-                memSlot.classList.remove('dependency-mem-slot');
-            });
-
-            if (idx === state.selectedLineIdx)
-                setLineHighlightClass(div, 'selected-line');
-            else if (state.lines[idx]?.bpfIns || state.lines[idx]?.bpfStateExprs)
-                setLineHighlightClass(div, 'normal-line');
-            else
-                setLineHighlightClass(div, 'ignorable-line');
-        }
-    }
-
-    const updateLineFormatting = (state: AppState): void => {
-        setDefaultLineFormatting();
-        const selectedLine = state.lines[state.selectedLineIdx];
-        const isSelectedLineParsed = selectedLine?.bpfIns || selectedLine?.bpfStateExprs;
-
-        if (!isSelectedLineParsed || !state.selectedMemSlotId)
+    const resetSingleLineFormat = async (state: AppState, div: HTMLElement): Promise<void> => {
+        const idx = contentLineIdx(div);
+        if (idx === -1)
             return;
 
-        for (const child of contentLines.children) {
-            const div = child as HTMLElement;
-            const idx = contentLineIdx(div);
-            if (idx === -1)
-                continue;
+        // reset selections
+        const memSlots = div.querySelectorAll('.mem-slot');
+        memSlots.forEach(memSlot => {
+            memSlot.classList.remove('selected-mem-slot');
+            memSlot.classList.remove('dependency-mem-slot');
+        });
 
-            if (idx === state.selectedLineIdx || state.memSlotDependencies.has(idx)) {
-                if (state.selectedMemSlotId) {
-                    div.querySelectorAll('.mem-slot').forEach(memSlot => {
-                        memSlot.classList.add('dependency-mem-slot');
-                    });
-                }
-                if (idx === state.selectedLineIdx) {
-                    setLineHighlightClass(div, 'selected-line');
-                    const memSlotSpan = div.querySelector(`#${state.selectedMemSlotId}`) as HTMLElement;
-                    if (memSlotSpan)
-                        setLineHighlightClass(memSlotSpan, 'selected-mem-slot');
-                }
-                else
-                    setLineHighlightClass(div, 'normal-line');
-                continue;
+        if (idx === state.selectedLineIdx)
+            setLineHighlightClass(div, 'selected-line');
+        else if (state.lines[idx]?.bpfIns || state.lines[idx]?.bpfStateExprs)
+            setLineHighlightClass(div, 'normal-line');
+        else
+            setLineHighlightClass(div, 'ignorable-line');
+    }
+
+    const updateSingleLineFormat = async (state: AppState, div: HTMLElement): Promise<void> => {
+        resetSingleLineFormat(state, div);
+        const selectedLine = state.lines[state.selectedLineIdx];
+        const isSelectedLineParsed = selectedLine?.bpfIns || selectedLine?.bpfStateExprs;
+        const idx = contentLineIdx(div);
+
+        if (!isSelectedLineParsed || !state.selectedMemSlotId || idx === -1)
+            return;
+
+        if (idx === state.selectedLineIdx || state.memSlotDependencies.has(idx)) {
+            if (state.selectedMemSlotId) {
+                div.querySelectorAll('.mem-slot').forEach(memSlot => {
+                    memSlot.classList.add('dependency-mem-slot');
+                });
             }
-
-            const line = state.lines[idx];
-            if (!line?.bpfIns && !line?.bpfStateExprs) {
-                setLineHighlightClass(div, 'ignorable-line');
-            } else if (isSelectedLineParsed) {
-                setLineHighlightClass(div, 'faded-line');
+            if (idx === state.selectedLineIdx) {
+                setLineHighlightClass(div, 'selected-line');
+                const memSlotSpan = div.querySelector(`#${state.selectedMemSlotId}`) as HTMLElement;
+                if (memSlotSpan)
+                    setLineHighlightClass(memSlotSpan, 'selected-mem-slot');
             } else {
-                setLineHighlightClass(div, 'normal-line');
+                setLineHighlightClass(div, 'dependency-line');
             }
+            return;
+        }
+
+        const line = state.lines[idx];
+        if (!line?.bpfIns && !line?.bpfStateExprs) {
+            setLineHighlightClass(div, 'ignorable-line');
+        } else if (isSelectedLineParsed) {
+            setLineHighlightClass(div, 'faded-line');
+        } else {
+            setLineHighlightClass(div, 'normal-line');
         }
     }
 
-    const updateContentLines = async (state: AppState): Promise<void> => {
-        const viewStart = normalIdx(state.topLineIdx);
-        const viewEnd = Math.min(viewStart + state.visibleLines, state.lines.length);
+    const getVisibleIdxRange = (): [number, number] => {
+        const linesRect = logLines.getBoundingClientRect();
+        const containerRect = logContainer.getBoundingClientRect();
 
-        const removeList = [];
-        for (const child of contentLines.children) {
-            const idx = contentLineIdx(child as HTMLElement);
-            if (idx < viewStart || idx >= viewEnd)
-                removeList.push(child);
-        }
-        for (const child of removeList) {
-            contentLines.removeChild(child);
+        if (containerRect.height * 2 > linesRect.height) {
+            return [0, state.lines.length - 1];
         }
 
-        let firstRenderedIdx = contentLineIdx(contentLines.firstChild as HTMLElement);
-        let lastRenderedIdx = contentLineIdx(contentLines.lastChild as HTMLElement);
+        const relativeStart = (containerRect.top - linesRect.top) / linesRect.height;
+        const relativeEnd = relativeStart + containerRect.height / linesRect.height;
+        const minIdx = Math.floor(relativeStart * state.lines.length);
+        const maxIdx = Math.ceil(relativeEnd * state.lines.length);
 
-        if (lastRenderedIdx === -1) {
-            lastRenderedIdx = viewStart - 1;
-        }
+        return [minIdx, maxIdx];
+    }
 
-        for (let i = firstRenderedIdx - 1; i >= viewStart; i--) {
-            contentLines.insertBefore(state.formattedLines[i], contentLines.firstChild);
+    const updateLineFormatting = async (state: AppState): Promise<void> => {
+        // update more than just visible part to reduce flickering
+        const [minVisibleIdx, maxVisibleIdx] = getVisibleIdxRange();
+        const visibleCnt = maxVisibleIdx - minVisibleIdx + 1;
+        const minIdx = normalIdx(minVisibleIdx - visibleCnt);
+        const maxIdx = normalIdx(maxVisibleIdx + visibleCnt);
+        for (let i = minIdx; i <= maxIdx; i++) {
+            const child = logLines.children[i] as HTMLElement;
+            const div = child as HTMLElement;
+            // idx should be always equal to i,
+            // but there is no point in enforcing this here
+            const idx = contentLineIdx(div);
+            if (idx === -1)
+                continue;
+            updateSingleLineFormat(state, div);
         }
-        for (let i = lastRenderedIdx + 1; i < viewEnd; i++) {
-            contentLines.appendChild(state.formattedLines[i]);
-        }
-
-        updateLineFormatting(state);
-        await updateLineNumbers(state);
     }
 
     const memSlotDisplayValue = (state: AppState, memSlotId: string, idx: number): string => {
@@ -758,7 +741,7 @@ const createApp = (url: string) => {
         const header = document.getElementById('state-panel-header') as HTMLElement;
         const table = statePanel.querySelector('table');
 
-        let headerHtml = `<div>Line: ${bpfState.idx + 1}</div>`;
+        let headerHtml = `<div>Line: ${state.selectedLineIdx + 1}</div>`;
         headerHtml += `<div>PC: ${bpfState.pc}</div>`;
         headerHtml += `<div>Frame: ${bpfState.frame}</div>`;
         header.innerHTML = headerHtml;
@@ -824,29 +807,12 @@ const createApp = (url: string) => {
         }
     }
 
-    const tmpLogLineDiv = (): HTMLElement => {
-        const tmp = document.createElement('div');
-        tmp.className = 'log-line';
-        tmp.textContent = 'tmp';
-        tmp.style.visibility = 'hidden';
-        return tmp;
+    const scrollToLine = async (idx: number): Promise<void> => {
+        const [minIdx, maxIdx] = getVisibleIdxRange();
+        const page = maxIdx - minIdx + 1;
+        const relativePosition = normalIdx(idx - page * 0.618) / state.lines.length;
+        logContainer.scrollTop = relativePosition * logContainer.scrollHeight;
     }
-
-    const getLogLineHeight = () : number => {
-        const tmp = tmpLogLineDiv();
-        contentLines.appendChild(tmp);
-        const height = tmp.offsetHeight;
-        contentLines.removeChild(tmp);
-        return height;
-    }
-
-    const updateVisibleLinesValue = (state: AppState): void => {
-        const lineHeight = getLogLineHeight();
-        state.visibleLines = Math.max(1, Math.floor(logContent.offsetHeight / lineHeight) - 1);
-        const scrollTape = document.getElementById('scroll-tape') as HTMLElement;
-        const maxIdx = state.lines.length - state.visibleLines;
-        scrollTape.style.height = `${lineHeight * maxIdx}px`;
-    };
 
     const updateView = async (state: AppState): Promise<void> => {
         if (state.lines.length === 0) {
@@ -856,8 +822,7 @@ const createApp = (url: string) => {
         } else {
             mainContent.style.display = 'flex';
             inputText.style.display = 'none';
-            updateVisibleLinesValue(state);
-            updateContentLines(state);
+            updateLineFormatting(state);
             updateStatePanel(state);
         }
     };
@@ -868,52 +833,13 @@ const createApp = (url: string) => {
     };
 
     const normalIdx = (idx: number): number => {
-        const maxIdx = Math.max(0, state.lines.length - state.visibleLines);
-        return Math.min(Math.max(0, Math.floor(idx)), maxIdx);
+        return Math.min(Math.max(0, Math.floor(idx)), state.lines.length);
     }
-
-    const setTopLineIdx = (state: AppState, idx: number): void => {
-        const newIdx = normalIdx(idx);
-        state.topLineIdx = newIdx;
-    };
-
-    const updateScrollFromTopLineIdx = (state: AppState): void => {
-        const percent = state.topLineIdx / (state.lines.length - state.visibleLines);
-        logContent.scrollTop = percent * (logContent.scrollHeight - logContent.clientHeight);
-    };
-
-    const handleScrollEnd = () => {
-        handleScroll();
-    };
-
-    // Virtual scroll bar is tricky.
-    // handleScroll is fired quite often, and it is also called when scroll-related
-    // properties of logContent change
-    // So the view (contentLines content and position within scrollTape)
-    // has to be dependent on logContent.scrollTop, and not the other way around.
-    // Because of that, for example, a key press hanlders updates scrollTop in order to trigger handleScroll()
-    let lastKnownScrollTop = 0;
-    const handleScroll = () => {
-        if (Math.abs(lastKnownScrollTop - logContent.scrollTop) < getLogLineHeight() / 3) {
-            updateView(state);
-            return;
-        }
-        const percent = logContent.scrollTop / (logContent.scrollHeight - logContent.clientHeight);
-        const maxIdx = state.lines.length - state.visibleLines;
-        let newTopIdx = normalIdx(percent * maxIdx);
-        // This is a hack when log is big, and user clicks on the scroll bar button.
-        // The scrollTop delta is tiny, so we adjust the topLineIdx by 1 to make the view change.
-        if (newTopIdx == state.topLineIdx) {
-            newTopIdx += lastKnownScrollTop < logContent.scrollTop ? 1 : -1;
-        }
-        lastKnownScrollTop = logContent.scrollTop;
-        setTopLineIdx(state, newTopIdx);
-        setContentLinesTop(`${logContent.scrollTop}px`);
-        updateView(state);
-    };
 
     const handleKeyDown = async (e: KeyboardEvent) => {
         let delta = 0;
+        let [minIdx, maxIdx] = getVisibleIdxRange();
+        let page = maxIdx - minIdx + 1;
         switch (e.key) {
             case 'ArrowDown':
             case 'j':
@@ -924,10 +850,10 @@ const createApp = (url: string) => {
                 delta = -1;
                 break;
             case 'PageDown':
-                delta = state.visibleLines;
+                delta = page;
                 break;
             case 'PageUp':
-                delta = -state.visibleLines;
+                delta = -page;
                 break;
             case 'Home':
                 gotoStart();
@@ -943,17 +869,13 @@ const createApp = (url: string) => {
         }
         e.preventDefault();
         setSelectedLine(state.selectedLineIdx + delta);
-        // if selected line is not "in the middle" of the view, move the view
-        if (!(state.topLineIdx + 2 < state.selectedLineIdx && state.selectedLineIdx < state.topLineIdx + state.visibleLines - 2)) {
-            setTopLineIdx(state, normalIdx(state.selectedLineIdx - state.visibleLines / 2));
-            updateScrollFromTopLineIdx(state);
-        } else {
-            updateView(state);
+        if (state.selectedLineIdx < minIdx + 8 || state.selectedLineIdx > maxIdx - 8) {
+            await scrollToLine(state.selectedLineIdx);
         }
+        updateView(state);
     };
 
     const processFile = async (file: File): Promise<void> => {
-        state.topLineIdx = 0;
         state.lines = [];
         state.fileBlob = file;
         loadInputFile(state);
@@ -965,44 +887,41 @@ const createApp = (url: string) => {
     };
 
     const gotoStart = () => {
-        state.topLineIdx = 0;
-        updateScrollFromTopLineIdx(state);
+        logContainer.scrollTop = 0;
     };
 
     const gotoEnd = () => {
-        state.topLineIdx = normalIdx(state.lines.length);
-        updateScrollFromTopLineIdx(state);
+        logContainer.scrollTop = logContainer.scrollHeight;
     };
 
     const gotoLine = () => {
-        const lineNumber = parseInt(gotoLineInput.value, 10);
-        if (!isNaN(lineNumber)) {
-            let idx = Math.max(0, Math.min(state.lines.length - state.visibleLines, lineNumber - 1));
-            state.topLineIdx = idx;
-            updateView(state);
-        }
+        const idx = normalIdx(parseInt(gotoLineInput.value, 10) - 1);
+        setSelectedLine(idx);
+        scrollToLine(idx);
+        updateView(state);
     };
 
-    const handleResize = (): void => {
+    const triggerUpdateView = (): void => {
         updateView(state);
     };
 
     fileInput.addEventListener('change', handleFileInput);
-    logContent.addEventListener('scroll', handleScroll);
-    logContent.addEventListener('scrollend', handleScrollEnd);
     document.addEventListener('keydown', handleKeyDown);
     inputText.addEventListener('paste', handlePaste);
-    window.addEventListener('resize', handleResize);
+    window.addEventListener('resize', triggerUpdateView);
+    logContainer.addEventListener('scroll', triggerUpdateView);
 
     // Navigation panel
     gotoLineInput.addEventListener('input', gotoLine);
     gotoStartButton.addEventListener('click', gotoStart);
     gotoEndButton.addEventListener('click', gotoEnd);
-    contentLines.addEventListener('click', handleLineClick);
-    contentLines.addEventListener('mouseover', handleMouseOver);
-    contentLines.addEventListener('mouseout', handleMouseOut);
+    logLines.addEventListener('click', handleLineClick);
+    logLines.addEventListener('mouseover', handleMouseOver);
+    logLines.addEventListener('mouseout', handleMouseOut);
+
 
     if (url) {
+        loadStatus.innerHTML = `Downloading ${url} ...`;
         fetchLogFromUrl(url).then(text => {
             if (text) {
                 loadInputText(state, text);
@@ -1020,16 +939,16 @@ const createApp = (url: string) => {
     // Return cleanup function
     return () => {
         fileInput.removeEventListener('change', handleFileInput);
-        logContent.removeEventListener('scroll', handleScroll);
         document.removeEventListener('keydown', handleKeyDown);
         inputText.removeEventListener('paste', handlePaste);
         gotoStartButton.removeEventListener('click', gotoStart);
         gotoLineButton.removeEventListener('click', gotoLine);
         gotoEndButton.removeEventListener('click', gotoEnd);
-        contentLines.removeEventListener('click', handleLineClick);
-        contentLines.removeEventListener('mouseover', handleMouseOver);
-        contentLines.removeEventListener('mouseout', handleMouseOut);
-        window.removeEventListener('resize', handleResize);
+        logLines.removeEventListener('click', handleLineClick);
+        logLines.removeEventListener('mouseover', handleMouseOver);
+        logLines.removeEventListener('mouseout', handleMouseOut);
+        window.removeEventListener('resize', triggerUpdateView);
+        logContainer.removeEventListener('scroll', triggerUpdateView);
     };
 };
 
