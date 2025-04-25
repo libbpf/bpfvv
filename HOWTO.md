@@ -36,7 +36,7 @@ processed 8 insns (limit 1000000) max_states_per_insn 0 total_states 0 peak_stat
 ERROR: Loading BPF object(s) failed.
 ```
 
-This log represents a particular trace through the BPF program, that
+This log represents a particular trace through the BPF program that
 led to an invalid state (as judged by the BPF verifier). It contains a
 lot of information about the interpreted state of the program on each
 instruction. The app parses the log and re-constructs program states
@@ -45,9 +45,7 @@ in order to display potentially useful information in interactive way.
 There are two main views of the program:
 * (on the left) formatted log, instruction stream
 * (on the right) program state: known values of registers and stack slots
-
-![2025-03-20_14-35](https://github.com/user-attachments/assets/2dfebc04-2f96-402d-b6c5-25abeafd0fc2)
-
+<img width="1306" alt="Screenshot 2025-04-25 at 4 19 21 PM" src="https://github.com/user-attachments/assets/ccd9337a-14b0-4c13-afcc-cdfc1b2d46e5" />
 
 ## What's in the log
 
@@ -84,6 +82,16 @@ Notice also that the lines not recognized by the parser are greyed
 out. If you notice an unrecognized instruction, please submit a bug
 report.
 
+### Subprogram calls
+
+When there is a subprogram call in the log instruction stream, the 
+stack frames are tracked by the app when computing state. When subprogram
+call is detected there is indentation and comments in the main log view to
+visualize it.
+
+<img width="1211" alt="Screenshot 2025-04-25 at 4 35 14 PM" src="https://github.com/user-attachments/assets/3b53abaf-609e-4d6f-b28b-a977016a00c0" />
+
+
 ## What can you do?
 
 ### Step through the instruction stream
@@ -114,6 +122,27 @@ background.
 Note that for "update" instructions (such as `r1 += 8`), the slot
 will be marked as written.
 
+#### Sometimes a value of a slot has changed, but it's not highlighted as a write. Is that a bug?
+
+Currently the visualizer only considers writes derived from the instructions
+themselves. For example, `r1 = r2` is a write by definition, or a call would
+scratch some registers.
+
+But remember that we are looking at the BPF verifier log. BPF verifier
+simulates execution of a program, which requires maintaining and continuously
+updating a virtual state of the program. This means that whenever the verifier
+gains some knowledge about a value (which is not necesarily a write instruction),
+it will update it.
+
+For example when processing conditional jumps such as `if (r2 == 0) goto pc+6`,
+the verifier usually explores both branches. But in both cases it gained information
+about r2: it's either 0 or not. And so while there was no explicit write into r2,
+it's value is known (and has changed) after the jump instruction, when you look at 
+it in the verifier log.
+
+Going forward the visualizer will likely treat all value updates as writes,
+as it is useful to know at what point verifier inferred a particular value. 
+
 ### View data dependencies
 
 The app computes a use-def analysis [^2] and you can interactively
@@ -131,15 +160,19 @@ instruction operands (registers and stack slots).
 The selected slot is identified by a box. This selection changes the
 log view, greying out "irrelevant" instructions, and leaving only
 data-dependent instructions in the foreground.
-
-<img src="https://github.com/user-attachments/assets/928e16b4-e75d-49c6-ac5a-b23841d053e1" width="640">
+<img width="762" alt="Screenshot 2025-04-25 at 4 50 11 PM" src="https://github.com/user-attachments/assets/7cfc0109-6c8c-4a94-a9b5-37af9a4e877a" />
 
 #### What's clickable?
 
-Registers r0-r9 and stack accesses such as `*(u32 *)(r10 -8)`.
+Registers r0-r9 and explicit stack accesses such as `*(u32 *)(r10 -8)`.
 
 r10 (stack frame pointer) is not clickable because it's effectively a
 constant [^3].
+
+Note that the stack slots may be accessed indirectly: if say `r6 = fp-64`
+and then you do `*(u32 *)(r6 -8)` it's equivalent to `*(u32 *)(r10 -72)`.
+The visualizer does not show such dependencies (yet). Although state values
+are tracked correctly.
 
 #### How deep is the displayed dependency chain?
 
@@ -205,11 +238,11 @@ recognize these slots as "the same".
 
 ## Footnotes
 
-[^1]: `BPF_LOG_LEVEL2` can be parsed, and the app can handle big input
-(100+ Mb). However since level 2 log contains all states of the BPF
-program explored by the verifier, and the app does not distinguish
-between them (yet), the accumulated state at a particular log line is
-likely to be wrong.
+[^1]: `BPF_LOG_LEVEL2` can be parsed, however since level 2 log contains 
+all states of the BPF program explored by the verifier, and the app does 
+not distinguish between them (yet), the accumulated state at a particular 
+log line is likely to be wrong. Also, log level 2 is usually quite big, so
+the browser will not be happy to render it.
 
 [^2]: https://en.wikipedia.org/wiki/Use-define_chain
 
