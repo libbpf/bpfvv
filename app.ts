@@ -224,7 +224,7 @@ const createApp = (url: string) => {
 
     const exampleLink = document.getElementById('example-link') as HTMLAnchorElement;
     if (exampleLink) {
-        const exampleLogUrl = 'https://gist.githubusercontent.com/theihor/1bea72b50f6834c00b67a3087304260e/raw/9c0cb831a4924e5f0f63cc1e0d9620aec771d31f/pyperf600-v1.log';
+        const exampleLogUrl = 'https://gist.githubusercontent.com/theihor/e0002c119414e6b40e2192bd7ced01b1/raw/866bcc155c2ce848dcd4bc7fd043a97f39a2d370/gistfile1.txt';
         exampleLink.href = `${window.location.pathname}?url=${exampleLogUrl}`;
     }
 
