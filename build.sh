@@ -3,9 +3,10 @@
 set -euo pipefail
 
 SERVE=${1:-}
+NPM=${NPM:-npm}
 
 rm -rf dist
-npm install
+$NPM install
 ./node_modules/.bin/tsc
 cp index.html styles.css dist/
 

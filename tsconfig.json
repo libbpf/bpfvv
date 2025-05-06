@@ -3,6 +3,8 @@
         "target": "ES6",
         "module": "ESNext",
         "moduleResolution": "node",
+        "resolveJsonModule": true,
+        "esModuleInterop": true,
         "outDir": "./dist",
         "rootDir": "./",
         "sourceMap": true,

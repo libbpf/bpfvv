@@ -1,0 +1,4444 @@
+{
+    "helpers": [
+        {
+            "ret_type": "void",
+            "ret_star": "*",
+            "name": "bpf_map_lookup_elem",
+            "args": [
+                {
+                    "type": "struct bpf_map",
+                    "star": "*",
+                    "name": "map"
+                },
+                {
+                    "type": "const void",
+                    "star": "*",
+                    "name": "key"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_map_update_elem",
+            "args": [
+                {
+                    "type": "struct bpf_map",
+                    "star": "*",
+                    "name": "map"
+                },
+                {
+                    "type": "const void",
+                    "star": "*",
+                    "name": "key"
+                },
+                {
+                    "type": "const void",
+                    "star": "*",
+                    "name": "value"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "flags"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_map_delete_elem",
+            "args": [
+                {
+                    "type": "struct bpf_map",
+                    "star": "*",
+                    "name": "map"
+                },
+                {
+                    "type": "const void",
+                    "star": "*",
+                    "name": "key"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_probe_read",
+            "args": [
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "dst"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "size"
+                },
+                {
+                    "type": "const void",
+                    "star": "*",
+                    "name": "unsafe_ptr"
+                }
+            ]
+        },
+        {
+            "ret_type": "u64",
+            "ret_star": "",
+            "name": "bpf_ktime_get_ns",
+            "args": [
+                {
+                    "type": "void",
+                    "star": null,
+                    "name": null
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_trace_printk",
+            "args": [
+                {
+                    "type": "const char",
+                    "star": "*",
+                    "name": "fmt"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "fmt_size"
+                },
+                {
+                    "type": "...",
+                    "star": null,
+                    "name": null
+                }
+            ]
+        },
+        {
+            "ret_type": "u32",
+            "ret_star": "",
+            "name": "bpf_get_prandom_u32",
+            "args": [
+                {
+                    "type": "void",
+                    "star": null,
+                    "name": null
+                }
+            ]
+        },
+        {
+            "ret_type": "u32",
+            "ret_star": "",
+            "name": "bpf_get_smp_processor_id",
+            "args": [
+                {
+                    "type": "void",
+                    "star": null,
+                    "name": null
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_skb_store_bytes",
+            "args": [
+                {
+                    "type": "struct sk_buff",
+                    "star": "*",
+                    "name": "skb"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "offset"
+                },
+                {
+                    "type": "const void",
+                    "star": "*",
+                    "name": "from"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "len"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "flags"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_l3_csum_replace",
+            "args": [
+                {
+                    "type": "struct sk_buff",
+                    "star": "*",
+                    "name": "skb"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "offset"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "from"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "to"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "size"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_l4_csum_replace",
+            "args": [
+                {
+                    "type": "struct sk_buff",
+                    "star": "*",
+                    "name": "skb"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "offset"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "from"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "to"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "flags"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_tail_call",
+            "args": [
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "ctx"
+                },
+                {
+                    "type": "struct bpf_map",
+                    "star": "*",
+                    "name": "prog_array_map"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "index"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_clone_redirect",
+            "args": [
+                {
+                    "type": "struct sk_buff",
+                    "star": "*",
+                    "name": "skb"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "ifindex"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "flags"
+                }
+            ]
+        },
+        {
+            "ret_type": "u64",
+            "ret_star": "",
+            "name": "bpf_get_current_pid_tgid",
+            "args": [
+                {
+                    "type": "void",
+                    "star": null,
+                    "name": null
+                }
+            ]
+        },
+        {
+            "ret_type": "u64",
+            "ret_star": "",
+            "name": "bpf_get_current_uid_gid",
+            "args": [
+                {
+                    "type": "void",
+                    "star": null,
+                    "name": null
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_get_current_comm",
+            "args": [
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "buf"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "size_of_buf"
+                }
+            ]
+        },
+        {
+            "ret_type": "u32",
+            "ret_star": "",
+            "name": "bpf_get_cgroup_classid",
+            "args": [
+                {
+                    "type": "struct sk_buff",
+                    "star": "*",
+                    "name": "skb"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_skb_vlan_push",
+            "args": [
+                {
+                    "type": "struct sk_buff",
+                    "star": "*",
+                    "name": "skb"
+                },
+                {
+                    "type": "__be16",
+                    "star": "",
+                    "name": "vlan_proto"
+                },
+                {
+                    "type": "u16",
+                    "star": "",
+                    "name": "vlan_tci"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_skb_vlan_pop",
+            "args": [
+                {
+                    "type": "struct sk_buff",
+                    "star": "*",
+                    "name": "skb"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_skb_get_tunnel_key",
+            "args": [
+                {
+                    "type": "struct sk_buff",
+                    "star": "*",
+                    "name": "skb"
+                },
+                {
+                    "type": "struct bpf_tunnel_key",
+                    "star": "*",
+                    "name": "key"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "size"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "flags"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_skb_set_tunnel_key",
+            "args": [
+                {
+                    "type": "struct sk_buff",
+                    "star": "*",
+                    "name": "skb"
+                },
+                {
+                    "type": "struct bpf_tunnel_key",
+                    "star": "*",
+                    "name": "key"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "size"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "flags"
+                }
+            ]
+        },
+        {
+            "ret_type": "u64",
+            "ret_star": "",
+            "name": "bpf_perf_event_read",
+            "args": [
+                {
+                    "type": "struct bpf_map",
+                    "star": "*",
+                    "name": "map"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "flags"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_redirect",
+            "args": [
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "ifindex"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "flags"
+                }
+            ]
+        },
+        {
+            "ret_type": "u32",
+            "ret_star": "",
+            "name": "bpf_get_route_realm",
+            "args": [
+                {
+                    "type": "struct sk_buff",
+                    "star": "*",
+                    "name": "skb"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_perf_event_output",
+            "args": [
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "ctx"
+                },
+                {
+                    "type": "struct bpf_map",
+                    "star": "*",
+                    "name": "map"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "flags"
+                },
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "data"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "size"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_skb_load_bytes",
+            "args": [
+                {
+                    "type": "const void",
+                    "star": "*",
+                    "name": "skb"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "offset"
+                },
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "to"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "len"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_get_stackid",
+            "args": [
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "ctx"
+                },
+                {
+                    "type": "struct bpf_map",
+                    "star": "*",
+                    "name": "map"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "flags"
+                }
+            ]
+        },
+        {
+            "ret_type": "s64",
+            "ret_star": "",
+            "name": "bpf_csum_diff",
+            "args": [
+                {
+                    "type": "__be32",
+                    "star": "*",
+                    "name": "from"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "from_size"
+                },
+                {
+                    "type": "__be32",
+                    "star": "*",
+                    "name": "to"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "to_size"
+                },
+                {
+                    "type": "__wsum",
+                    "star": "",
+                    "name": "seed"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_skb_get_tunnel_opt",
+            "args": [
+                {
+                    "type": "struct sk_buff",
+                    "star": "*",
+                    "name": "skb"
+                },
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "opt"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "size"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_skb_set_tunnel_opt",
+            "args": [
+                {
+                    "type": "struct sk_buff",
+                    "star": "*",
+                    "name": "skb"
+                },
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "opt"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "size"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_skb_change_proto",
+            "args": [
+                {
+                    "type": "struct sk_buff",
+                    "star": "*",
+                    "name": "skb"
+                },
+                {
+                    "type": "__be16",
+                    "star": "",
+                    "name": "proto"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "flags"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_skb_change_type",
+            "args": [
+                {
+                    "type": "struct sk_buff",
+                    "star": "*",
+                    "name": "skb"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "type"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_skb_under_cgroup",
+            "args": [
+                {
+                    "type": "struct sk_buff",
+                    "star": "*",
+                    "name": "skb"
+                },
+                {
+                    "type": "struct bpf_map",
+                    "star": "*",
+                    "name": "map"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "index"
+                }
+            ]
+        },
+        {
+            "ret_type": "u32",
+            "ret_star": "",
+            "name": "bpf_get_hash_recalc",
+            "args": [
+                {
+                    "type": "struct sk_buff",
+                    "star": "*",
+                    "name": "skb"
+                }
+            ]
+        },
+        {
+            "ret_type": "u64",
+            "ret_star": "",
+            "name": "bpf_get_current_task",
+            "args": [
+                {
+                    "type": "void",
+                    "star": null,
+                    "name": null
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_probe_write_user",
+            "args": [
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "dst"
+                },
+                {
+                    "type": "const void",
+                    "star": "*",
+                    "name": "src"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "len"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_current_task_under_cgroup",
+            "args": [
+                {
+                    "type": "struct bpf_map",
+                    "star": "*",
+                    "name": "map"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "index"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_skb_change_tail",
+            "args": [
+                {
+                    "type": "struct sk_buff",
+                    "star": "*",
+                    "name": "skb"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "len"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "flags"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_skb_pull_data",
+            "args": [
+                {
+                    "type": "struct sk_buff",
+                    "star": "*",
+                    "name": "skb"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "len"
+                }
+            ]
+        },
+        {
+            "ret_type": "s64",
+            "ret_star": "",
+            "name": "bpf_csum_update",
+            "args": [
+                {
+                    "type": "struct sk_buff",
+                    "star": "*",
+                    "name": "skb"
+                },
+                {
+                    "type": "__wsum",
+                    "star": "",
+                    "name": "csum"
+                }
+            ]
+        },
+        {
+            "ret_type": "void",
+            "ret_star": "",
+            "name": "bpf_set_hash_invalid",
+            "args": [
+                {
+                    "type": "struct sk_buff",
+                    "star": "*",
+                    "name": "skb"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_get_numa_node_id",
+            "args": [
+                {
+                    "type": "void",
+                    "star": null,
+                    "name": null
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_skb_change_head",
+            "args": [
+                {
+                    "type": "struct sk_buff",
+                    "star": "*",
+                    "name": "skb"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "len"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "flags"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_xdp_adjust_head",
+            "args": [
+                {
+                    "type": "struct xdp_buff",
+                    "star": "*",
+                    "name": "xdp_md"
+                },
+                {
+                    "type": "int",
+                    "star": "",
+                    "name": "delta"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_probe_read_str",
+            "args": [
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "dst"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "size"
+                },
+                {
+                    "type": "const void",
+                    "star": "*",
+                    "name": "unsafe_ptr"
+                }
+            ]
+        },
+        {
+            "ret_type": "u64",
+            "ret_star": "",
+            "name": "bpf_get_socket_cookie",
+            "args": [
+                {
+                    "type": "struct sk_buff",
+                    "star": "*",
+                    "name": "skb"
+                }
+            ]
+        },
+        {
+            "ret_type": "u64",
+            "ret_star": "",
+            "name": "bpf_get_socket_cookie",
+            "args": [
+                {
+                    "type": "struct bpf_sock_addr",
+                    "star": "*",
+                    "name": "ctx"
+                }
+            ]
+        },
+        {
+            "ret_type": "u64",
+            "ret_star": "",
+            "name": "bpf_get_socket_cookie",
+            "args": [
+                {
+                    "type": "struct bpf_sock_ops",
+                    "star": "*",
+                    "name": "ctx"
+                }
+            ]
+        },
+        {
+            "ret_type": "u64",
+            "ret_star": "",
+            "name": "bpf_get_socket_cookie",
+            "args": [
+                {
+                    "type": "struct sock",
+                    "star": "*",
+                    "name": "sk"
+                }
+            ]
+        },
+        {
+            "ret_type": "u32",
+            "ret_star": "",
+            "name": "bpf_get_socket_uid",
+            "args": [
+                {
+                    "type": "struct sk_buff",
+                    "star": "*",
+                    "name": "skb"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_set_hash",
+            "args": [
+                {
+                    "type": "struct sk_buff",
+                    "star": "*",
+                    "name": "skb"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "hash"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_setsockopt",
+            "args": [
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "bpf_socket"
+                },
+                {
+                    "type": "int",
+                    "star": "",
+                    "name": "level"
+                },
+                {
+                    "type": "int",
+                    "star": "",
+                    "name": "optname"
+                },
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "optval"
+                },
+                {
+                    "type": "int",
+                    "star": "",
+                    "name": "optlen"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_skb_adjust_room",
+            "args": [
+                {
+                    "type": "struct sk_buff",
+                    "star": "*",
+                    "name": "skb"
+                },
+                {
+                    "type": "s32",
+                    "star": "",
+                    "name": "len_diff"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "mode"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "flags"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_redirect_map",
+            "args": [
+                {
+                    "type": "struct bpf_map",
+                    "star": "*",
+                    "name": "map"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "key"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "flags"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_sk_redirect_map",
+            "args": [
+                {
+                    "type": "struct sk_buff",
+                    "star": "*",
+                    "name": "skb"
+                },
+                {
+                    "type": "struct bpf_map",
+                    "star": "*",
+                    "name": "map"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "key"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "flags"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_sock_map_update",
+            "args": [
+                {
+                    "type": "struct bpf_sock_ops",
+                    "star": "*",
+                    "name": "skops"
+                },
+                {
+                    "type": "struct bpf_map",
+                    "star": "*",
+                    "name": "map"
+                },
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "key"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "flags"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_xdp_adjust_meta",
+            "args": [
+                {
+                    "type": "struct xdp_buff",
+                    "star": "*",
+                    "name": "xdp_md"
+                },
+                {
+                    "type": "int",
+                    "star": "",
+                    "name": "delta"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_perf_event_read_value",
+            "args": [
+                {
+                    "type": "struct bpf_map",
+                    "star": "*",
+                    "name": "map"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "flags"
+                },
+                {
+                    "type": "struct bpf_perf_event_value",
+                    "star": "*",
+                    "name": "buf"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "buf_size"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_perf_prog_read_value",
+            "args": [
+                {
+                    "type": "struct bpf_perf_event_data",
+                    "star": "*",
+                    "name": "ctx"
+                },
+                {
+                    "type": "struct bpf_perf_event_value",
+                    "star": "*",
+                    "name": "buf"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "buf_size"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_getsockopt",
+            "args": [
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "bpf_socket"
+                },
+                {
+                    "type": "int",
+                    "star": "",
+                    "name": "level"
+                },
+                {
+                    "type": "int",
+                    "star": "",
+                    "name": "optname"
+                },
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "optval"
+                },
+                {
+                    "type": "int",
+                    "star": "",
+                    "name": "optlen"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_override_return",
+            "args": [
+                {
+                    "type": "struct pt_regs",
+                    "star": "*",
+                    "name": "regs"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "rc"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_sock_ops_cb_flags_set",
+            "args": [
+                {
+                    "type": "struct bpf_sock_ops",
+                    "star": "*",
+                    "name": "bpf_sock"
+                },
+                {
+                    "type": "int",
+                    "star": "",
+                    "name": "argval"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_msg_redirect_map",
+            "args": [
+                {
+                    "type": "struct sk_msg_buff",
+                    "star": "*",
+                    "name": "msg"
+                },
+                {
+                    "type": "struct bpf_map",
+                    "star": "*",
+                    "name": "map"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "key"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "flags"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_msg_apply_bytes",
+            "args": [
+                {
+                    "type": "struct sk_msg_buff",
+                    "star": "*",
+                    "name": "msg"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "bytes"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_msg_cork_bytes",
+            "args": [
+                {
+                    "type": "struct sk_msg_buff",
+                    "star": "*",
+                    "name": "msg"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "bytes"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_msg_pull_data",
+            "args": [
+                {
+                    "type": "struct sk_msg_buff",
+                    "star": "*",
+                    "name": "msg"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "start"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "end"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "flags"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_bind",
+            "args": [
+                {
+                    "type": "struct bpf_sock_addr",
+                    "star": "*",
+                    "name": "ctx"
+                },
+                {
+                    "type": "struct sockaddr",
+                    "star": "*",
+                    "name": "addr"
+                },
+                {
+                    "type": "int",
+                    "star": "",
+                    "name": "addr_len"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_xdp_adjust_tail",
+            "args": [
+                {
+                    "type": "struct xdp_buff",
+                    "star": "*",
+                    "name": "xdp_md"
+                },
+                {
+                    "type": "int",
+                    "star": "",
+                    "name": "delta"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_skb_get_xfrm_state",
+            "args": [
+                {
+                    "type": "struct sk_buff",
+                    "star": "*",
+                    "name": "skb"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "index"
+                },
+                {
+                    "type": "struct bpf_xfrm_state",
+                    "star": "*",
+                    "name": "xfrm_state"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "size"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "flags"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_get_stack",
+            "args": [
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "ctx"
+                },
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "buf"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "size"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "flags"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_skb_load_bytes_relative",
+            "args": [
+                {
+                    "type": "const void",
+                    "star": "*",
+                    "name": "skb"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "offset"
+                },
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "to"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "len"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "start_header"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_fib_lookup",
+            "args": [
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "ctx"
+                },
+                {
+                    "type": "struct bpf_fib_lookup",
+                    "star": "*",
+                    "name": "params"
+                },
+                {
+                    "type": "int",
+                    "star": "",
+                    "name": "plen"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "flags"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_sock_hash_update",
+            "args": [
+                {
+                    "type": "struct bpf_sock_ops",
+                    "star": "*",
+                    "name": "skops"
+                },
+                {
+                    "type": "struct bpf_map",
+                    "star": "*",
+                    "name": "map"
+                },
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "key"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "flags"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_msg_redirect_hash",
+            "args": [
+                {
+                    "type": "struct sk_msg_buff",
+                    "star": "*",
+                    "name": "msg"
+                },
+                {
+                    "type": "struct bpf_map",
+                    "star": "*",
+                    "name": "map"
+                },
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "key"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "flags"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_sk_redirect_hash",
+            "args": [
+                {
+                    "type": "struct sk_buff",
+                    "star": "*",
+                    "name": "skb"
+                },
+                {
+                    "type": "struct bpf_map",
+                    "star": "*",
+                    "name": "map"
+                },
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "key"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "flags"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_lwt_push_encap",
+            "args": [
+                {
+                    "type": "struct sk_buff",
+                    "star": "*",
+                    "name": "skb"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "type"
+                },
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "hdr"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "len"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_lwt_seg6_store_bytes",
+            "args": [
+                {
+                    "type": "struct sk_buff",
+                    "star": "*",
+                    "name": "skb"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "offset"
+                },
+                {
+                    "type": "const void",
+                    "star": "*",
+                    "name": "from"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "len"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_lwt_seg6_adjust_srh",
+            "args": [
+                {
+                    "type": "struct sk_buff",
+                    "star": "*",
+                    "name": "skb"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "offset"
+                },
+                {
+                    "type": "s32",
+                    "star": "",
+                    "name": "delta"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_lwt_seg6_action",
+            "args": [
+                {
+                    "type": "struct sk_buff",
+                    "star": "*",
+                    "name": "skb"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "action"
+                },
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "param"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "param_len"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_rc_repeat",
+            "args": [
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "ctx"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_rc_keydown",
+            "args": [
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "ctx"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "protocol"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "scancode"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "toggle"
+                }
+            ]
+        },
+        {
+            "ret_type": "u64",
+            "ret_star": "",
+            "name": "bpf_skb_cgroup_id",
+            "args": [
+                {
+                    "type": "struct sk_buff",
+                    "star": "*",
+                    "name": "skb"
+                }
+            ]
+        },
+        {
+            "ret_type": "u64",
+            "ret_star": "",
+            "name": "bpf_get_current_cgroup_id",
+            "args": [
+                {
+                    "type": "void",
+                    "star": null,
+                    "name": null
+                }
+            ]
+        },
+        {
+            "ret_type": "void",
+            "ret_star": "*",
+            "name": "bpf_get_local_storage",
+            "args": [
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "map"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "flags"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_sk_select_reuseport",
+            "args": [
+                {
+                    "type": "struct sk_reuseport_md",
+                    "star": "*",
+                    "name": "reuse"
+                },
+                {
+                    "type": "struct bpf_map",
+                    "star": "*",
+                    "name": "map"
+                },
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "key"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "flags"
+                }
+            ]
+        },
+        {
+            "ret_type": "u64",
+            "ret_star": "",
+            "name": "bpf_skb_ancestor_cgroup_id",
+            "args": [
+                {
+                    "type": "struct sk_buff",
+                    "star": "*",
+                    "name": "skb"
+                },
+                {
+                    "type": "int",
+                    "star": "",
+                    "name": "ancestor_level"
+                }
+            ]
+        },
+        {
+            "ret_type": "struct bpf_sock",
+            "ret_star": "*",
+            "name": "bpf_sk_lookup_tcp",
+            "args": [
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "ctx"
+                },
+                {
+                    "type": "struct bpf_sock_tuple",
+                    "star": "*",
+                    "name": "tuple"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "tuple_size"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "netns"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "flags"
+                }
+            ]
+        },
+        {
+            "ret_type": "struct bpf_sock",
+            "ret_star": "*",
+            "name": "bpf_sk_lookup_udp",
+            "args": [
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "ctx"
+                },
+                {
+                    "type": "struct bpf_sock_tuple",
+                    "star": "*",
+                    "name": "tuple"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "tuple_size"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "netns"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "flags"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_sk_release",
+            "args": [
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "sock"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_map_push_elem",
+            "args": [
+                {
+                    "type": "struct bpf_map",
+                    "star": "*",
+                    "name": "map"
+                },
+                {
+                    "type": "const void",
+                    "star": "*",
+                    "name": "value"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "flags"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_map_pop_elem",
+            "args": [
+                {
+                    "type": "struct bpf_map",
+                    "star": "*",
+                    "name": "map"
+                },
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "value"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_map_peek_elem",
+            "args": [
+                {
+                    "type": "struct bpf_map",
+                    "star": "*",
+                    "name": "map"
+                },
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "value"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_msg_push_data",
+            "args": [
+                {
+                    "type": "struct sk_msg_buff",
+                    "star": "*",
+                    "name": "msg"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "start"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "len"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "flags"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_msg_pop_data",
+            "args": [
+                {
+                    "type": "struct sk_msg_buff",
+                    "star": "*",
+                    "name": "msg"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "start"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "len"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "flags"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_rc_pointer_rel",
+            "args": [
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "ctx"
+                },
+                {
+                    "type": "s32",
+                    "star": "",
+                    "name": "rel_x"
+                },
+                {
+                    "type": "s32",
+                    "star": "",
+                    "name": "rel_y"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_spin_lock",
+            "args": [
+                {
+                    "type": "struct bpf_spin_lock",
+                    "star": "*",
+                    "name": "lock"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_spin_unlock",
+            "args": [
+                {
+                    "type": "struct bpf_spin_lock",
+                    "star": "*",
+                    "name": "lock"
+                }
+            ]
+        },
+        {
+            "ret_type": "struct bpf_sock",
+            "ret_star": "*",
+            "name": "bpf_sk_fullsock",
+            "args": [
+                {
+                    "type": "struct bpf_sock",
+                    "star": "*",
+                    "name": "sk"
+                }
+            ]
+        },
+        {
+            "ret_type": "struct bpf_tcp_sock",
+            "ret_star": "*",
+            "name": "bpf_tcp_sock",
+            "args": [
+                {
+                    "type": "struct bpf_sock",
+                    "star": "*",
+                    "name": "sk"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_skb_ecn_set_ce",
+            "args": [
+                {
+                    "type": "struct sk_buff",
+                    "star": "*",
+                    "name": "skb"
+                }
+            ]
+        },
+        {
+            "ret_type": "struct bpf_sock",
+            "ret_star": "*",
+            "name": "bpf_get_listener_sock",
+            "args": [
+                {
+                    "type": "struct bpf_sock",
+                    "star": "*",
+                    "name": "sk"
+                }
+            ]
+        },
+        {
+            "ret_type": "struct bpf_sock",
+            "ret_star": "*",
+            "name": "bpf_skc_lookup_tcp",
+            "args": [
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "ctx"
+                },
+                {
+                    "type": "struct bpf_sock_tuple",
+                    "star": "*",
+                    "name": "tuple"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "tuple_size"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "netns"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "flags"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_tcp_check_syncookie",
+            "args": [
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "sk"
+                },
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "iph"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "iph_len"
+                },
+                {
+                    "type": "struct tcphdr",
+                    "star": "*",
+                    "name": "th"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "th_len"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_sysctl_get_name",
+            "args": [
+                {
+                    "type": "struct bpf_sysctl",
+                    "star": "*",
+                    "name": "ctx"
+                },
+                {
+                    "type": "char",
+                    "star": "*",
+                    "name": "buf"
+                },
+                {
+                    "type": "size_t",
+                    "star": "",
+                    "name": "buf_len"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "flags"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_sysctl_get_current_value",
+            "args": [
+                {
+                    "type": "struct bpf_sysctl",
+                    "star": "*",
+                    "name": "ctx"
+                },
+                {
+                    "type": "char",
+                    "star": "*",
+                    "name": "buf"
+                },
+                {
+                    "type": "size_t",
+                    "star": "",
+                    "name": "buf_len"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_sysctl_get_new_value",
+            "args": [
+                {
+                    "type": "struct bpf_sysctl",
+                    "star": "*",
+                    "name": "ctx"
+                },
+                {
+                    "type": "char",
+                    "star": "*",
+                    "name": "buf"
+                },
+                {
+                    "type": "size_t",
+                    "star": "",
+                    "name": "buf_len"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_sysctl_set_new_value",
+            "args": [
+                {
+                    "type": "struct bpf_sysctl",
+                    "star": "*",
+                    "name": "ctx"
+                },
+                {
+                    "type": "const char",
+                    "star": "*",
+                    "name": "buf"
+                },
+                {
+                    "type": "size_t",
+                    "star": "",
+                    "name": "buf_len"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_strtol",
+            "args": [
+                {
+                    "type": "const char",
+                    "star": "*",
+                    "name": "buf"
+                },
+                {
+                    "type": "size_t",
+                    "star": "",
+                    "name": "buf_len"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "flags"
+                },
+                {
+                    "type": "long",
+                    "star": "*",
+                    "name": "res"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_strtoul",
+            "args": [
+                {
+                    "type": "const char",
+                    "star": "*",
+                    "name": "buf"
+                },
+                {
+                    "type": "size_t",
+                    "star": "",
+                    "name": "buf_len"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "flags"
+                },
+                {
+                    "type": "unsigned long",
+                    "star": "*",
+                    "name": "res"
+                }
+            ]
+        },
+        {
+            "ret_type": "void",
+            "ret_star": "*",
+            "name": "bpf_sk_storage_get",
+            "args": [
+                {
+                    "type": "struct bpf_map",
+                    "star": "*",
+                    "name": "map"
+                },
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "sk"
+                },
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "value"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "flags"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_sk_storage_delete",
+            "args": [
+                {
+                    "type": "struct bpf_map",
+                    "star": "*",
+                    "name": "map"
+                },
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "sk"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_send_signal",
+            "args": [
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "sig"
+                }
+            ]
+        },
+        {
+            "ret_type": "s64",
+            "ret_star": "",
+            "name": "bpf_tcp_gen_syncookie",
+            "args": [
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "sk"
+                },
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "iph"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "iph_len"
+                },
+                {
+                    "type": "struct tcphdr",
+                    "star": "*",
+                    "name": "th"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "th_len"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_skb_output",
+            "args": [
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "ctx"
+                },
+                {
+                    "type": "struct bpf_map",
+                    "star": "*",
+                    "name": "map"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "flags"
+                },
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "data"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "size"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_probe_read_user",
+            "args": [
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "dst"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "size"
+                },
+                {
+                    "type": "const void",
+                    "star": "*",
+                    "name": "unsafe_ptr"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_probe_read_kernel",
+            "args": [
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "dst"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "size"
+                },
+                {
+                    "type": "const void",
+                    "star": "*",
+                    "name": "unsafe_ptr"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_probe_read_user_str",
+            "args": [
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "dst"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "size"
+                },
+                {
+                    "type": "const void",
+                    "star": "*",
+                    "name": "unsafe_ptr"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_probe_read_kernel_str",
+            "args": [
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "dst"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "size"
+                },
+                {
+                    "type": "const void",
+                    "star": "*",
+                    "name": "unsafe_ptr"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_tcp_send_ack",
+            "args": [
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "tp"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "rcv_nxt"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_send_signal_thread",
+            "args": [
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "sig"
+                }
+            ]
+        },
+        {
+            "ret_type": "u64",
+            "ret_star": "",
+            "name": "bpf_jiffies64",
+            "args": [
+                {
+                    "type": "void",
+                    "star": null,
+                    "name": null
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_read_branch_records",
+            "args": [
+                {
+                    "type": "struct bpf_perf_event_data",
+                    "star": "*",
+                    "name": "ctx"
+                },
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "buf"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "size"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "flags"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_get_ns_current_pid_tgid",
+            "args": [
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "dev"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "ino"
+                },
+                {
+                    "type": "struct bpf_pidns_info",
+                    "star": "*",
+                    "name": "nsdata"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "size"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_xdp_output",
+            "args": [
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "ctx"
+                },
+                {
+                    "type": "struct bpf_map",
+                    "star": "*",
+                    "name": "map"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "flags"
+                },
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "data"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "size"
+                }
+            ]
+        },
+        {
+            "ret_type": "u64",
+            "ret_star": "",
+            "name": "bpf_get_netns_cookie",
+            "args": [
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "ctx"
+                }
+            ]
+        },
+        {
+            "ret_type": "u64",
+            "ret_star": "",
+            "name": "bpf_get_current_ancestor_cgroup_id",
+            "args": [
+                {
+                    "type": "int",
+                    "star": "",
+                    "name": "ancestor_level"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_sk_assign",
+            "args": [
+                {
+                    "type": "struct sk_buff",
+                    "star": "*",
+                    "name": "skb"
+                },
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "sk"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "flags"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_sk_assign",
+            "args": [
+                {
+                    "type": "struct bpf_sk_lookup",
+                    "star": "*",
+                    "name": "ctx"
+                },
+                {
+                    "type": "struct bpf_sock",
+                    "star": "*",
+                    "name": "sk"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "flags"
+                }
+            ]
+        },
+        {
+            "ret_type": "u64",
+            "ret_star": "",
+            "name": "bpf_ktime_get_boot_ns",
+            "args": [
+                {
+                    "type": "void",
+                    "star": null,
+                    "name": null
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_seq_printf",
+            "args": [
+                {
+                    "type": "struct seq_file",
+                    "star": "*",
+                    "name": "m"
+                },
+                {
+                    "type": "const char",
+                    "star": "*",
+                    "name": "fmt"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "fmt_size"
+                },
+                {
+                    "type": "const void",
+                    "star": "*",
+                    "name": "data"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "data_len"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_seq_write",
+            "args": [
+                {
+                    "type": "struct seq_file",
+                    "star": "*",
+                    "name": "m"
+                },
+                {
+                    "type": "const void",
+                    "star": "*",
+                    "name": "data"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "len"
+                }
+            ]
+        },
+        {
+            "ret_type": "u64",
+            "ret_star": "",
+            "name": "bpf_sk_cgroup_id",
+            "args": [
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "sk"
+                }
+            ]
+        },
+        {
+            "ret_type": "u64",
+            "ret_star": "",
+            "name": "bpf_sk_ancestor_cgroup_id",
+            "args": [
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "sk"
+                },
+                {
+                    "type": "int",
+                    "star": "",
+                    "name": "ancestor_level"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_ringbuf_output",
+            "args": [
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "ringbuf"
+                },
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "data"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "size"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "flags"
+                }
+            ]
+        },
+        {
+            "ret_type": "void",
+            "ret_star": "*",
+            "name": "bpf_ringbuf_reserve",
+            "args": [
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "ringbuf"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "size"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "flags"
+                }
+            ]
+        },
+        {
+            "ret_type": "void",
+            "ret_star": "",
+            "name": "bpf_ringbuf_submit",
+            "args": [
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "data"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "flags"
+                }
+            ]
+        },
+        {
+            "ret_type": "void",
+            "ret_star": "",
+            "name": "bpf_ringbuf_discard",
+            "args": [
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "data"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "flags"
+                }
+            ]
+        },
+        {
+            "ret_type": "u64",
+            "ret_star": "",
+            "name": "bpf_ringbuf_query",
+            "args": [
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "ringbuf"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "flags"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_csum_level",
+            "args": [
+                {
+                    "type": "struct sk_buff",
+                    "star": "*",
+                    "name": "skb"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "level"
+                }
+            ]
+        },
+        {
+            "ret_type": "struct tcp6_sock",
+            "ret_star": "*",
+            "name": "bpf_skc_to_tcp6_sock",
+            "args": [
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "sk"
+                }
+            ]
+        },
+        {
+            "ret_type": "struct tcp_sock",
+            "ret_star": "*",
+            "name": "bpf_skc_to_tcp_sock",
+            "args": [
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "sk"
+                }
+            ]
+        },
+        {
+            "ret_type": "struct tcp_timewait_sock",
+            "ret_star": "*",
+            "name": "bpf_skc_to_tcp_timewait_sock",
+            "args": [
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "sk"
+                }
+            ]
+        },
+        {
+            "ret_type": "struct tcp_request_sock",
+            "ret_star": "*",
+            "name": "bpf_skc_to_tcp_request_sock",
+            "args": [
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "sk"
+                }
+            ]
+        },
+        {
+            "ret_type": "struct udp6_sock",
+            "ret_star": "*",
+            "name": "bpf_skc_to_udp6_sock",
+            "args": [
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "sk"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_get_task_stack",
+            "args": [
+                {
+                    "type": "struct task_struct",
+                    "star": "*",
+                    "name": "task"
+                },
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "buf"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "size"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "flags"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_load_hdr_opt",
+            "args": [
+                {
+                    "type": "struct bpf_sock_ops",
+                    "star": "*",
+                    "name": "skops"
+                },
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "searchby_res"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "len"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "flags"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_store_hdr_opt",
+            "args": [
+                {
+                    "type": "struct bpf_sock_ops",
+                    "star": "*",
+                    "name": "skops"
+                },
+                {
+                    "type": "const void",
+                    "star": "*",
+                    "name": "from"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "len"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "flags"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_reserve_hdr_opt",
+            "args": [
+                {
+                    "type": "struct bpf_sock_ops",
+                    "star": "*",
+                    "name": "skops"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "len"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "flags"
+                }
+            ]
+        },
+        {
+            "ret_type": "void",
+            "ret_star": "*",
+            "name": "bpf_inode_storage_get",
+            "args": [
+                {
+                    "type": "struct bpf_map",
+                    "star": "*",
+                    "name": "map"
+                },
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "inode"
+                },
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "value"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "flags"
+                }
+            ]
+        },
+        {
+            "ret_type": "int",
+            "ret_star": "",
+            "name": "bpf_inode_storage_delete",
+            "args": [
+                {
+                    "type": "struct bpf_map",
+                    "star": "*",
+                    "name": "map"
+                },
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "inode"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_d_path",
+            "args": [
+                {
+                    "type": "struct path",
+                    "star": "*",
+                    "name": "path"
+                },
+                {
+                    "type": "char",
+                    "star": "*",
+                    "name": "buf"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "sz"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_copy_from_user",
+            "args": [
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "dst"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "size"
+                },
+                {
+                    "type": "const void",
+                    "star": "*",
+                    "name": "user_ptr"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_snprintf_btf",
+            "args": [
+                {
+                    "type": "char",
+                    "star": "*",
+                    "name": "str"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "str_size"
+                },
+                {
+                    "type": "struct btf_ptr",
+                    "star": "*",
+                    "name": "ptr"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "btf_ptr_size"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "flags"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_seq_printf_btf",
+            "args": [
+                {
+                    "type": "struct seq_file",
+                    "star": "*",
+                    "name": "m"
+                },
+                {
+                    "type": "struct btf_ptr",
+                    "star": "*",
+                    "name": "ptr"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "ptr_size"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "flags"
+                }
+            ]
+        },
+        {
+            "ret_type": "u64",
+            "ret_star": "",
+            "name": "bpf_skb_cgroup_classid",
+            "args": [
+                {
+                    "type": "struct sk_buff",
+                    "star": "*",
+                    "name": "skb"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_redirect_neigh",
+            "args": [
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "ifindex"
+                },
+                {
+                    "type": "struct bpf_redir_neigh",
+                    "star": "*",
+                    "name": "params"
+                },
+                {
+                    "type": "int",
+                    "star": "",
+                    "name": "plen"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "flags"
+                }
+            ]
+        },
+        {
+            "ret_type": "void",
+            "ret_star": "*",
+            "name": "bpf_per_cpu_ptr",
+            "args": [
+                {
+                    "type": "const void",
+                    "star": "*",
+                    "name": "percpu_ptr"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "cpu"
+                }
+            ]
+        },
+        {
+            "ret_type": "void",
+            "ret_star": "*",
+            "name": "bpf_this_cpu_ptr",
+            "args": [
+                {
+                    "type": "const void",
+                    "star": "*",
+                    "name": "percpu_ptr"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_redirect_peer",
+            "args": [
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "ifindex"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "flags"
+                }
+            ]
+        },
+        {
+            "ret_type": "void",
+            "ret_star": "*",
+            "name": "bpf_task_storage_get",
+            "args": [
+                {
+                    "type": "struct bpf_map",
+                    "star": "*",
+                    "name": "map"
+                },
+                {
+                    "type": "struct task_struct",
+                    "star": "*",
+                    "name": "task"
+                },
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "value"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "flags"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_task_storage_delete",
+            "args": [
+                {
+                    "type": "struct bpf_map",
+                    "star": "*",
+                    "name": "map"
+                },
+                {
+                    "type": "struct task_struct",
+                    "star": "*",
+                    "name": "task"
+                }
+            ]
+        },
+        {
+            "ret_type": "struct task_struct",
+            "ret_star": "*",
+            "name": "bpf_get_current_task_btf",
+            "args": [
+                {
+                    "type": "void",
+                    "star": null,
+                    "name": null
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_bprm_opts_set",
+            "args": [
+                {
+                    "type": "struct linux_binprm",
+                    "star": "*",
+                    "name": "bprm"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "flags"
+                }
+            ]
+        },
+        {
+            "ret_type": "u64",
+            "ret_star": "",
+            "name": "bpf_ktime_get_coarse_ns",
+            "args": [
+                {
+                    "type": "void",
+                    "star": null,
+                    "name": null
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_ima_inode_hash",
+            "args": [
+                {
+                    "type": "struct inode",
+                    "star": "*",
+                    "name": "inode"
+                },
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "dst"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "size"
+                }
+            ]
+        },
+        {
+            "ret_type": "struct socket",
+            "ret_star": "*",
+            "name": "bpf_sock_from_file",
+            "args": [
+                {
+                    "type": "struct file",
+                    "star": "*",
+                    "name": "file"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_check_mtu",
+            "args": [
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "ctx"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "ifindex"
+                },
+                {
+                    "type": "u32",
+                    "star": "*",
+                    "name": "mtu_len"
+                },
+                {
+                    "type": "s32",
+                    "star": "",
+                    "name": "len_diff"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "flags"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_for_each_map_elem",
+            "args": [
+                {
+                    "type": "struct bpf_map",
+                    "star": "*",
+                    "name": "map"
+                },
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "callback_fn"
+                },
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "callback_ctx"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "flags"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_snprintf",
+            "args": [
+                {
+                    "type": "char",
+                    "star": "*",
+                    "name": "str"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "str_size"
+                },
+                {
+                    "type": "const char",
+                    "star": "*",
+                    "name": "fmt"
+                },
+                {
+                    "type": "u64",
+                    "star": "*",
+                    "name": "data"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "data_len"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_sys_bpf",
+            "args": [
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "cmd"
+                },
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "attr"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "attr_size"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_btf_find_by_name_kind",
+            "args": [
+                {
+                    "type": "char",
+                    "star": "*",
+                    "name": "name"
+                },
+                {
+                    "type": "int",
+                    "star": "",
+                    "name": "name_sz"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "kind"
+                },
+                {
+                    "type": "int",
+                    "star": "",
+                    "name": "flags"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_sys_close",
+            "args": [
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "fd"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_timer_init",
+            "args": [
+                {
+                    "type": "struct bpf_timer",
+                    "star": "*",
+                    "name": "timer"
+                },
+                {
+                    "type": "struct bpf_map",
+                    "star": "*",
+                    "name": "map"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "flags"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_timer_set_callback",
+            "args": [
+                {
+                    "type": "struct bpf_timer",
+                    "star": "*",
+                    "name": "timer"
+                },
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "callback_fn"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_timer_start",
+            "args": [
+                {
+                    "type": "struct bpf_timer",
+                    "star": "*",
+                    "name": "timer"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "nsecs"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "flags"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_timer_cancel",
+            "args": [
+                {
+                    "type": "struct bpf_timer",
+                    "star": "*",
+                    "name": "timer"
+                }
+            ]
+        },
+        {
+            "ret_type": "u64",
+            "ret_star": "",
+            "name": "bpf_get_func_ip",
+            "args": [
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "ctx"
+                }
+            ]
+        },
+        {
+            "ret_type": "u64",
+            "ret_star": "",
+            "name": "bpf_get_attach_cookie",
+            "args": [
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "ctx"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_task_pt_regs",
+            "args": [
+                {
+                    "type": "struct task_struct",
+                    "star": "*",
+                    "name": "task"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_get_branch_snapshot",
+            "args": [
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "entries"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "size"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "flags"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_trace_vprintk",
+            "args": [
+                {
+                    "type": "const char",
+                    "star": "*",
+                    "name": "fmt"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "fmt_size"
+                },
+                {
+                    "type": "const void",
+                    "star": "*",
+                    "name": "data"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "data_len"
+                }
+            ]
+        },
+        {
+            "ret_type": "struct unix_sock",
+            "ret_star": "*",
+            "name": "bpf_skc_to_unix_sock",
+            "args": [
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "sk"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_kallsyms_lookup_name",
+            "args": [
+                {
+                    "type": "const char",
+                    "star": "*",
+                    "name": "name"
+                },
+                {
+                    "type": "int",
+                    "star": "",
+                    "name": "name_sz"
+                },
+                {
+                    "type": "int",
+                    "star": "",
+                    "name": "flags"
+                },
+                {
+                    "type": "u64",
+                    "star": "*",
+                    "name": "res"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_find_vma",
+            "args": [
+                {
+                    "type": "struct task_struct",
+                    "star": "*",
+                    "name": "task"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "addr"
+                },
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "callback_fn"
+                },
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "callback_ctx"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "flags"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_loop",
+            "args": [
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "nr_loops"
+                },
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "callback_fn"
+                },
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "callback_ctx"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "flags"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_strncmp",
+            "args": [
+                {
+                    "type": "const char",
+                    "star": "*",
+                    "name": "s1"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "s1_sz"
+                },
+                {
+                    "type": "const char",
+                    "star": "*",
+                    "name": "s2"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_get_func_arg",
+            "args": [
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "ctx"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "n"
+                },
+                {
+                    "type": "u64",
+                    "star": "*",
+                    "name": "value"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_get_func_ret",
+            "args": [
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "ctx"
+                },
+                {
+                    "type": "u64",
+                    "star": "*",
+                    "name": "value"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_get_func_arg_cnt",
+            "args": [
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "ctx"
+                }
+            ]
+        },
+        {
+            "ret_type": "int",
+            "ret_star": "",
+            "name": "bpf_get_retval",
+            "args": [
+                {
+                    "type": "void",
+                    "star": null,
+                    "name": null
+                }
+            ]
+        },
+        {
+            "ret_type": "int",
+            "ret_star": "",
+            "name": "bpf_set_retval",
+            "args": [
+                {
+                    "type": "int",
+                    "star": "",
+                    "name": "retval"
+                }
+            ]
+        },
+        {
+            "ret_type": "u64",
+            "ret_star": "",
+            "name": "bpf_xdp_get_buff_len",
+            "args": [
+                {
+                    "type": "struct xdp_buff",
+                    "star": "*",
+                    "name": "xdp_md"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_xdp_load_bytes",
+            "args": [
+                {
+                    "type": "struct xdp_buff",
+                    "star": "*",
+                    "name": "xdp_md"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "offset"
+                },
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "buf"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "len"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_xdp_store_bytes",
+            "args": [
+                {
+                    "type": "struct xdp_buff",
+                    "star": "*",
+                    "name": "xdp_md"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "offset"
+                },
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "buf"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "len"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_copy_from_user_task",
+            "args": [
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "dst"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "size"
+                },
+                {
+                    "type": "const void",
+                    "star": "*",
+                    "name": "user_ptr"
+                },
+                {
+                    "type": "struct task_struct",
+                    "star": "*",
+                    "name": "tsk"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "flags"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_skb_set_tstamp",
+            "args": [
+                {
+                    "type": "struct sk_buff",
+                    "star": "*",
+                    "name": "skb"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "tstamp"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "tstamp_type"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_ima_file_hash",
+            "args": [
+                {
+                    "type": "struct file",
+                    "star": "*",
+                    "name": "file"
+                },
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "dst"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "size"
+                }
+            ]
+        },
+        {
+            "ret_type": "void",
+            "ret_star": "*",
+            "name": "bpf_kptr_xchg",
+            "args": [
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "dst"
+                },
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "ptr"
+                }
+            ]
+        },
+        {
+            "ret_type": "void",
+            "ret_star": "*",
+            "name": "bpf_map_lookup_percpu_elem",
+            "args": [
+                {
+                    "type": "struct bpf_map",
+                    "star": "*",
+                    "name": "map"
+                },
+                {
+                    "type": "const void",
+                    "star": "*",
+                    "name": "key"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "cpu"
+                }
+            ]
+        },
+        {
+            "ret_type": "struct mptcp_sock",
+            "ret_star": "*",
+            "name": "bpf_skc_to_mptcp_sock",
+            "args": [
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "sk"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_dynptr_from_mem",
+            "args": [
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "data"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "size"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "flags"
+                },
+                {
+                    "type": "struct bpf_dynptr",
+                    "star": "*",
+                    "name": "ptr"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_ringbuf_reserve_dynptr",
+            "args": [
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "ringbuf"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "size"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "flags"
+                },
+                {
+                    "type": "struct bpf_dynptr",
+                    "star": "*",
+                    "name": "ptr"
+                }
+            ]
+        },
+        {
+            "ret_type": "void",
+            "ret_star": "",
+            "name": "bpf_ringbuf_submit_dynptr",
+            "args": [
+                {
+                    "type": "struct bpf_dynptr",
+                    "star": "*",
+                    "name": "ptr"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "flags"
+                }
+            ]
+        },
+        {
+            "ret_type": "void",
+            "ret_star": "",
+            "name": "bpf_ringbuf_discard_dynptr",
+            "args": [
+                {
+                    "type": "struct bpf_dynptr",
+                    "star": "*",
+                    "name": "ptr"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "flags"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_dynptr_read",
+            "args": [
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "dst"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "len"
+                },
+                {
+                    "type": "const struct bpf_dynptr",
+                    "star": "*",
+                    "name": "src"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "offset"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "flags"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_dynptr_write",
+            "args": [
+                {
+                    "type": "const struct bpf_dynptr",
+                    "star": "*",
+                    "name": "dst"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "offset"
+                },
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "src"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "len"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "flags"
+                }
+            ]
+        },
+        {
+            "ret_type": "void",
+            "ret_star": "*",
+            "name": "bpf_dynptr_data",
+            "args": [
+                {
+                    "type": "const struct bpf_dynptr",
+                    "star": "*",
+                    "name": "ptr"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "offset"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "len"
+                }
+            ]
+        },
+        {
+            "ret_type": "s64",
+            "ret_star": "",
+            "name": "bpf_tcp_raw_gen_syncookie_ipv4",
+            "args": [
+                {
+                    "type": "struct iphdr",
+                    "star": "*",
+                    "name": "iph"
+                },
+                {
+                    "type": "struct tcphdr",
+                    "star": "*",
+                    "name": "th"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "th_len"
+                }
+            ]
+        },
+        {
+            "ret_type": "s64",
+            "ret_star": "",
+            "name": "bpf_tcp_raw_gen_syncookie_ipv6",
+            "args": [
+                {
+                    "type": "struct ipv6hdr",
+                    "star": "*",
+                    "name": "iph"
+                },
+                {
+                    "type": "struct tcphdr",
+                    "star": "*",
+                    "name": "th"
+                },
+                {
+                    "type": "u32",
+                    "star": "",
+                    "name": "th_len"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_tcp_raw_check_syncookie_ipv4",
+            "args": [
+                {
+                    "type": "struct iphdr",
+                    "star": "*",
+                    "name": "iph"
+                },
+                {
+                    "type": "struct tcphdr",
+                    "star": "*",
+                    "name": "th"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_tcp_raw_check_syncookie_ipv6",
+            "args": [
+                {
+                    "type": "struct ipv6hdr",
+                    "star": "*",
+                    "name": "iph"
+                },
+                {
+                    "type": "struct tcphdr",
+                    "star": "*",
+                    "name": "th"
+                }
+            ]
+        },
+        {
+            "ret_type": "u64",
+            "ret_star": "",
+            "name": "bpf_ktime_get_tai_ns",
+            "args": [
+                {
+                    "type": "void",
+                    "star": null,
+                    "name": null
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_user_ringbuf_drain",
+            "args": [
+                {
+                    "type": "struct bpf_map",
+                    "star": "*",
+                    "name": "map"
+                },
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "callback_fn"
+                },
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "ctx"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "flags"
+                }
+            ]
+        },
+        {
+            "ret_type": "void",
+            "ret_star": "*",
+            "name": "bpf_cgrp_storage_get",
+            "args": [
+                {
+                    "type": "struct bpf_map",
+                    "star": "*",
+                    "name": "map"
+                },
+                {
+                    "type": "struct cgroup",
+                    "star": "*",
+                    "name": "cgroup"
+                },
+                {
+                    "type": "void",
+                    "star": "*",
+                    "name": "value"
+                },
+                {
+                    "type": "u64",
+                    "star": "",
+                    "name": "flags"
+                }
+            ]
+        },
+        {
+            "ret_type": "long",
+            "ret_star": "",
+            "name": "bpf_cgrp_storage_delete",
+            "args": [
+                {
+                    "type": "struct bpf_map",
+                    "star": "*",
+                    "name": "map"
+                },
+                {
+                    "type": "struct cgroup",
+                    "star": "*",
+                    "name": "cgroup"
+                }
+            ]
+        }
+    ]
+}

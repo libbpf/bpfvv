@@ -10,6 +10,8 @@ import {
     parseLine
 } from './parser.js';
 
+import BPF_HELPERS_JSON from './bpf-helpers.json' with { type: "json" };
+
 export enum Effect {
     NONE = "NONE",
     READ = "READ",
@@ -235,6 +237,17 @@ const createApp = (url: string) => {
         memSlotDependencies: new Set<number>(),
     };
 
+    const buildBpfHelpersMap = async () : Promise<Map<string, any>> => {
+        const map = new Map();
+        for (const helper of BPF_HELPERS_JSON.helpers) {
+            map.set(helper.name, helper.args)
+        }
+        return map;
+    }
+
+    let bpfHelpersMap = new Map();
+    buildBpfHelpersMap().then(map => bpfHelpersMap = map);
+
     const mostRecentBpfState = (state: AppState, idx: number): { state: BpfState, idx: number } => {
         let bpfState = null;
         idx = Math.max(0, Math.min(idx, state.bpfStates.length - 1));
@@ -437,8 +450,10 @@ const createApp = (url: string) => {
         }
     }
 
-    const regSpan = (reg: string): string => {
-        return `<span class="mem-slot" id="${reg}">${reg}</span>`;
+    const regSpan = (reg: string, display: string = ''): string => {
+        if (!display)
+            display = reg;
+        return `<span class="mem-slot" id="${reg}">${display}</span>`;
     }
 
     const callHtml = (line: ParsedLine): string => {
@@ -446,14 +461,36 @@ const createApp = (url: string) => {
         let html = '';
         const start = line.raw.length + ins.location.offset;
         const end = start + ins.location.size;
-        html += line.raw.slice(start, end);
-        html += '(';
-        for (let i = 1; i <= 5; i++) {
-            html += `${regSpan(`r${i}`)}`;
-            if (i < 5)
-                html += ', ';
+        const target = ins.jmp?.target;
+        const helperName = target.substring(0, target.indexOf('#'))
+
+        if (bpfHelpersMap.has(helperName)) {
+            const args = bpfHelpersMap.get(helperName);
+            let i = 1;
+            const href = `<a href=https://docs.ebpf.io/linux/helper-function/${helperName}/ target="_blank">${helperName}</a>`
+            html += `${href}(`
+            for (const arg of args) {
+                if (typeof arg.name == 'string') {
+                    const display = `${arg.name} = r${i}`;
+                    html += `${regSpan(`r${i}`, `${display}`)}`
+                } else {
+                    html += `${regSpan(`r${i}`)}`
+                }
+                if (i < args.length)
+                    html += ", "
+                i += 1
+            }
+            html += ')'
+        } else {
+            const numArgs = 5;
+            html += line.raw.slice(start, end);
+            html += '(';
+            for (let i = 1; i < 5; i++) {
+                html += `${regSpan(`r${i}`)}, `;
+            }
+            html += `${regSpan(`r${numArgs}`)})`;
         }
-        html += ')';
+
         return html;
     }
 
