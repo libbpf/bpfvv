@@ -183,7 +183,7 @@ type AppState = {
     bpfStates: BpfState[];
     selectedLineIdx: number;
     selectedMemSlotId: string; // 'r1', 'fp-244' etc.
-    memSlotDependencies: Set<number>; // set of idx
+    memSlotDependencies: number[]; // sorted array of idx
 }
 
 const getUrlParameter = (param: string): string | null => {
@@ -218,6 +218,7 @@ const createApp = (url: string) => {
     const mainContent = document.getElementById('main-content') as HTMLElement;
     const lineNumbersPc = document.getElementById('line-numbers-pc') as HTMLElement;
     const lineNumbersIdx = document.getElementById('line-numbers-idx') as HTMLElement;
+    const dependencyArrows = document.getElementById('dependency-arrows') as HTMLElement;
 
     const logContainer = document.getElementById('log-container') as HTMLElement;
     const logLines = document.getElementById('formatted-log-lines') as HTMLElement;
@@ -234,7 +235,7 @@ const createApp = (url: string) => {
         bpfStates: [],
         selectedLineIdx: 0,
         selectedMemSlotId: '',
-        memSlotDependencies: new Set<number>(),
+        memSlotDependencies: [],
     };
 
     const buildBpfHelpersMap = async () : Promise<Map<string, any>> => {
@@ -249,7 +250,7 @@ const createApp = (url: string) => {
     buildBpfHelpersMap().then(map => bpfHelpersMap = map);
 
     const mostRecentBpfState = (state: AppState, idx: number): { state: BpfState, idx: number } => {
-        let bpfState = null;
+        let bpfState : BpfState | null = null;
         idx = Math.max(0, Math.min(idx, state.bpfStates.length - 1));
         for (let i = idx; i >= 0; i--) {
             bpfState = state.bpfStates[i];
@@ -259,11 +260,11 @@ const createApp = (url: string) => {
         return { state: initialBpfState(), idx: 0 };
     }
 
-    const collectMemSlotDependencies = (state: AppState, memSlotId: string): Set<number> => {
+    const collectMemSlotDependencies = (state: AppState, memSlotId: string): number[] => {
         let targetIdx = state.selectedLineIdx;
         const ins = state.lines[state.selectedLineIdx].bpfIns;
         if (!ins)
-            return new Set<number>();
+            return [];
         // if user clicked on a mem slot that is written to,
         // then switch target to the first read slot
         if (!ins.reads.find(id => id === memSlotId)
@@ -290,12 +291,14 @@ const createApp = (url: string) => {
             memSlotId = depIns.reads[0];
             bpfState = state.bpfStates[depIdx];
         }
-        return deps;
+        const arr = Array.from(deps);
+        arr.sort((a,b) => a - b);
+        return arr;
     }
 
     const resetSelectedMemSlot = (state: AppState): void => {
         state.selectedMemSlotId = '';
-        state.memSlotDependencies = new Set<number>();
+        state.memSlotDependencies = [];
     }
 
     const updateSelectedLineHint = (idx: number): void => {
@@ -359,32 +362,100 @@ const createApp = (url: string) => {
     }
 
     const memSlotMouseOver = (memSlot: HTMLElement): void => {
-        if (memSlot) {
-            const tooltip = getTooltip();
-            const arrow = getTooltipArrow();
-            const idx = contentLineIdx(memSlot.closest('.log-line'));
-            const displayValue = memSlotDisplayValue(state, memSlot.id, idx);
-            memSlot.classList.add('hovered-mem-slot');
-            if (displayValue) {
-                // Text needs to be set first, so that position is calculated correctly
-                tooltip.innerHTML = displayValue;
-                tooltip.style.display = 'block';
-                const rect = memSlot.getBoundingClientRect();
-                const tooltipLeft = Math.max(0, rect.left - tooltip.offsetWidth / 2 + rect.width / 2);
-                tooltip.style.left = `${tooltipLeft}px`;
-                tooltip.style.top = `${rect.bottom + 5}px`;
-                arrow.style.display = 'block';
-                const arrowLeft = Math.max(0, rect.left + rect.width / 2);
-                arrow.style.left = `${arrowLeft}px`;
-                arrow.style.top = `${rect.bottom}px`;
-            } else {
-                tooltip.style.display = 'none';
-                arrow.style.display = 'none';
-            }
+        if (!memSlot) return;
+        const logLine = memSlot.closest('.log-line') as HTMLElement;
+        if (!logLine) return;
+        const tooltip = getTooltip();
+        const arrow = getTooltipArrow();
+        const idx = contentLineIdx(logLine);
+        const displayValue = memSlotDisplayValue(state, memSlot.id, idx);
+        memSlot.classList.add('hovered-mem-slot');
+        if (displayValue) {
+            // Text needs to be set first, so that position is calculated correctly
+            tooltip.innerHTML = displayValue;
+            tooltip.style.display = 'block';
+            const rect = memSlot.getBoundingClientRect();
+            const tooltipLeft = Math.max(0, rect.left - tooltip.offsetWidth / 2 + rect.width / 2);
+            tooltip.style.left = `${tooltipLeft}px`;
+            tooltip.style.top = `${rect.bottom + 5}px`;
+            arrow.style.display = 'block';
+            const arrowLeft = Math.max(0, rect.left + rect.width / 2);
+            arrow.style.left = `${arrowLeft}px`;
+            arrow.style.top = `${rect.bottom}px`;
+        } else {
+            tooltip.style.display = 'none';
+            arrow.style.display = 'none';
         }
     }
 
-    const handleMouseOver = (e: MouseEvent): void => {
+    const depArrowMouseOver = (e: MouseEvent): void => {
+        const hoveredElement = e.target as HTMLElement;
+        const div = hoveredElement.closest('.dep-arrow') as HTMLElement;
+        if (!div || div.textContent !== '│ ')
+            return;
+        const idx = parseInt(div.getAttribute('line-index') || '0', 10);
+        const idxs = [...state.memSlotDependencies, state.selectedLineIdx];
+        let prev = idxs[0];
+        let next = idxs[idxs.length - 1];
+        for (let i = 1; i < idxs.length; i++) {
+            if (idxs[i] > idx) {
+                next = idxs[i];
+                break;
+            } else {
+                prev = idxs[i];
+            }
+        }
+
+        const [minVisibleIdx, maxVisibleIdx] = getVisibleIdxRange();
+        const isVisible = (idx: number) => {
+            return minVisibleIdx < idx && idx < maxVisibleIdx;
+        }
+        const setTargetToPrev = () => {
+            div.textContent = '▲ ';
+            div.setAttribute('target-idx', prev.toString());
+        }
+        const setTargetToNext = () => {
+            div.textContent = '▼ ';
+            div.setAttribute('target-idx', next.toString());
+        }
+
+        if (isVisible(prev) && isVisible(next))
+            return;
+
+        if (isVisible(prev)) {
+            setTargetToNext();
+        } else if (isVisible(next)) {
+            setTargetToPrev();
+        } else {
+            const mid = (minVisibleIdx + maxVisibleIdx) / 2;
+            if (idx < mid)
+                setTargetToPrev();
+            else
+                setTargetToNext();
+        }
+    }
+
+    const depArrowMouseOut = (e: MouseEvent): void => {
+        const hoveredElement = e.target as HTMLElement;
+        const div = hoveredElement.closest('.dep-arrow') as HTMLElement;
+        if (div && (div.textContent === '▲ ' || div.textContent === '▼ ')) {
+            div.textContent = '│ ';
+            div.removeAttribute('target-idx');
+        }
+    }
+
+    const depArrowMouseClick = async (e: MouseEvent) => {
+        const hoveredElement = e.target as HTMLElement;
+        const div = hoveredElement.closest('.dep-arrow') as HTMLElement;
+        if (!div)
+            return;
+        const target = parseInt(div.getAttribute('target-idx') || '-1', 10);
+        if (target === -1)
+            return;
+        scrollToLine(target);
+    };
+
+    const logLinesMouseOver = (e: MouseEvent): void => {
         const hoveredElement = e.target as HTMLElement;
         const logLine = hoveredElement.closest('.log-line') as HTMLElement;
         const memSlot = hoveredElement.closest('.mem-slot') as HTMLElement;
@@ -407,7 +478,7 @@ const createApp = (url: string) => {
             logLine.classList.remove('hovered-line');
     }
 
-    const handleMouseOut = (e: MouseEvent): void => {
+    const logLinesMouseOut = (e: MouseEvent): void => {
         const hoveredElement = e.target as HTMLElement;
         const logLine = hoveredElement.closest('.log-line') as HTMLElement;
         const memSlot = hoveredElement.closest('.mem-slot') as HTMLElement;
@@ -564,9 +635,17 @@ const createApp = (url: string) => {
         gotoEnd();
     }
 
-    const textDiv = (text: string): HTMLElement => {
+    const textDiv = (text: string, styleClass: string = ''): HTMLElement => {
         const div = document.createElement('div');
         div.innerHTML = text;
+        if (styleClass)
+            div.classList.add(styleClass);
+        return div;
+    }
+
+    const dependencyArrowDiv = (idx: number): HTMLElement => {
+        const div = textDiv('\n', 'dep-arrow');
+        div.setAttribute('line-index', idx.toString());
         return div;
     }
 
@@ -581,6 +660,7 @@ const createApp = (url: string) => {
         logLines.appendChild(logLineDiv(parsedLine, bpfState));
         lineNumbersPc.appendChild(textDiv(pcText));
         lineNumbersIdx.appendChild(textDiv(`${idx+1}`));
+        dependencyArrows.appendChild(dependencyArrowDiv(idx));
     }
 
     // Load and parse the file into memory from the beggining to the end
@@ -678,7 +758,8 @@ const createApp = (url: string) => {
         if (!isSelectedLineParsed || !state.selectedMemSlotId || idx === -1)
             return;
 
-        if (idx === state.selectedLineIdx || state.memSlotDependencies.has(idx)) {
+        if (idx === state.selectedLineIdx || state.memSlotDependencies.includes(idx)) {
+            const memSlotSpan = div.querySelector(`#${state.selectedMemSlotId}`) as HTMLElement;
             if (state.selectedMemSlotId) {
                 div.querySelectorAll('.mem-slot').forEach(memSlot => {
                     memSlot.classList.add('dependency-mem-slot');
@@ -686,7 +767,6 @@ const createApp = (url: string) => {
             }
             if (idx === state.selectedLineIdx) {
                 setLineHighlightClass(div, 'selected-line');
-                const memSlotSpan = div.querySelector(`#${state.selectedMemSlotId}`) as HTMLElement;
                 if (memSlotSpan)
                     setLineHighlightClass(memSlotSpan, 'selected-mem-slot');
             } else {
@@ -721,12 +801,46 @@ const createApp = (url: string) => {
         return [minIdx, maxIdx];
     }
 
-    const updateLineFormatting = async (state: AppState): Promise<void> => {
+    const getUpdatableIdxRange = (): [number, number] => {
         // update more than just visible part to reduce flickering
         const [minVisibleIdx, maxVisibleIdx] = getVisibleIdxRange();
         const visibleCnt = maxVisibleIdx - minVisibleIdx + 1;
         const minIdx = normalIdx(minVisibleIdx - visibleCnt);
         const maxIdx = normalIdx(maxVisibleIdx + visibleCnt);
+        return [minIdx, maxIdx]
+    }
+
+    const updateDependencyArrows = async (state: AppState): Promise<void> => {
+        const [minIdx, maxIdx] = getUpdatableIdxRange();
+        const anchors = state.memSlotDependencies;
+        const maxAnchor = state.selectedLineIdx;
+        const minAnchor = Math.min(...anchors);
+        const divs = dependencyArrows.children;
+
+        if (!state.selectedMemSlotId) {
+            for (let idx = minIdx; idx <= maxIdx; idx++) {
+                divs[idx].textContent = '\n';
+            }
+            return;
+        }
+
+        for (let idx = minIdx; idx <= maxIdx; idx++) {
+            if (idx == maxAnchor) {
+                divs[idx].textContent = '└─'
+            } else if (idx == minAnchor) {
+                divs[idx].textContent = '┌─'
+            } else if (state.memSlotDependencies.includes(idx)) {
+                divs[idx].textContent = '├─'
+            } else if (minAnchor < idx && idx < maxAnchor) {
+                divs[idx].textContent = '│ '
+            } else {
+                divs[idx].textContent = '\n'
+            }
+        }
+    }
+
+    const updateLineFormatting = async (state: AppState): Promise<void> => {
+        const [minIdx, maxIdx] = getUpdatableIdxRange();
         for (let i = minIdx; i <= maxIdx; i++) {
             const child = logLines.children[i] as HTMLElement;
             const div = child as HTMLElement;
@@ -865,6 +979,7 @@ const createApp = (url: string) => {
         } else {
             mainContent.style.display = 'flex';
             inputText.style.display = 'none';
+            updateDependencyArrows(state);
             updateLineFormatting(state);
             updateStatePanel(state);
         }
@@ -876,7 +991,7 @@ const createApp = (url: string) => {
     };
 
     const normalIdx = (idx: number): number => {
-        return Math.min(Math.max(0, Math.floor(idx)), state.lines.length);
+        return Math.min(Math.max(0, Math.floor(idx)), state.lines.length - 1);
     }
 
     const handleKeyDown = async (e: KeyboardEvent) => {
@@ -959,9 +1074,12 @@ const createApp = (url: string) => {
     gotoStartButton.addEventListener('click', gotoStart);
     gotoEndButton.addEventListener('click', gotoEnd);
     logLines.addEventListener('click', handleLineClick);
-    logLines.addEventListener('mouseover', handleMouseOver);
-    logLines.addEventListener('mouseout', handleMouseOut);
+    logLines.addEventListener('mouseover', logLinesMouseOver);
+    logLines.addEventListener('mouseout', logLinesMouseOut);
 
+    dependencyArrows.addEventListener('mouseover', depArrowMouseOver);
+    dependencyArrows.addEventListener('mouseout', depArrowMouseOut);
+    dependencyArrows.addEventListener('click', depArrowMouseClick);
 
     if (url) {
         loadStatus.innerHTML = `Downloading ${url} ...`;
@@ -988,8 +1106,11 @@ const createApp = (url: string) => {
         gotoLineButton.removeEventListener('click', gotoLine);
         gotoEndButton.removeEventListener('click', gotoEnd);
         logLines.removeEventListener('click', handleLineClick);
-        logLines.removeEventListener('mouseover', handleMouseOver);
-        logLines.removeEventListener('mouseout', handleMouseOut);
+        logLines.removeEventListener('mouseover', logLinesMouseOver);
+        logLines.removeEventListener('mouseout', logLinesMouseOut);
+        dependencyArrows.removeEventListener('mouseover', depArrowMouseOver);
+        dependencyArrows.removeEventListener('mouseout', depArrowMouseOut);
+        dependencyArrows.removeEventListener('click', depArrowMouseClick);
         window.removeEventListener('resize', triggerUpdateView);
         logContainer.removeEventListener('scroll', triggerUpdateView);
     };

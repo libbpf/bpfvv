@@ -68,9 +68,21 @@ body {
     color: #444444;
 }
 
+#dependency-arrows {
+    padding-top: 10px;
+    padding-bottom: 10px;
+    line-height: 1.4;
+    text-align: right;
+    user-select: none;
+    min-width: 2em;
+    white-space: pre;
+    height: fit-content;
+
+}
 #formatted-log-lines {
     border: 1px solid #ccc;
     border-radius: 0 4px 4px 0;
+    border-left: none;
     background: white;
     padding: 10px;
     line-height: 1.4;
