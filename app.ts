@@ -789,7 +789,7 @@ const createApp = (url: string) => {
         const linesRect = logLines.getBoundingClientRect();
         const containerRect = logContainer.getBoundingClientRect();
 
-        if (containerRect.height * 2 > linesRect.height) {
+        if (containerRect.height > linesRect.height) {
             return [0, state.lines.length - 1];
         }
 
