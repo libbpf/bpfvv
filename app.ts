@@ -542,7 +542,7 @@ const createApp = (url: string) => {
             html += `${href}(`
             for (const arg of args) {
                 if (typeof arg.name == 'string') {
-                    const display = `${arg.name} = r${i}`;
+                    const display = `${arg.name}: r${i}`;
                     html += `${regSpan(`r${i}`, `${display}`)}`
                 } else {
                     html += `${regSpan(`r${i}`)}`
