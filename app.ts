@@ -238,10 +238,15 @@ const createApp = (url: string) => {
         memSlotDependencies: [],
     };
 
+    const isVoidHelperArg = (arg) : boolean => {
+        return arg.type === 'void' && arg.name == null && arg.star == null;
+    }
+
     const buildBpfHelpersMap = async () : Promise<Map<string, any>> => {
         const map = new Map();
         for (const helper of BPF_HELPERS_JSON.helpers) {
-            map.set(helper.name, helper.args)
+            helper.args = helper.args.filter(arg => !isVoidHelperArg(arg));
+            map.set(helper.name, helper.args);
         }
         return map;
     }
