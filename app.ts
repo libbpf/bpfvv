@@ -265,8 +265,35 @@ const createApp = (url: string) => {
         return { state: initialBpfState(), idx: 0 };
     }
 
+    const memSlotDependencies = (state: AppState, idx: number, memSlotId: string): Set<number> => {
+        let deps = new Set<number>();
+        const ins = state.lines[idx].bpfIns;
+        if (!ins)
+            return deps;
+
+        const bpfState = state.bpfStates[idx];
+        const effect = bpfState.values.get(memSlotId)?.effect;
+        const depIdx = bpfState.lastKnownWrites.get(memSlotId);
+        const depIns = state.lines[depIdx].bpfIns;
+        const nReads = depIns?.reads?.length;
+
+        if (!bpfState || !effect || !depIdx || !depIns)
+            return deps;
+
+        if (depIdx === idx && effect === Effect.UPDATE) {
+            const prevBpfState = mostRecentBpfState(state, idx-1).state;
+            const prevDepIdx = prevBpfState.lastKnownWrites.get(memSlotId);
+            deps = memSlotDependencies(state, prevDepIdx, memSlotId);
+        } else if (nReads === 1) {
+            deps = memSlotDependencies(state, depIdx, depIns.reads[0]);
+        }
+
+        deps.add(depIdx);
+
+        return deps;
+    }
+
     const collectMemSlotDependencies = (state: AppState, memSlotId: string): number[] => {
-        let targetIdx = state.selectedLineIdx;
         const ins = state.lines[state.selectedLineIdx].bpfIns;
         if (!ins)
             return [];
@@ -274,28 +301,10 @@ const createApp = (url: string) => {
         // then switch target to the first read slot
         if (!ins.reads.find(id => id === memSlotId)
                 && ins.writes.find(id => id === memSlotId)
-                && ins.reads.length > 0) {
+                && ins.reads.length === 1) {
             memSlotId = ins.reads[0];
         }
-        let bpfState : BpfState = state.bpfStates[state.selectedLineIdx];
-        const deps = new Set<number>();
-        while (true) {
-            let depIdx = bpfState.lastKnownWrites.get(memSlotId);
-            if (depIdx === targetIdx) {
-                // this is an Effect.UPDATE, so let's look at the previous bpfState
-                const prevBpfState = state.bpfStates[targetIdx-1];
-                depIdx = prevBpfState.lastKnownWrites.get(memSlotId);
-            }
-            if (!depIdx)
-                break;
-            deps.add(depIdx);
-            targetIdx = depIdx;
-            const depIns = state.lines[depIdx].bpfIns;
-            if (!depIns?.reads || depIns.reads.length != 1)
-                break;
-            memSlotId = depIns.reads[0];
-            bpfState = state.bpfStates[depIdx];
-        }
+        const deps = memSlotDependencies(state, state.selectedLineIdx, memSlotId);
         const arr = Array.from(deps);
         arr.sort((a,b) => a - b);
         return arr;
