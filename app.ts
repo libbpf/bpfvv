@@ -822,7 +822,9 @@ const createApp = (url: string) => {
         const minAnchor = Math.min(...anchors);
         const divs = dependencyArrows.children;
 
-        if (!state.selectedMemSlotId) {
+        if (!state.selectedMemSlotId
+            || anchors.length === 0
+            || minAnchor === maxAnchor) {
             for (let idx = minIdx; idx <= maxIdx; idx++) {
                 divs[idx].textContent = '\n';
             }
