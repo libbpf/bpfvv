@@ -272,18 +272,28 @@ const createApp = (url: string) => {
             return deps;
 
         const bpfState = state.bpfStates[idx];
+        if (!bpfState)
+            return deps;
+
         const effect = bpfState.values.get(memSlotId)?.effect;
+        if (!effect)
+            return deps;
+
+        if (!bpfState.lastKnownWrites.has(memSlotId)) return deps;
+
         const depIdx = bpfState.lastKnownWrites.get(memSlotId);
         const depIns = state.lines[depIdx].bpfIns;
-        const nReads = depIns?.reads?.length;
-
-        if (!bpfState || !effect || !depIdx || !depIns)
+        if (!depIns)
             return deps;
+
+        const nReads = depIns?.reads?.length;
 
         if (depIdx === idx && effect === Effect.UPDATE) {
             const prevBpfState = mostRecentBpfState(state, idx-1).state;
-            const prevDepIdx = prevBpfState.lastKnownWrites.get(memSlotId);
-            deps = memSlotDependencies(state, prevDepIdx, memSlotId);
+            if (prevBpfState.lastKnownWrites.has(memSlotId)) {
+                const prevDepIdx = prevBpfState.lastKnownWrites.get(memSlotId);
+                deps = memSlotDependencies(state, prevDepIdx, memSlotId);
+            }
         } else if (nReads === 1) {
             deps = memSlotDependencies(state, depIdx, depIns.reads[0]);
         }
