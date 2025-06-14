@@ -6,6 +6,8 @@
 > version of it) would be useful, feel free to use it and don't be shy
 > to report issues and request features via github. Thanks!
 
+[![CI](https://github.com/libbpf/bpfvv/actions/workflows/ci.yml/badge.svg)](https://github.com/libbpf/bpfvv/actions/workflows/ci.yml)
+
 **bpfvv** stands for BPF Verifier Visualizer
 
 https://libbpf.github.io/bpfvv/
