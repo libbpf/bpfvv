@@ -27,10 +27,44 @@ body {
     margin-bottom: 10px;
 }
 
+.resizer {
+    width: 5px;
+    background-color: #ddd;
+    cursor: col-resize;
+    flex-shrink: 0;
+    border-left: 1px solid #ccc;
+    border-right: 1px solid #ccc;
+    position: relative;
+}
+
+.resizer:hover {
+    background-color: #007bff;
+}
+
+.resizer:active {
+    background-color: #0056b3;
+}
+
+.resizer::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 3px;
+    height: 20px;
+    background-color: #999;
+    border-radius: 1px;
+}
+
+.resizer:hover::before {
+    background-color: white;
+}
+
 .main-content {
     display: flex;
     flex: 1;
-    gap: 10px;
+    gap: 0;
     min-height: 0; /* Important for flex child to respect parent height */
     font-family: monospace;
     font-size: 14px;
@@ -43,7 +77,8 @@ body {
     min-width: 200px;
     background-color: #f8f8f8;
     border: 1px solid #ccc;
-    border-radius: 4px;
+    border-left: none;
+    border-radius: 0 4px 4px 0;
     overflow: hidden;
 }
 
@@ -69,6 +104,10 @@ body {
     min-width: 0;
     gap: 0;
     overflow: auto;
+    border: 1px solid #ccc;
+    border-left: none;
+    border-right: none;
+    background-color: #f8f8f8;
 }
 
 #input-text {
@@ -114,6 +153,8 @@ body {
     line-height: 1.4;
     white-space: pre;
     height: fit-content;
+    flex: 1;
+    min-width: 0;
 }
 
 .state-panel {
@@ -122,7 +163,8 @@ body {
     padding: 10px;
     background-color: #f8f8f8;
     border: 1px solid #ccc;
-    border-radius: 4px;
+    border-right: none;
+    border-radius: 4px 0 0 4px;
     overflow: auto;
     max-width: none;
 }
