@@ -75,22 +75,18 @@ body {
     flex-direction: row;
     flex: 0.33;
     min-width: 200px;
-    background-color: #f8f8f8;
+    background-color: white;
     border: 1px solid #ccc;
     border-left: none;
     border-radius: 0 4px 4px 0;
-    overflow: hidden;
+    overflow: auto;
 }
 
 #source-code-content {
     flex: 1;
     padding: 10px;
-    background: white;
-    border: 1px solid #ccc;
-    border-radius: 4px;
     line-height: 1.4;
     white-space: pre;
-    overflow: auto;
     font-family: monospace;
     font-size: 14px;
     user-select: text;
@@ -124,7 +120,7 @@ body {
     text-align: right;
     color: #888888;
     user-select: none;
-    min-width: 3em;
+    min-width: fit-content;
     white-space: pre;
     height: fit-content;
 }

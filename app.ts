@@ -184,6 +184,7 @@ type AppState = {
     selectedLineIdx: number;
     selectedMemSlotId: string; // 'r1', 'fp-244' etc.
     memSlotDependencies: number[]; // sorted array of idx
+    cSourceLines: ParsedLine[];
 }
 
 const getUrlParameter = (param: string): string | null => {
@@ -243,6 +244,7 @@ const createApp = (url: string) => {
         selectedLineIdx: 0,
         selectedMemSlotId: '',
         memSlotDependencies: [],
+        cSourceLines: [],
     };
 
     const isVoidHelperArg = (arg) : boolean => {
@@ -658,10 +660,42 @@ const createApp = (url: string) => {
         return div;
     }
 
+    const fillSourceCodeContent = async (state: AppState): Promise<void> => {
+
+        if (state.cSourceLines.length <= 0)
+            return;
+
+        const contentDiv = document.getElementById('source-code-content') as HTMLElement;
+        const lineNumbersDiv = document.getElementById('source-code-line-numbers') as HTMLElement;
+        contentDiv.innerHTML = '';
+
+        state.cSourceLines.sort((a, b) => a.cSource?.line - b.cSource?.line);
+        let lineNum = state.cSourceLines[0].cSource.line;
+        const maxLineNum = state.cSourceLines[state.cSourceLines.length - 1].cSource.line;
+        let i = 0;
+
+        let filename = state.cSourceLines[0].cSource.filename;
+        while (lineNum <= maxLineNum && i < state.cSourceLines.length) {
+            const line = state.cSourceLines[i];
+            const div = document.createElement('div');
+            if (line.cSource?.line === lineNum) {
+                div.innerHTML = line.cSource.content;
+                filename = line.cSource.filename;
+                i++;
+            } else {
+                div.innerHTML = '<span style="color:grey">// nop \n</span>';
+            }
+            contentDiv.appendChild(div);
+            lineNumbersDiv.appendChild(textDiv(`${filename}:${lineNum}`));
+            lineNum++;
+        }
+    }
+
     const loadComplete = async (state: AppState): Promise<void> => {
         await Promise.all([
             updateView(state),
-            updateLoadStatus(100, 100)
+            updateLoadStatus(100, 100),
+            fillSourceCodeContent(state),
         ]);
         gotoEnd();
     }
@@ -692,6 +726,8 @@ const createApp = (url: string) => {
         lineNumbersPc.appendChild(textDiv(pcText));
         lineNumbersIdx.appendChild(textDiv(`${idx+1}`));
         dependencyArrows.appendChild(dependencyArrowDiv(idx));
+        if (parsedLine.type == ParsedLineType.C_SOURCE)
+            state.cSourceLines.push(parsedLine);
     }
 
     // Load and parse the file into memory from the beggining to the end
