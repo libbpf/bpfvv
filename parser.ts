@@ -125,6 +125,13 @@ export type BpfOperand = {
 export enum ParsedLineType {
     UNRECOGNIZED = "UNRECOGNIZED",
     INSTRUCTION = "INSTRUCTION",
+    C_SOURCE = "C_SOURCE",
+}
+
+export type CSourceLine = {
+    content: string;
+    filename: string;
+    line: number;
 }
 
 export type ParsedLine = {
@@ -133,6 +140,7 @@ export type ParsedLine = {
     raw: string;
     bpfIns?: BpfInstruction;
     bpfStateExprs?: BpfStateExpr[];
+    cSource?: CSourceLine;
 }
 
 type BpfStateExpr = {
@@ -209,6 +217,7 @@ const RE_IMM_VALUE = /^(0x[0-9a-f]+|[+-]?[0-9]+)/;
 const RE_CALL_TARGET = /^call ([0-9a-z_#+-]+)/;
 const RE_JMP_TARGET = /^goto (pc[+-][0-9]+)/;
 const RE_FRAME_ID = /^frame([0-9]+): /;
+const RE_C_SOURCE_LINE = /^; (.*) @ ([a-zA-Z0-9_\-\.]+):([0-9]+)/;
 
 const BPF_ALU_OPERATORS = ['s>>=', 's<<=', '<<=', '>>=', '+=', '-=', '*=', '/=', '%=', '&=', '|=', '^=', '='];
 const BPF_COND_OPERATORS = [ 's>=', 's<=', '==', '!=', '<=', '>=', 's<', 's>', '<', '>'];
@@ -580,9 +589,26 @@ export const parseOpcodeIns = (str: string, pc: number): { ins: BpfInstruction, 
     return { ins: null, rest: str };
 }
 
-export const parseLine = (rawLine: string): ParsedLine => {
+const parseCSourceLine = (str: string): ParsedLine | null => {
+    let { match, rest } = consumeRegex(RE_C_SOURCE_LINE, str);
+    if (match) {
+        return {
+            type: ParsedLineType.C_SOURCE,
+            raw: str,
+            cSource: {
+                content: match[1],
+                filename: match[2],
+                line: parseInt(match[3], 10),
+            }
+        }
+    }
+    return null;
+}
+
+const parseBpfInstruction = (rawLine: string): ParsedLine | null => {
+
     let { match, rest } = consumeRegex(RE_PROGRAM_COUNTER, consumeSpaces(rawLine));
-    let ins : BpfInstruction = null;
+    let ins: BpfInstruction = null;
     if (match) {
         const pc = parseInt(match[1], 10);
         const parsedIns = parseOpcodeIns(consumeSpaces(rest), pc);
@@ -593,18 +619,31 @@ export const parseLine = (rawLine: string): ParsedLine => {
     }
 
     if (ins) {
-            let exprs : BpfStateExpr[] = [];
-            const parsedExprs = parseBpfStateExprs(rest);
-            if (parsedExprs.exprs) {
-                exprs = parsedExprs.exprs;
-            }
-            return {
+        let exprs: BpfStateExpr[] = [];
+        const parsedExprs = parseBpfStateExprs(rest);
+        if (parsedExprs.exprs) {
+            exprs = parsedExprs.exprs;
+        }
+        return {
             type: ParsedLineType.INSTRUCTION,
             raw: rawLine,
             bpfIns: ins,
             bpfStateExprs: exprs,
         };
     }
+
+    return null;
+}
+
+export const parseLine = (rawLine: string): ParsedLine => {
+
+    let parsed = parseCSourceLine(rawLine);
+    if (parsed)
+        return parsed;
+
+    parsed = parseBpfInstruction(rawLine);
+    if (parsed)
+        return parsed;
 
     return {
         type: ParsedLineType.UNRECOGNIZED,
