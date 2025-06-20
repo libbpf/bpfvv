@@ -36,10 +36,36 @@ body {
     font-size: 14px;
 }
 
+.source-code-panel {
+    display: flex;
+    flex-direction: row;
+    flex: 0.33;
+    min-width: 200px;
+    background-color: #f8f8f8;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+#source-code-content {
+    flex: 1;
+    padding: 10px;
+    background: white;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    line-height: 1.4;
+    white-space: pre;
+    overflow: auto;
+    font-family: monospace;
+    font-size: 14px;
+    user-select: text;
+    cursor: text;
+}
+
 #log-container {
     display: flex;
     flex-direction: row;
-    flex: 0.5;
+    flex: 0.33;
     min-width: 0;
     gap: 0;
     overflow: auto;
@@ -91,7 +117,7 @@ body {
 }
 
 .state-panel {
-    flex: 0.5;
+    flex: 0.33;
     min-width: 200px;
     padding: 10px;
     background-color: #f8f8f8;
