@@ -10,7 +10,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-      - run: ./build.sh
+      - run: npm install
+      - run: npm run build
       - run: npm run coverage
       - uses: actions/upload-pages-artifact@v3
         with:

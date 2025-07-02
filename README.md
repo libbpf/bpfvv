@@ -12,9 +12,27 @@
 
 https://libbpf.github.io/bpfvv/
 
-This project is an experiment about visualizing Linux Kernel BPF verifier log to help BPF programmers with debugging verification failures. 
+This project is an experiment about visualizing Linux Kernel BPF verifier log to help BPF programmers with debugging verification failures.
 
 The user can load a text file, and the app will attempt to parse it as a verifier log. Successfully parsed lines produce a state which is then visualized in the UI. You can think of this as a primitive debugger UI, except it interprets a log and not a runtime state of a program.
+
+## Development
+
+- Fork the website repo: https://github.com/libbpf/bpfvv.git
+
+- Clone your fork:
+    - `git clone https://github.com/<username>/bpfvv.git`
+
+- Setup node modules:
+	- `npm install`
+
+- Build the app:
+	- `npm run build`
+
+- Test your changes locally (defaults to `localhost:3000`):
+	- `npm run start`
+
+- If everything is OK, push your branch, create a PR.
 
 ---
 
@@ -22,4 +40,3 @@ This is a self-contained web app that runs entirely on the client side. There is
 
 * To learn more about BPF visit https://ebpf.io/
 * See also: https://github.com/eddyz87/log2dot
-
