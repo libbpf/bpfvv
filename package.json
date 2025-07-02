@@ -5,11 +5,14 @@
   "devDependencies": {
     "@types/node": "^24.0.1",
     "@vitest/coverage-v8": "^3.2.3",
+    "serve": "^14.2.4",
     "ts-node": "^10.9.2",
     "vitest": "^3.2.3"
   },
   "scripts": {
     "test": "vitest",
-    "coverage": "vitest run --coverage"
+    "coverage": "vitest run --coverage",
+    "build": "rm -rf dist && tsc && cp index.html styles.css dist/",
+    "start": "serve -s dist"
   }
 }
