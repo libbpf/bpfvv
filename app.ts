@@ -213,6 +213,7 @@ const createApp = (url: string) => {
     const gotoLineInput = document.getElementById('goto-line') as HTMLInputElement;
     const gotoLineButton = document.getElementById('goto-line-btn') as HTMLButtonElement;
     const gotoEndButton = document.getElementById('goto-end') as HTMLButtonElement;
+    const clearButton = document.getElementById('clear') as HTMLButtonElement;
 
     const inputText = document.getElementById('input-text') as HTMLTextAreaElement;
     const mainContent = document.getElementById('main-content') as HTMLElement;
@@ -1078,6 +1079,21 @@ const createApp = (url: string) => {
         logContainer.scrollTop = logContainer.scrollHeight;
     };
 
+    const clearContents = () => {
+        updateView({
+            fileBlob: new Blob([]),
+            lines: [],
+            bpfStates: [],
+            selectedLineIdx: 0,
+            selectedMemSlotId: '',
+            memSlotDependencies: [],
+        });
+        const hintLineSel = document.getElementById('hint-selected-line') as HTMLElement;
+        const hintLineHov = document.getElementById('hint-hovered-line') as HTMLElement;
+        hintLineSel.innerHTML = '';
+        hintLineHov.innerHTML = '';
+    }
+
     const gotoLine = () => {
         const idx = normalIdx(parseInt(gotoLineInput.value, 10) - 1);
         setSelectedLine(idx);
@@ -1099,6 +1115,7 @@ const createApp = (url: string) => {
     gotoLineInput.addEventListener('input', gotoLine);
     gotoStartButton.addEventListener('click', gotoStart);
     gotoEndButton.addEventListener('click', gotoEnd);
+    clearButton.addEventListener('click', clearContents);
     logLines.addEventListener('click', handleLineClick);
     logLines.addEventListener('mouseover', logLinesMouseOver);
     logLines.addEventListener('mouseout', logLinesMouseOut);
@@ -1131,6 +1148,7 @@ const createApp = (url: string) => {
         gotoStartButton.removeEventListener('click', gotoStart);
         gotoLineButton.removeEventListener('click', gotoLine);
         gotoEndButton.removeEventListener('click', gotoEnd);
+        clearButton.removeEventListener('click', clearContents);
         logLines.removeEventListener('click', handleLineClick);
         logLines.removeEventListener('mouseover', logLinesMouseOver);
         logLines.removeEventListener('mouseout', logLinesMouseOut);
