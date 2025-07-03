@@ -242,7 +242,7 @@ const createApp = (url: string) => {
         return arg.type === 'void' && arg.name == null && arg.star == null;
     }
 
-    const buildBpfHelpersMap = async () : Promise<Map<string, any>> => {
+    const buildBpfHelpersMap = async () : Promise<Map<string, unknown>> => {
         const map = new Map();
         for (const helper of BPF_HELPERS_JSON.helpers) {
             helper.args = helper.args.filter(arg => !isVoidHelperArg(arg));
