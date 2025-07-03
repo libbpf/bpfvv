@@ -238,8 +238,6 @@ const parseOpcodeHex = (opcodeHex: string): BpfOpcode => {
     return { code, iclass, source };
 }
 
-let MEMORY_REF_COUNTER = 0;
-
 const CAST_TO_SIZE = new Map<string, number>([
     ['u8', 1],
     ['u16', 2],
