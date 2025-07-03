@@ -1,9 +1,9 @@
 {
     "compilerOptions": {
-      "target": "ES6",
-      "module": "CommonJS",
-      "moduleResolution": "node",
-      "esModuleInterop": true,
+        "target": "ES6",
+        "module": "CommonJS",
+        "moduleResolution": "node",
+        "esModuleInterop": true
     },
     "include": ["cli.ts", "../parser.ts"]
-  }
+}

@@ -52,15 +52,15 @@ export enum BpfJmpCode {
 }
 
 enum OpcodeSource {
-    K = 'K', // use 32-bit ‘imm’ value as source operand
-    X = 'X', // use ‘src_reg’ register value as source operand
+    K = "K", // use 32-bit ‘imm’ value as source operand
+    X = "X", // use ‘src_reg’ register value as source operand
 }
 
 type BpfOpcode = {
     iclass: BpfInstructionClass;
     code: BpfAluCode | BpfJmpCode;
     source: OpcodeSource;
-}
+};
 
 export enum BpfJmpKind {
     NONE = 0,
@@ -79,18 +79,18 @@ type BpfJmpInstruction = {
         right: BpfOperand;
     };
     kind: BpfJmpKind;
-}
+};
 
 type BpfAluInstruction = {
     operator: string;
     dst: BpfOperand;
     src: BpfOperand;
-}
+};
 
 export type RawLineLocation = {
     offset: number; // negative: -10 means length-10
     size: number;
-}
+};
 
 type BpfInstruction = {
     pc?: number;
@@ -100,14 +100,14 @@ type BpfInstruction = {
     jmp?: BpfJmpInstruction;
     alu?: BpfAluInstruction;
     location?: RawLineLocation;
-}
+};
 
 export enum OperandType {
-    UNKNOWN = 'UNKNOWN',
-    REG = 'REG',
-    FP = 'FP',
-    IMM = 'IMM',
-    MEM = 'MEM',
+    UNKNOWN = "UNKNOWN",
+    REG = "REG",
+    FP = "FP",
+    IMM = "IMM",
+    MEM = "MEM",
 }
 
 export type BpfOperand = {
@@ -119,8 +119,7 @@ export type BpfOperand = {
         offset: number;
     };
     location?: RawLineLocation;
-}
-
+};
 
 export enum ParsedLineType {
     UNRECOGNIZED = "UNRECOGNIZED",
@@ -133,37 +132,38 @@ export type ParsedLine = {
     raw: string;
     bpfIns?: BpfInstruction;
     bpfStateExprs?: BpfStateExpr[];
-}
+};
 
 type BpfStateExpr = {
     id: string;
     value: string;
     rawKey: string;
     frame?: number;
-}
+};
 
-export const BPF_SCRATCH_REGS = ['r1', 'r2', 'r3', 'r4', 'r5'];
-export const BPF_CALLEE_SAVED_REGS = ['r6', 'r7', 'r8', 'r9'];
+export const BPF_SCRATCH_REGS = ["r1", "r2", "r3", "r4", "r5"];
+export const BPF_CALLEE_SAVED_REGS = ["r6", "r7", "r8", "r9"];
 
-const parseBpfStateExpr = (str: string): { expr: BpfStateExpr, rest: string } => {
-    const equalsIndex = str.indexOf('=');
-    if (equalsIndex === -1)
-        return { expr: null, rest: str };
+const parseBpfStateExpr = (
+    str: string,
+): { expr: BpfStateExpr; rest: string } => {
+    const equalsIndex = str.indexOf("=");
+    if (equalsIndex === -1) return { expr: null, rest: str };
     const key = str.substring(0, equalsIndex);
     let id = key;
-    if (key.endsWith('_w'))
-        id = key.substring(0, key.length - 2);
+    if (key.endsWith("_w")) id = key.substring(0, key.length - 2);
     id = id.toLowerCase();
 
     // the next value starts after a space outside of any parentheses
     let i = equalsIndex + 1;
     let stack = [];
     while (i < str.length) {
-        if (str[i] === '(') {
+        if (str[i] === "(") {
             stack.push(str[i]);
-        } if (str[i] === ')' && stack.length > 0) {
+        }
+        if (str[i] === ")" && stack.length > 0) {
             stack.pop();
-        } else if (str[i] === ' ' && stack.length === 0) {
+        } else if (str[i] === " " && stack.length === 0) {
             break;
         }
         i++;
@@ -172,14 +172,15 @@ const parseBpfStateExpr = (str: string): { expr: BpfStateExpr, rest: string } =>
         id,
         value: str.substring(equalsIndex + 1, i),
         rawKey: key,
-    }
+    };
     return { expr, rest: str.substring(i) };
-}
+};
 
-export const parseBpfStateExprs = (str: string): { exprs: BpfStateExpr[], rest: string } => {
-    let { match, rest } = consumeString('; ', str);
-    if (!match)
-        return { exprs: [], rest: str };
+export const parseBpfStateExprs = (
+    str: string,
+): { exprs: BpfStateExpr[]; rest: string } => {
+    let { match, rest } = consumeString("; ", str);
+    if (!match) return { exprs: [], rest: str };
 
     let frame = consumeRegex(RE_FRAME_ID, rest);
     let frameId = 0;
@@ -192,13 +193,12 @@ export const parseBpfStateExprs = (str: string): { exprs: BpfStateExpr[], rest: 
     while (rest.length > 0) {
         const parsed = parseBpfStateExpr(rest);
         rest = consumeSpaces(parsed.rest);
-        if (!parsed.expr)
-            break;
+        if (!parsed.expr) break;
         parsed.expr.frame = frameId;
         exprs.push(parsed.expr);
     }
     return { exprs, rest };
-}
+};
 
 const RE_WHITESPACE = /^\s+/;
 const RE_PROGRAM_COUNTER = /^([0-9]+):/;
@@ -210,61 +210,91 @@ const RE_CALL_TARGET = /^call ([0-9a-z_#+-]+)/;
 const RE_JMP_TARGET = /^goto (pc[+-][0-9]+)/;
 const RE_FRAME_ID = /^frame([0-9]+): /;
 
-const BPF_ALU_OPERATORS = ['s>>=', 's<<=', '<<=', '>>=', '+=', '-=', '*=', '/=', '%=', '&=', '|=', '^=', '='];
-const BPF_COND_OPERATORS = [ 's>=', 's<=', '==', '!=', '<=', '>=', 's<', 's>', '<', '>'];
+const BPF_ALU_OPERATORS = [
+    "s>>=",
+    "s<<=",
+    "<<=",
+    ">>=",
+    "+=",
+    "-=",
+    "*=",
+    "/=",
+    "%=",
+    "&=",
+    "|=",
+    "^=",
+    "=",
+];
+const BPF_COND_OPERATORS = [
+    "s>=",
+    "s<=",
+    "==",
+    "!=",
+    "<=",
+    ">=",
+    "s<",
+    "s>",
+    "<",
+    ">",
+];
 
-const consumeRegex = (regex: RegExp, str: string): { match: string[], rest: string } => {
+const consumeRegex = (
+    regex: RegExp,
+    str: string,
+): { match: string[]; rest: string } => {
     const match = regex.exec(str);
     const rest = match ? str.substring(match[0].length) : str;
     return { match, rest };
-}
+};
 
-const consumeString = (toMatch: string, str: string): { match: boolean, rest: string } => {
+const consumeString = (
+    toMatch: string,
+    str: string,
+): { match: boolean; rest: string } => {
     const match = str.startsWith(toMatch);
     const rest = match ? str.substring(toMatch.length) : str;
     return { match, rest };
-}
+};
 
 const consumeSpaces = (str: string): string => {
     const match = str.match(RE_WHITESPACE);
     return match ? str.substring(match[0].length) : str;
-}
+};
 
 const parseOpcodeHex = (opcodeHex: string): BpfOpcode => {
     const code = parseInt(opcodeHex[0], 16);
     const sclass = parseInt(opcodeHex[1], 16);
     const iclass = sclass & 0x7;
-    const source = (sclass >> 3) === 1 ? OpcodeSource.X : OpcodeSource.K;
+    const source = sclass >> 3 === 1 ? OpcodeSource.X : OpcodeSource.K;
     return { code, iclass, source };
-}
+};
 
 const CAST_TO_SIZE = new Map<string, number>([
-    ['u8', 1],
-    ['u16', 2],
-    ['u32', 4],
-    ['u64', 8],
+    ["u8", 1],
+    ["u16", 2],
+    ["u32", 4],
+    ["u64", 8],
 ]);
 
 const registerOp = (reg: string): BpfOperand => {
     let size = 8;
-    if (reg.startsWith('w')) {
+    if (reg.startsWith("w")) {
         size = 4;
-        reg = 'r' + reg.substring(1);
+        reg = "r" + reg.substring(1);
     }
     return { id: reg, type: OperandType.REG, size };
-}
+};
 
 const immOp = (imm: string, size: number = -1): BpfOperand => {
     if (size === -1) {
         size = 8;
     }
-    return { id: 'IMM', type: OperandType.IMM, size };
-}
+    return { id: "IMM", type: OperandType.IMM, size };
+};
 
-const parseMemoryRef = (str: string): { op: BpfOperand, rest: string } => {
+const parseMemoryRef = (str: string): { op: BpfOperand; rest: string } => {
     const { match, rest } = consumeRegex(RE_MEMORY_REF, str);
-    if (!match)
-        return { op: null, rest };
+    if (!match) return { op: null, rest };
     const size = CAST_TO_SIZE.get(match[1]);
     const address_reg = match[2];
     const offset = parseInt(match[3], 10);
@@ -272,65 +302,62 @@ const parseMemoryRef = (str: string): { op: BpfOperand, rest: string } => {
     // So let's use a dummy id for now, like for immediates
     let id = "MEM";
     let type = OperandType.MEM;
-    if (address_reg === 'r10') {
-        id = 'fp' + offset;
+    if (address_reg === "r10") {
+        id = "fp" + offset;
         type = OperandType.FP;
     }
     const op = { id, type, size, memref: { address_reg, offset } };
     return { op, rest };
-}
+};
 
-const parseAluDst = (str: string): { op: BpfOperand, rest: string } => {
+const parseAluDst = (str: string): { op: BpfOperand; rest: string } => {
     let { match, rest } = consumeRegex(RE_REGISTER, str);
-    if (match)
-        return { op: registerOp(match[1]), rest };
+    if (match) return { op: registerOp(match[1]), rest };
 
     let memref = parseMemoryRef(rest);
-    if (memref.op)
-        return memref;
+    if (memref.op) return memref;
 
     return { op: null, rest };
-}
+};
 
-const parseAluSrc = (str: string): { op: BpfOperand, rest: string } => {
+const parseAluSrc = (str: string): { op: BpfOperand; rest: string } => {
     let { match, rest } = consumeRegex(RE_REGISTER, str);
-    if (match)
-        return { op: registerOp(match[1]), rest };
+    if (match) return { op: registerOp(match[1]), rest };
     let memref = parseMemoryRef(rest);
-    if (memref.op)
-        return memref;
+    if (memref.op) return memref;
     let imm = consumeRegex(RE_IMM_VALUE, str);
-    if (imm.match)
-        return { op: immOp(imm.match[1]), rest: imm.rest };
+    if (imm.match) return { op: immOp(imm.match[1]), rest: imm.rest };
     return { op: null, rest };
-}
+};
 
-const collectReads = (operator: string, dst: BpfOperand, src: BpfOperand): string[] => {
+const collectReads = (
+    operator: string,
+    dst: BpfOperand,
+    src: BpfOperand,
+): string[] => {
     const reads = [];
-    if (operator !== '=')
-        reads.push(dst.id);
-    if (src.type === OperandType.MEM)
-        reads.push(src.memref.address_reg);
-    if (dst.type === OperandType.MEM)
-        reads.push(dst.memref.address_reg);
+    if (operator !== "=") reads.push(dst.id);
+    if (src.type === OperandType.MEM) reads.push(src.memref.address_reg);
+    if (dst.type === OperandType.MEM) reads.push(dst.memref.address_reg);
     // do not add src to reads if it's a store from immediate value
-    if (src.type !== OperandType.IMM)
-        reads.push(src.id);
+    if (src.type !== OperandType.IMM) reads.push(src.id);
     return reads;
-}
+};
 
-const parseAluInstruction = (str: string, opcode: BpfOpcode): { ins: BpfInstruction, rest: string } => {
-    let dst : BpfOperand;
-    let src : BpfOperand;
-    let rest : string;
+const parseAluInstruction = (
+    str: string,
+    opcode: BpfOpcode,
+): { ins: BpfInstruction; rest: string } => {
+    let dst: BpfOperand;
+    let src: BpfOperand;
+    let rest: string;
 
     let _dst = parseAluDst(str);
     dst = _dst.op;
-    if (!dst)
-        return { ins: null, rest: str };
+    if (!dst) return { ins: null, rest: str };
     dst.location = {
         offset: -str.length,
-        size: str.length - _dst.rest.length
+        size: str.length - _dst.rest.length,
     };
     rest = consumeSpaces(_dst.rest);
 
@@ -343,20 +370,18 @@ const parseAluInstruction = (str: string, opcode: BpfOpcode): { ins: BpfInstruct
             break;
         }
     }
-    if (!operator)
-        return { ins: null, rest: str };
+    if (!operator) return { ins: null, rest: str };
 
     let _src = parseAluSrc(rest);
     src = _src.op;
-    if (!src)
-        return { ins: null, rest: str };
+    if (!src) return { ins: null, rest: str };
     src.location = {
         offset: -rest.length,
-        size: rest.length - _src.rest.length
+        size: rest.length - _src.rest.length,
     };
     rest = consumeSpaces(_src.rest);
 
-    const ins : BpfInstruction = {
+    const ins: BpfInstruction = {
         opcode: opcode,
         alu: {
             operator: operator,
@@ -368,7 +393,7 @@ const parseAluInstruction = (str: string, opcode: BpfOpcode): { ins: BpfInstruct
     };
 
     return { ins, rest };
-}
+};
 
 const helperCall = (opcode: BpfOpcode, target: string): BpfInstruction => {
     return {
@@ -378,9 +403,9 @@ const helperCall = (opcode: BpfOpcode, target: string): BpfInstruction => {
             kind: BpfJmpKind.HELPER_CALL,
         },
         reads: BPF_SCRATCH_REGS,
-        writes: ['r0', ...BPF_SCRATCH_REGS],
-    }
-}
+        writes: ["r0", ...BPF_SCRATCH_REGS],
+    };
+};
 
 const bpf2bpfCall = (opcode: BpfOpcode, target: string): BpfInstruction => {
     return {
@@ -390,19 +415,21 @@ const bpf2bpfCall = (opcode: BpfOpcode, target: string): BpfInstruction => {
             kind: BpfJmpKind.BPF2BPF_CALL,
         },
         reads: BPF_SCRATCH_REGS,
-        writes: ['r0', ...BPF_CALLEE_SAVED_REGS],
+        writes: ["r0", ...BPF_CALLEE_SAVED_REGS],
     };
-}
+};
 
-const parseCall = (str: string, opcode: BpfOpcode): { ins: BpfInstruction, rest: string } => {
+const parseCall = (
+    str: string,
+    opcode: BpfOpcode,
+): { ins: BpfInstruction; rest: string } => {
     const { match, rest } = consumeRegex(RE_CALL_TARGET, str);
-    if (!match)
-        return { ins: null, rest: str };
+    if (!match) return { ins: null, rest: str };
     const target = match[1];
 
-    let ins : BpfInstruction;
+    let ins: BpfInstruction;
     // TODO: is this heuristic good enough?
-    if (target.startsWith('pc+') || target.startsWith('pc-')) {
+    if (target.startsWith("pc+") || target.startsWith("pc-")) {
         ins = bpf2bpfCall(opcode, target);
     } else {
         ins = helperCall(opcode, target);
@@ -413,26 +440,25 @@ const parseCall = (str: string, opcode: BpfOpcode): { ins: BpfInstruction, rest:
         size: match[0].length,
     };
     return { ins, rest };
-}
+};
 
-const parseCondOp = (str: string): { op: BpfOperand, rest: string } => {
+const parseCondOp = (str: string): { op: BpfOperand; rest: string } => {
     let { match, rest } = consumeRegex(RE_REGISTER, str);
-    if (match)
-        return { op: registerOp(match[1]), rest };
+    if (match) return { op: registerOp(match[1]), rest };
     let imm = consumeRegex(RE_IMM_VALUE, str);
-    if (imm.match)
-        return { op: immOp(imm.match[1]), rest: imm.rest };
+    if (imm.match) return { op: immOp(imm.match[1]), rest: imm.rest };
     return { op: null, rest };
-}
+};
 
-const parseConditionalJmp = (str: string, opcode: BpfOpcode): { ins: BpfInstruction, rest: string } => {
+const parseConditionalJmp = (
+    str: string,
+    opcode: BpfOpcode,
+): { ins: BpfInstruction; rest: string } => {
     let { match, rest } = consumeString("if ", str);
-    if (!match)
-        return { ins: null, rest: str };
+    if (!match) return { ins: null, rest: str };
 
     let leftOp = parseCondOp(rest);
-    if (!leftOp.op)
-        return { ins: null, rest: str };
+    if (!leftOp.op) return { ins: null, rest: str };
     leftOp.op.location = {
         offset: -rest.length,
         size: rest.length - leftOp.rest.length,
@@ -448,12 +474,10 @@ const parseConditionalJmp = (str: string, opcode: BpfOpcode): { ins: BpfInstruct
             break;
         }
     }
-    if (!operator)
-        return { ins: null, rest: str };
+    if (!operator) return { ins: null, rest: str };
 
     let rightOp = parseCondOp(rest);
-    if (!rightOp.op)
-        return { ins: null, rest: str };
+    if (!rightOp.op) return { ins: null, rest: str };
     rightOp.op.location = {
         offset: -rest.length,
         size: rest.length - rightOp.rest.length,
@@ -461,12 +485,11 @@ const parseConditionalJmp = (str: string, opcode: BpfOpcode): { ins: BpfInstruct
     rest = consumeSpaces(rightOp.rest);
 
     let jmpTarget = consumeRegex(RE_JMP_TARGET, consumeSpaces(rest));
-    if (!jmpTarget.match)
-        return { ins: null, rest: str };
+    if (!jmpTarget.match) return { ins: null, rest: str };
     const target = jmpTarget.match[1];
     rest = consumeSpaces(jmpTarget.rest);
 
-    const ins : BpfInstruction = {
+    const ins: BpfInstruction = {
         opcode: opcode,
         jmp: {
             target: target,
@@ -481,16 +504,17 @@ const parseConditionalJmp = (str: string, opcode: BpfOpcode): { ins: BpfInstruct
         writes: [], // technically goto writes pc, but we don't care about it (?)
     };
     return { ins, rest };
-}
+};
 
-const parseUnconditionalJmp = (str: string, opcode: BpfOpcode): { ins: BpfInstruction, rest: string } => {
+const parseUnconditionalJmp = (
+    str: string,
+    opcode: BpfOpcode,
+): { ins: BpfInstruction; rest: string } => {
     let { match, rest } = consumeString("goto ", str);
-    if (!match)
-        return { ins: null, rest: str };
+    if (!match) return { ins: null, rest: str };
     const target = consumeRegex(RE_JMP_TARGET, str);
-    if (!target.match)
-        return { ins: null, rest: str };
-    const ins : BpfInstruction = {
+    if (!target.match) return { ins: null, rest: str };
+    const ins: BpfInstruction = {
         opcode: opcode,
         jmp: {
             target: target.match[1],
@@ -500,16 +524,18 @@ const parseUnconditionalJmp = (str: string, opcode: BpfOpcode): { ins: BpfInstru
         writes: [],
     };
     return { ins, rest };
-}
+};
 
-const parseExit = (str: string, opcode: BpfOpcode): { ins: BpfInstruction, rest: string } => {
-    const match = consumeString('exit', str);
-    if (!match)
-        return { ins: null, rest: str };
-    const ins : BpfInstruction = {
+const parseExit = (
+    str: string,
+    opcode: BpfOpcode,
+): { ins: BpfInstruction; rest: string } => {
+    const match = consumeString("exit", str);
+    if (!match) return { ins: null, rest: str };
+    const ins: BpfInstruction = {
         opcode,
         jmp: {
-            target: 'exit',
+            target: "exit",
             kind: BpfJmpKind.EXIT,
         },
         reads: [],
@@ -517,12 +543,15 @@ const parseExit = (str: string, opcode: BpfOpcode): { ins: BpfInstruction, rest:
         // r0 is set to return value
         // r1-r5 are considered scratched by the caller
         // r6-r9 are callee saved, and so will be restored by the caller
-        writes: ['r0', ...BPF_SCRATCH_REGS, ...BPF_CALLEE_SAVED_REGS],
+        writes: ["r0", ...BPF_SCRATCH_REGS, ...BPF_CALLEE_SAVED_REGS],
     };
     return { ins, rest: match.rest };
-}
+};
 
-const parseJmpInstruction = (str: string, opcode: BpfOpcode): { ins: BpfInstruction, rest: string } => {
+const parseJmpInstruction = (
+    str: string,
+    opcode: BpfOpcode,
+): { ins: BpfInstruction; rest: string } => {
     switch (opcode.code) {
         case BpfJmpCode.CALL:
             return parseCall(str, opcode);
@@ -544,9 +573,12 @@ const parseJmpInstruction = (str: string, opcode: BpfOpcode): { ins: BpfInstruct
         default:
             return { ins: null, rest: str };
     }
-}
+};
 
-const parseInstruction = (str: string, opcode: BpfOpcode): { ins: BpfInstruction, rest: string } => {
+const parseInstruction = (
+    str: string,
+    opcode: BpfOpcode,
+): { ins: BpfInstruction; rest: string } => {
     switch (opcode.iclass) {
         case BpfInstructionClass.LD:
         case BpfInstructionClass.LDX:
@@ -561,9 +593,12 @@ const parseInstruction = (str: string, opcode: BpfOpcode): { ins: BpfInstruction
         default:
             return { ins: null, rest: str };
     }
-}
+};
 
-export const parseOpcodeIns = (str: string, pc: number): { ins: BpfInstruction, rest: string } => {
+export const parseOpcodeIns = (
+    str: string,
+    pc: number,
+): { ins: BpfInstruction; rest: string } => {
     const { match, rest } = consumeRegex(RE_BPF_OPCODE, str);
     if (match) {
         const opcode = parseOpcodeHex(match[1]);
@@ -576,11 +611,14 @@ export const parseOpcodeIns = (str: string, pc: number): { ins: BpfInstruction, 
         }
     }
     return { ins: null, rest: str };
-}
+};
 
 export const parseLine = (rawLine: string): ParsedLine => {
-    let { match, rest } = consumeRegex(RE_PROGRAM_COUNTER, consumeSpaces(rawLine));
-    let ins : BpfInstruction = null;
+    let { match, rest } = consumeRegex(
+        RE_PROGRAM_COUNTER,
+        consumeSpaces(rawLine),
+    );
+    let ins: BpfInstruction = null;
     if (match) {
         const pc = parseInt(match[1], 10);
         const parsedIns = parseOpcodeIns(consumeSpaces(rest), pc);
@@ -591,12 +629,12 @@ export const parseLine = (rawLine: string): ParsedLine => {
     }
 
     if (ins) {
-            let exprs : BpfStateExpr[] = [];
-            const parsedExprs = parseBpfStateExprs(rest);
-            if (parsedExprs.exprs) {
-                exprs = parsedExprs.exprs;
-            }
-            return {
+        let exprs: BpfStateExpr[] = [];
+        const parsedExprs = parseBpfStateExprs(rest);
+        if (parsedExprs.exprs) {
+            exprs = parsedExprs.exprs;
+        }
+        return {
             type: ParsedLineType.INSTRUCTION,
             raw: rawLine,
             bpfIns: ins,
@@ -608,4 +646,4 @@ export const parseLine = (rawLine: string): ParsedLine => {
         type: ParsedLineType.UNRECOGNIZED,
         raw: rawLine,
     };
-}
+};

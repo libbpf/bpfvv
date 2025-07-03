@@ -17,10 +17,11 @@ that you get when your BPF program has failed verification on load
 attempt.
 
 Here is a small example:
+
 ```
 processed 23 insns (limit 1000000) max_states_per_insn 0 total_states 1 peak_states 1 mark_read 1
 ERROR: Error loading BPF program for usdt___a_out_test_struct_by_val_reg_pair_loc0_2.
-Kernel error log: 
+Kernel error log:
 0: R1=ctx() R10=fp0
 ;  @ bpftrace.bpf.o:0
 0: (b7) r2 = 1                        ; R2_w=1
@@ -43,21 +44,26 @@ instruction. The app parses the log and re-constructs program states
 in order to display potentially useful information in interactive way.
 
 There are two main views of the program:
-* (on the left) formatted log, instruction stream
-* (on the right) program state: known values of registers and stack slots
-<img width="1306" alt="Screenshot 2025-04-25 at 4 19 21 PM" src="https://github.com/user-attachments/assets/ccd9337a-14b0-4c13-afcc-cdfc1b2d46e5" />
+
+- (on the left) formatted log, instruction stream
+- (on the right) program state: known values of registers and stack slots
+  <img width="1306" alt="Screenshot 2025-04-25 at 4 19 21 PM" src="https://github.com/user-attachments/assets/ccd9337a-14b0-4c13-afcc-cdfc1b2d46e5" />
 
 ## What's in the log
 
 Notice that the displayed text has different content than the raw log.
 For example, consider this line:
+
 ```
 1: (7b) *(u64 *)(r10 -24) = r2        ; R2_w=1 R10=fp0 fp-24_w=1
 ```
+
 In the log view you will only see:
+
 ```
 *(u64 *)(r10 -24) = r2
 ```
+
 And program counter (pc) in a spearate column on the left.
 
 This is intentional, as the comment on the right in the original line
@@ -69,11 +75,13 @@ Some instructions also are printed differently to facilitate
 interactive features. Notable example is call instructions.
 
 For example, consider the following raw log line:
+
 ```
 23: (85) call bpf_map_lookup_elem#1   ; R0=map_value_or_null(id=3,map=eventmap,ks=4,vs=2452)
 ```
 
 It is displayed like this:
+
 ```
 r0 = call bpf_map_lookup_elem#1(r1, r2, r3, r4, r5)
 ```
@@ -84,13 +92,12 @@ report.
 
 ### Subprogram calls
 
-When there is a subprogram call in the log instruction stream, the 
+When there is a subprogram call in the log instruction stream, the
 stack frames are tracked by the app when computing state. When subprogram
 call is detected there is indentation and comments in the main log view to
 visualize it.
 
 <img width="1211" alt="Screenshot 2025-04-25 at 4 35 14 PM" src="https://github.com/user-attachments/assets/3b53abaf-609e-4d6f-b28b-a977016a00c0" />
-
 
 ## What can you do?
 
@@ -110,9 +117,11 @@ you can see how the values change with each instruction.
 In the "state panel", the values that are written by selected
 instruction are marked with light-red background and the previous
 value is also often displayed, for example:
+
 ```
 r6	scalar(id=1) -> 0
 ```
+
 Means that current instruction changes the value of `r6` from
 `scalar(id=1)` to `0`.
 
@@ -137,11 +146,11 @@ it will update it.
 For example when processing conditional jumps such as `if (r2 == 0) goto pc+6`,
 the verifier usually explores both branches. But in both cases it gained information
 about r2: it's either 0 or not. And so while there was no explicit write into r2,
-it's value is known (and has changed) after the jump instruction, when you look at 
+it's value is known (and has changed) after the jump instruction, when you look at
 it in the verifier log.
 
 Going forward the visualizer will likely treat all value updates as writes,
-as it is useful to know at what point verifier inferred a particular value. 
+as it is useful to know at what point verifier inferred a particular value.
 
 ### View data dependencies
 
@@ -183,6 +192,7 @@ information, which renders it useless.
 
 Currently the upstream instruction is highlighted if it's an
 unambiguous dependency. For example:
+
 ```
 42: r1 = 13
 43: r7 = 0
@@ -199,6 +209,7 @@ However, when more than one value is read in the upstream instruction,
 the UI will stop highlighting at that instruction.
 
 Consider an example:
+
 ```
 42: r1 = r2
 43: r3 = *(u32 *)(r10 -16)
@@ -235,14 +246,14 @@ dependencies. If you see `*(u32 *)(r8 +0)` down the instruction
 stream, even if value of r8 hasn't changed, the analysis does not
 recognize these slots as "the same".
 
-
 ## Footnotes
 
-[^1]: `BPF_LOG_LEVEL2` can be parsed, however since level 2 log contains 
-all states of the BPF program explored by the verifier, and the app does 
-not distinguish between them (yet), the accumulated state at a particular 
-log line is likely to be wrong. Also, log level 2 is usually quite big, so
-the browser will not be happy to render it.
+[^1]:
+    `BPF_LOG_LEVEL2` can be parsed, however since level 2 log contains
+    all states of the BPF program explored by the verifier, and the app does
+    not distinguish between them (yet), the accumulated state at a particular
+    log line is likely to be wrong. Also, log level 2 is usually quite big, so
+    the browser will not be happy to render it.
 
 [^2]: https://en.wikipedia.org/wiki/Use-define_chain
 
