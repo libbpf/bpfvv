@@ -20,6 +20,8 @@
         "build": "rm -rf dist && tsc && cp index.html styles.css dist/",
         "start": "serve -s dist",
         "lint": "eslint .",
-        "lint:fix": "eslint . --fix"
+        "lint:fix": "eslint . --fix",
+        "format": "prettier --write .",
+        "format:check": "prettier --check ."
     }
 }
