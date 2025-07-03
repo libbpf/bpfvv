@@ -15,12 +15,6 @@
             "*": ["node_modules/*"]
         }
     },
-    "include": [
-        "app.ts",
-        "parser.ts"
-    ],
-    "exclude": [
-        "node_modules",
-        "dist"
-    ]
+    "include": ["app.ts", "parser.ts"],
+    "exclude": ["node_modules", "dist"]
 }

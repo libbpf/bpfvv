@@ -24,13 +24,13 @@ The user can load a text file, and the app will attempt to parse it as a verifie
     - `git clone https://github.com/<username>/bpfvv.git`
 
 - Setup node modules:
-	- `npm install`
+    - `npm install`
 
 - Build the app:
-	- `npm run build`
+    - `npm run build`
 
 - Test your changes locally (defaults to `localhost:3000`):
-	- `npm run start`
+    - `npm run start`
 
 - If everything is OK, push your branch, create a PR.
 
@@ -38,5 +38,5 @@ The user can load a text file, and the app will attempt to parse it as a verifie
 
 This is a self-contained web app that runs entirely on the client side. There is no backend server. Once loaded, it operates within the browser.
 
-* To learn more about BPF visit https://ebpf.io/
-* See also: https://github.com/eddyz87/log2dot
+- To learn more about BPF visit https://ebpf.io/
+- See also: https://github.com/eddyz87/log2dot

@@ -77,7 +77,6 @@ body {
     min-width: 2em;
     white-space: pre;
     height: fit-content;
-
 }
 #formatted-log-lines {
     border: 1px solid #ccc;
@@ -221,14 +220,14 @@ body {
     font-size: 12px;
     z-index: 1000;
     pointer-events: none;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
     border-style: solid;
     border-color: black;
     border-width: 1px;
 }
 
 #mem-slot-tooltip-arrow {
-    content: '';
+    content: "";
     position: absolute;
     transform: translateX(-50%);
     border-width: 0 5px 5px 5px;
