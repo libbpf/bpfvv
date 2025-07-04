@@ -184,6 +184,7 @@ type AppState = {
     selectedLineIdx: number;
     selectedMemSlotId: string; // 'r1', 'fp-244' etc.
     memSlotDependencies: number[]; // sorted array of idx
+    cSourceLines: ParsedLine[];
 }
 
 const getUrlParameter = (param: string): string | null => {
@@ -215,13 +216,20 @@ const createApp = (url: string) => {
     const gotoEndButton = document.getElementById('goto-end') as HTMLButtonElement;
 
     const inputText = document.getElementById('input-text') as HTMLTextAreaElement;
+
+    // main-content and it's direct children
     const mainContent = document.getElementById('main-content') as HTMLElement;
+    const sourceCodePanel = document.getElementById('source-code-panel') as HTMLElement;
+    const logContainer = document.getElementById('log-container') as HTMLElement;
+    const statePanel = document.getElementById('state-panel') as HTMLElement;
+    const resizer1 = document.getElementById('resizer-1') as HTMLElement;
+    const resizer2 = document.getElementById('resizer-2') as HTMLElement;
+
+    // logContainer children
+    const logLines = document.getElementById('formatted-log-lines') as HTMLElement;
     const lineNumbersPc = document.getElementById('line-numbers-pc') as HTMLElement;
     const lineNumbersIdx = document.getElementById('line-numbers-idx') as HTMLElement;
     const dependencyArrows = document.getElementById('dependency-arrows') as HTMLElement;
-
-    const logContainer = document.getElementById('log-container') as HTMLElement;
-    const logLines = document.getElementById('formatted-log-lines') as HTMLElement;
 
     const exampleLink = document.getElementById('example-link') as HTMLAnchorElement;
     if (exampleLink) {
@@ -236,6 +244,7 @@ const createApp = (url: string) => {
         selectedLineIdx: 0,
         selectedMemSlotId: '',
         memSlotDependencies: [],
+        cSourceLines: [],
     };
 
     const isVoidHelperArg = (arg) : boolean => {
@@ -651,10 +660,42 @@ const createApp = (url: string) => {
         return div;
     }
 
+    const fillSourceCodeContent = async (state: AppState): Promise<void> => {
+
+        if (state.cSourceLines.length <= 0)
+            return;
+
+        const contentDiv = document.getElementById('source-code-content') as HTMLElement;
+        const lineNumbersDiv = document.getElementById('source-code-line-numbers') as HTMLElement;
+        contentDiv.innerHTML = '';
+
+        state.cSourceLines.sort((a, b) => a.cSource?.line - b.cSource?.line);
+        let lineNum = state.cSourceLines[0].cSource.line;
+        const maxLineNum = state.cSourceLines[state.cSourceLines.length - 1].cSource.line;
+        let i = 0;
+
+        let filename = state.cSourceLines[0].cSource.filename;
+        while (lineNum <= maxLineNum && i < state.cSourceLines.length) {
+            const line = state.cSourceLines[i];
+            const div = document.createElement('div');
+            if (line.cSource?.line === lineNum) {
+                div.innerHTML = line.cSource.content;
+                filename = line.cSource.filename;
+                i++;
+            } else {
+                div.innerHTML = '<span style="color:grey">// nop \n</span>';
+            }
+            contentDiv.appendChild(div);
+            lineNumbersDiv.appendChild(textDiv(`${filename}:${lineNum}`));
+            lineNum++;
+        }
+    }
+
     const loadComplete = async (state: AppState): Promise<void> => {
         await Promise.all([
             updateView(state),
-            updateLoadStatus(100, 100)
+            updateLoadStatus(100, 100),
+            fillSourceCodeContent(state),
         ]);
         gotoEnd();
     }
@@ -685,6 +726,8 @@ const createApp = (url: string) => {
         lineNumbersPc.appendChild(textDiv(pcText));
         lineNumbersIdx.appendChild(textDiv(`${idx+1}`));
         dependencyArrows.appendChild(dependencyArrowDiv(idx));
+        if (parsedLine.type == ParsedLineType.C_SOURCE)
+            state.cSourceLines.push(parsedLine);
     }
 
     // Load and parse the file into memory from the beggining to the end
@@ -1089,13 +1132,74 @@ const createApp = (url: string) => {
         updateView(state);
     };
 
+    let isResizing = false;
+    let currentResizer: HTMLElement | null = null;
+    let resizeStartX = 0;
+    let reszieStartWidths: number[] = [];
+
+    const initializeResizing = () => {
+        const panels = [sourceCodePanel, logContainer, statePanel];
+
+        const startResize = (e: MouseEvent, resizer: HTMLElement) => {
+            isResizing = true;
+            currentResizer = resizer;
+            resizeStartX = e.clientX;
+
+            const containerWidth = mainContent.offsetWidth;
+            reszieStartWidths = panels.map(panel => (panel.offsetWidth / containerWidth) * 100);
+
+            document.addEventListener('mousemove', handleResize);
+            document.addEventListener('mouseup', stopResize);
+            e.preventDefault();
+        };
+
+        const handleResize = (e: MouseEvent) => {
+            if (!isResizing || !currentResizer) return;
+
+            const deltaX = e.clientX - resizeStartX;
+            const containerWidth = mainContent.offsetWidth;
+            const deltaPercent = (deltaX / containerWidth) * 100;
+
+            if (currentResizer === resizer1) {
+                // Resizing between sourceCodePanel and logContainer
+                const totalWidth = reszieStartWidths[0] + reszieStartWidths[1];
+                const newSourceWidth = Math.max(5, Math.min(totalWidth - 5, reszieStartWidths[0] + deltaPercent));
+                const newLogWidth = totalWidth - newSourceWidth;
+
+                panels[0].style.flex = `${newSourceWidth}`;
+                panels[1].style.flex = `${newLogWidth}`;
+                panels[2].style.flex = `${reszieStartWidths[2]}`;
+            } else if (currentResizer === resizer2) {
+                // Resizing between logContainer and statePanel
+                const totalWidth = reszieStartWidths[1] + reszieStartWidths[2];
+                const newLogWidth = Math.max(5, Math.min(totalWidth - 5, reszieStartWidths[1] + deltaPercent));
+                const newStateWidth = totalWidth - newLogWidth;
+
+                panels[0].style.flex = `${reszieStartWidths[0]}`;
+                panels[1].style.flex = `${newLogWidth}`;
+                panels[2].style.flex = `${newStateWidth}`;
+            }
+        };
+
+        const stopResize = () => {
+            isResizing = false;
+            currentResizer = null;
+            document.removeEventListener('mousemove', handleResize);
+            document.removeEventListener('mouseup', stopResize);
+        };
+
+        resizer1.addEventListener('mousedown', (e) => startResize(e, resizer1));
+        resizer2.addEventListener('mousedown', (e) => startResize(e, resizer2));
+    };
+
+    initializeResizing();
+
     fileInput.addEventListener('change', handleFileInput);
     document.addEventListener('keydown', handleKeyDown);
     inputText.addEventListener('paste', handlePaste);
     window.addEventListener('resize', triggerUpdateView);
     logContainer.addEventListener('scroll', triggerUpdateView);
 
-    // Navigation panel
     gotoLineInput.addEventListener('input', gotoLine);
     gotoStartButton.addEventListener('click', gotoStart);
     gotoEndButton.addEventListener('click', gotoEnd);
