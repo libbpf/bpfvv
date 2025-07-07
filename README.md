@@ -26,11 +26,17 @@ The user can load a text file, and the app will attempt to parse it as a verifie
 - Setup node modules:
 	- `npm install`
 
-- Build the app:
+- Develop the app:
+	- `npm start`
+
+- Build the app for static testing:
 	- `npm run build`
 
-- Test your changes locally (defaults to `localhost:3000`):
-	- `npm run start`
+- Serve the statically built app:
+	- `npm run serve`
+
+- Format your code:
+	- `npm run format`
 
 - If everything is OK, push your branch, create a PR.
 

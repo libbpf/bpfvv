@@ -1,4 +1,4 @@
-import * as parser from '../parser';
+import * as parser from '../src/parser';
 import * as fs from 'node:fs';
 
 function cli_main() {
