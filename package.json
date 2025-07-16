@@ -20,7 +20,7 @@
     "start": "react-scripts start",
     "build": "react-scripts build",
     "serve": "serve -s build",
-    "test": "jest",
+    "test": "react-scripts test",
     "eject": "react-scripts eject",
     "format": "prettier src/* --write",
     "lint": "eslint src/*"
@@ -30,11 +30,6 @@
       "react-app",
       "react-app/jest"
     ]
-  },
-  "jest": {
-    "transform": {
-      "^.+\\.(ts|tsx)$": "ts-jest"
-    }
   },
   "browserslist": {
     "production": [
