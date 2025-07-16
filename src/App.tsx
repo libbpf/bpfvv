@@ -150,7 +150,7 @@ function App() {
           return;
       }
       e.preventDefault();
-      setSelectedState({ line: selectedLine + delta, memSlotId: "" });
+      setSelectedLineScroll(selectedLine + delta);
     };
 
     document.addEventListener("keydown", handleKeyDown);
