@@ -21,6 +21,7 @@
     "build": "react-scripts build",
     "serve": "serve -s build",
     "test": "react-scripts test",
+    "test:e2e": "jest --config jest.e2e.config.js",
     "eject": "react-scripts eject",
     "format": "prettier src/* --write",
     "lint": "eslint src/*"
@@ -46,7 +47,10 @@
   "devDependencies": {
     "@types/jest": "^30.0.0",
     "jest": "^30.0.4",
+    "jest-environment-puppeteer": "^11.0.0",
+    "jest-puppeteer": "^11.0.0",
     "prettier": "3.6.2",
+    "puppeteer": "^24.14.0",
     "serve": "^14.2.4",
     "ts-jest": "^29.4.0"
   }
