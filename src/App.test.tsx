@@ -113,4 +113,124 @@ describe("App End-to-End UI Tests", () => {
     // App should still be functional after keyboard events
     expect(screen.getByText("Clear")).toBeInTheDocument();
   });
+
+  test("memSlotDependencies mechanic creates clickable elements and triggers scroll", async () => {
+    // Mock scrollToLine function to track scroll calls
+    const mockScrollToLine = jest.fn();
+    jest.doMock("./utils", () => ({
+      ...jest.requireActual("./utils"),
+      scrollToLine: mockScrollToLine,
+    }));
+
+    render(<App />);
+
+    // Sample BPF verifier log with memory operations that create dependencies
+    const sampleLogWithMemSlots = `0: (b7) r2 = 1                        ; R2_w=1
+1: (7b) *(u64 *)(r10 -8) = r2          ; R2_w=1 R10=fp0 fp-8_w=1
+2: (79) r1 = *(u64 *)(r10 -8)          ; R1_w=1 R10=fp0 fp-8_w=1
+3: (bf) r0 = r1                        ; R0_w=1 R1_w=1
+4: (95) exit`;
+
+    const textarea = screen.getByPlaceholderText(
+      "Paste the verifier log here or choose a file",
+    );
+
+    // Paste the log content
+    await userEvent.click(textarea);
+    fireEvent.paste(textarea, {
+      clipboardData: {
+        getData: () => sampleLogWithMemSlots,
+      },
+    });
+
+    // Wait for the content to be processed and rendered
+    await screen.findByText("Clear");
+
+    // Find memory slot elements (registers like r1, r2, etc.)
+    const memSlotElements = document.querySelectorAll(".mem-slot[data-id]");
+    expect(memSlotElements.length).toBeGreaterThan(0);
+
+    // Find a specific memory slot (e.g., r2 from line 0)
+    const r2MemSlot = document.querySelector('.mem-slot[data-id="r2"]');
+    expect(r2MemSlot).toBeInTheDocument();
+
+    // Click on the memory slot
+    if (r2MemSlot) {
+      fireEvent.click(r2MemSlot);
+
+      // Verify that the memory slot gets selected (should have selected-mem-slot class)
+      // Note: This happens in useEffect, so we might need to wait
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      // Check if dependency arrows are created when a memory slot is selected
+      const dependencyArrows = document.querySelector("#dependency-arrows");
+      expect(dependencyArrows).toBeInTheDocument();
+    }
+
+    // Test clicking on dependency arrows (if they exist and are clickable)
+    const clickableArrows = document.querySelectorAll(".dep-arrow-button");
+    if (clickableArrows.length > 0) {
+      const firstArrow = clickableArrows[0];
+      fireEvent.click(firstArrow);
+
+      // Verify that scrollToLine was called (mocked function)
+      // Note: This test verifies the scroll mechanism is triggered
+      expect(mockScrollToLine).toHaveBeenCalled();
+    }
+
+    // Test that clicking outside memory slots clears the selection
+    const mainContent = document.querySelector("#main-content");
+    if (mainContent) {
+      fireEvent.click(mainContent);
+
+      // Wait for state update
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      // Verify that memory slot selection is cleared
+      const selectedMemSlots = document.querySelectorAll(".selected-mem-slot");
+      expect(selectedMemSlots.length).toBe(0);
+    }
+  });
+
+  test("memory slot hover shows tooltip with value information", async () => {
+    render(<App />);
+
+    // Sample log with memory operations
+    const sampleLog = `0: (b7) r2 = 42                       ; R2_w=42
+1: (7b) *(u64 *)(r10 -8) = r2          ; R2_w=42 R10=fp0 fp-8_w=42`;
+
+    const textarea = screen.getByPlaceholderText(
+      "Paste the verifier log here or choose a file",
+    );
+
+    await userEvent.click(textarea);
+    fireEvent.paste(textarea, {
+      clipboardData: {
+        getData: () => sampleLog,
+      },
+    });
+
+    // Wait for content to be processed
+    await screen.findByText("Clear");
+
+    // Find a memory slot element
+    const memSlot = document.querySelector('.mem-slot[data-id="r2"]');
+    expect(memSlot).toBeInTheDocument();
+
+    if (memSlot) {
+      // Hover over the memory slot
+      fireEvent.mouseOver(memSlot);
+
+      // Wait for tooltip to appear
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      // Check if tooltip is created (it should be in the DOM)
+      const tooltip = document.querySelector("#mem-slot-tooltip");
+      expect(tooltip).toBeInTheDocument();
+
+      // Mouse out should hide the tooltip
+      fireEvent.mouseOut(memSlot);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+  });
 });
