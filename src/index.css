@@ -148,6 +148,24 @@ body {
   height: 20px;
 }
 
+.dep-arrow .active-up-arrow,
+.dep-arrow .active-down-arrow {
+  display: none;
+}
+
+.dep-arrow.active-up .inactive-arrow,
+.dep-arrow.active-down .inactive-arrow {
+  display: none;
+}
+
+.dep-arrow.active-up .active-up-arrow {
+  display: inline;
+}
+
+.dep-arrow.active-down .active-down-arrow {
+  display: inline;
+}
+
 .log-line:hover {
   background-color: #eeeeff;
   color: #000;

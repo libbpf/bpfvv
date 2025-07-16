@@ -148,26 +148,24 @@ function DependencyArrows({
   memSlotDependencies: number[];
   selectedMemSlotId: string;
 }) {
-  const [targetArrow, setTargetArrow] = useState<{
-    idx: number;
-    content: string;
-    targetIdx: number;
-  }>({ idx: -1, content: "", targetIdx: 0 });
-
   const handleArrowsClick = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
       const hoveredElement = e.target as HTMLElement;
       e.stopPropagation();
-      const depArrow = hoveredElement.closest(".dep-arrow") as HTMLElement;
+      const depArrow = hoveredElement.closest(
+        ".dep-arrow-button",
+      ) as HTMLElement;
       if (!depArrow) {
         return;
       }
-      const targetIndex = depArrow.getAttribute("target-index");
-      if (!targetIndex || targetIndex === "-1") {
-        return;
+      const prev = parseInt(depArrow.getAttribute("prev-target") || "0", 10);
+      const next = parseInt(depArrow.getAttribute("next-target") || "0", 10);
+
+      if (depArrow.classList.contains("active-down")) {
+        scrollToLine(next, lines.length);
+      } else if (depArrow.classList.contains("active-up")) {
+        scrollToLine(prev, lines.length);
       }
-      const idx = parseInt(targetIndex, 10);
-      scrollToLine(idx, lines.length);
     },
     [lines],
   );
@@ -175,30 +173,25 @@ function DependencyArrows({
   const handleArrowsOver = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
       const hoveredElement = e.target as HTMLElement;
-      const depArrow = hoveredElement.closest(".dep-arrow") as HTMLElement;
-      if (!depArrow || depArrow.textContent !== "│ ") return;
-      const idx = parseInt(depArrow.getAttribute("line-index") || "0", 10);
-      const idxs = [...memSlotDependencies, selectedLine];
-      let prev = idxs[0];
-      let next = idxs[idxs.length - 1];
-      for (let i = 1; i < idxs.length; i++) {
-        if (idxs[i] > idx) {
-          next = idxs[i];
-          break;
-        } else {
-          prev = idxs[i];
-        }
+      const depArrow = hoveredElement.closest(
+        ".dep-arrow-button",
+      ) as HTMLElement;
+      if (!depArrow) {
+        return;
       }
+      const prev = parseInt(depArrow.getAttribute("prev-target") || "0", 10);
+      const next = parseInt(depArrow.getAttribute("next-target") || "0", 10);
+      const idx = parseInt(depArrow.getAttribute("line-index") || "0", 10);
 
       let { min, max } = getVisibleIdxRange(lines.length);
       const isVisible = (idx: number) => {
         return min < idx && idx < max;
       };
       const setTargetToPrev = () => {
-        setTargetArrow({ idx, content: "▲ ", targetIdx: prev });
+        depArrow.classList.add("active-up");
       };
       const setTargetToNext = () => {
-        setTargetArrow({ idx, content: "▼ ", targetIdx: next });
+        depArrow.classList.add("active-down");
       };
 
       if (isVisible(prev) && isVisible(next)) return;
@@ -216,11 +209,17 @@ function DependencyArrows({
         }
       }
     },
-    [memSlotDependencies, selectedLine, setTargetArrow, lines],
+    [lines],
   );
 
-  const handleArrowsOut = useCallback(() => {
-    setTargetArrow({ idx: -1, content: "", targetIdx: 0 });
+  const handleArrowsOut = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    const hoveredElement = e.target as HTMLElement;
+    const depArrow = hoveredElement.closest(".dep-arrow-button") as HTMLElement;
+    if (!depArrow) {
+      return;
+    }
+    depArrow.classList.remove("active-up");
+    depArrow.classList.remove("active-down");
   }, []);
 
   const minIdx = memSlotDependencies[0];
@@ -233,19 +232,9 @@ function DependencyArrows({
     memSlotDependencies.length > 0 &&
     minIdx !== selectedLine
   ) {
+    let memSlotDepIdx = 0;
     for (let idx = minIdx; idx <= maxIdx; idx++) {
-      if (targetArrow.idx !== 0 && idx === targetArrow.idx) {
-        arrows.push(
-          <div
-            className="dep-arrow"
-            line-index={idx}
-            key={`dependency-arrow-${idx}`}
-            target-index={idx}
-          >
-            {targetArrow.content}
-          </div>,
-        );
-      } else if (idx === selectedLine) {
+      if (idx === selectedLine) {
         arrows.push(
           <div
             className="dep-arrow"
@@ -267,6 +256,7 @@ function DependencyArrows({
             ┌─
           </div>,
         );
+        ++memSlotDepIdx;
       } else if (memSlotDependencies.includes(idx)) {
         arrows.push(
           <div
@@ -278,15 +268,20 @@ function DependencyArrows({
             ├─
           </div>,
         );
+        ++memSlotDepIdx;
       } else if (minIdx < idx && idx < selectedLine) {
         arrows.push(
           <div
-            className="dep-arrow"
+            className="dep-arrow dep-arrow-button"
             line-index={idx}
             key={`dependency-arrow-${idx}`}
             target-index={idx}
+            prev-target={memSlotDependencies[memSlotDepIdx - 1]}
+            next-target={memSlotDependencies[memSlotDepIdx]}
           >
-            │{" "}
+            <span className="inactive-arrow">│ </span>
+            <span className="active-up-arrow">▲ </span>
+            <span className="active-down-arrow">▼ </span>
           </div>,
         );
       }
