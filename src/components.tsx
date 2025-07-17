@@ -37,6 +37,10 @@ function getMemSlotDomId(memSlot: string, lineIdx: number): string {
   return `mem-slot-${memSlot}-line-${lineIdx}`;
 }
 
+function getDepArrowDomId(lineIdx: number): string {
+  return `dep-arrow-line-${lineIdx}`;
+}
+
 let bpfHelpersMap = new Map<string, HelperArg[]>();
 
 for (const helper of BPF_HELPERS_JSON.helpers) {
@@ -135,174 +139,6 @@ function CallHtml({ line }: { line: ParsedLine }) {
     contents.push(<React.Fragment key="paren-closed">)</React.Fragment>);
     return <>{contents}</>;
   }
-}
-
-function DependencyArrows({
-  lines,
-  selectedLine,
-  memSlotDependencies,
-  selectedMemSlotId,
-}: {
-  lines: ParsedLine[];
-  selectedLine: number;
-  memSlotDependencies: number[];
-  selectedMemSlotId: string;
-}) {
-  const handleArrowsClick = useCallback(
-    (e: React.MouseEvent<HTMLDivElement>) => {
-      const hoveredElement = e.target as HTMLElement;
-      e.stopPropagation();
-      const depArrow = hoveredElement.closest(
-        ".dep-arrow-button",
-      ) as HTMLElement;
-      if (!depArrow) {
-        return;
-      }
-      const prev = parseInt(depArrow.getAttribute("prev-target") || "0", 10);
-      const next = parseInt(depArrow.getAttribute("next-target") || "0", 10);
-
-      if (depArrow.classList.contains("active-down")) {
-        scrollToLine(next, lines.length);
-      } else if (depArrow.classList.contains("active-up")) {
-        scrollToLine(prev, lines.length);
-      }
-    },
-    [lines],
-  );
-
-  const handleArrowsOver = useCallback(
-    (e: React.MouseEvent<HTMLDivElement>) => {
-      const hoveredElement = e.target as HTMLElement;
-      const depArrow = hoveredElement.closest(
-        ".dep-arrow-button",
-      ) as HTMLElement;
-      if (!depArrow) {
-        return;
-      }
-      const prev = parseInt(depArrow.getAttribute("prev-target") || "0", 10);
-      const next = parseInt(depArrow.getAttribute("next-target") || "0", 10);
-      const idx = parseInt(depArrow.getAttribute("line-index") || "0", 10);
-
-      let { min, max } = getVisibleIdxRange(lines.length);
-      const isVisible = (idx: number) => {
-        return min < idx && idx < max;
-      };
-      const setTargetToPrev = () => {
-        depArrow.classList.add("active-up");
-      };
-      const setTargetToNext = () => {
-        depArrow.classList.add("active-down");
-      };
-
-      if (isVisible(prev) && isVisible(next)) return;
-
-      if (isVisible(prev)) {
-        setTargetToNext();
-      } else if (isVisible(next)) {
-        setTargetToPrev();
-      } else {
-        const mid = (min + max) / 2;
-        if (idx < mid) {
-          setTargetToPrev();
-        } else {
-          setTargetToNext();
-        }
-      }
-    },
-    [lines],
-  );
-
-  const handleArrowsOut = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    const hoveredElement = e.target as HTMLElement;
-    const depArrow = hoveredElement.closest(".dep-arrow-button") as HTMLElement;
-    if (!depArrow) {
-      return;
-    }
-    depArrow.classList.remove("active-up");
-    depArrow.classList.remove("active-down");
-  }, []);
-
-  const minIdx = memSlotDependencies[0];
-  const maxIdx = selectedLine;
-
-  const arrows = [];
-
-  if (
-    selectedMemSlotId &&
-    memSlotDependencies.length > 0 &&
-    minIdx !== selectedLine
-  ) {
-    let memSlotDepIdx = 0;
-    for (let idx = minIdx; idx <= maxIdx; idx++) {
-      if (idx === selectedLine) {
-        arrows.push(
-          <div
-            className="dep-arrow"
-            line-index={idx}
-            key={`dependency-arrow-${idx}`}
-            target-index={idx}
-          >
-            └─
-          </div>,
-        );
-      } else if (idx === minIdx) {
-        arrows.push(
-          <div
-            className="dep-arrow"
-            line-index={idx}
-            key={`dependency-arrow-${idx}`}
-            target-index={idx}
-          >
-            ┌─
-          </div>,
-        );
-        ++memSlotDepIdx;
-      } else if (memSlotDependencies.includes(idx)) {
-        arrows.push(
-          <div
-            className="dep-arrow"
-            line-index={idx}
-            key={`dependency-arrow-${idx}`}
-            target-index={idx}
-          >
-            ├─
-          </div>,
-        );
-        ++memSlotDepIdx;
-      } else if (minIdx < idx && idx < selectedLine) {
-        arrows.push(
-          <div
-            className="dep-arrow dep-arrow-button"
-            line-index={idx}
-            key={`dependency-arrow-${idx}`}
-            target-index={idx}
-            prev-target={memSlotDependencies[memSlotDepIdx - 1]}
-            next-target={memSlotDependencies[memSlotDepIdx]}
-          >
-            <span className="inactive-arrow">│ </span>
-            <span className="active-up-arrow">▲ </span>
-            <span className="active-down-arrow">▼ </span>
-          </div>,
-        );
-      }
-    }
-  }
-
-  // Each line is 20px high. Also add 10 so ┌─ appears in the middle
-  // of the line
-  const topPadding = minIdx * 20 + 10;
-
-  return (
-    <div
-      id="dependency-arrows"
-      onClick={handleArrowsClick}
-      onMouseOver={handleArrowsOver}
-      onMouseOut={handleArrowsOut}
-      style={{ paddingTop: `${topPadding}px` }}
-    >
-      {arrows}
-    </div>
-  );
 }
 
 export function Example() {
@@ -794,7 +630,6 @@ const LineNumbersRaw = ({
           </div>
         );
       })}
-      ;
     </div>
   );
 };
@@ -815,12 +650,34 @@ const LineNumbersPCRaw = ({
           </div>
         );
       })}
-      ;
     </div>
   );
 };
 
 const LineNumbersPC = React.memo(LineNumbersPCRaw);
+
+const DependencyArrowsRaw = ({
+  verifierLogState,
+}: {
+  verifierLogState: VerifierLogState;
+}) => {
+  return (
+    <>
+      {verifierLogState.lines.map((line) => {
+        return (
+          <div
+            className="dep-arrow"
+            line-index={line.idx}
+            id={getDepArrowDomId(line.idx)}
+            key={`dependency-arrow-${line.idx}`}
+          ></div>
+        );
+      })}
+    </>
+  );
+};
+
+const DependencyArrowsPlain = React.memo(DependencyArrowsRaw);
 
 export function MainContent({
   verifierLogState,
@@ -935,6 +792,147 @@ export function MainContent({
     };
   }, [selectedLine, selectedMemSlotId, memSlotDependencies, verifierLogState]);
 
+  useEffect(() => {
+    if (selectedMemSlotId === "") {
+      return;
+    }
+    const depArrowSelected = document.getElementById(
+      getDepArrowDomId(selectedLine),
+    );
+    if (depArrowSelected) {
+      depArrowSelected.classList.add("dep-end");
+    }
+
+    const minIdx = memSlotDependencies[0];
+    const maxIdx = selectedLine;
+
+    for (let idx = minIdx; idx < maxIdx; idx++) {
+      if (idx === minIdx) {
+        const depArrowStart = document.getElementById(getDepArrowDomId(idx));
+        if (depArrowStart) {
+          depArrowStart.classList.add("dep-start");
+        }
+      } else if (memSlotDependencies.includes(idx)) {
+        const depArrowMid = document.getElementById(getDepArrowDomId(idx));
+        if (depArrowMid) {
+          depArrowMid.classList.add("dep-mid");
+        }
+      } else if (minIdx < idx && idx < selectedLine) {
+        const depArrowTrack = document.getElementById(getDepArrowDomId(idx));
+        if (depArrowTrack) {
+          depArrowTrack.classList.add("dep-track");
+        }
+      }
+    }
+
+    return () => {
+      if (depArrowSelected) {
+        depArrowSelected.classList.remove("dep-end");
+      }
+      for (let idx = minIdx; idx < maxIdx; idx++) {
+        if (idx === minIdx) {
+          const depArrowStart = document.getElementById(getDepArrowDomId(idx));
+          if (depArrowStart) {
+            depArrowStart.classList.remove("dep-start");
+          }
+        } else if (memSlotDependencies.includes(idx)) {
+          const depArrowMid = document.getElementById(getDepArrowDomId(idx));
+          if (depArrowMid) {
+            depArrowMid.classList.remove("dep-mid");
+          }
+        } else if (minIdx < idx && idx < selectedLine) {
+          const depArrowTrack = document.getElementById(getDepArrowDomId(idx));
+          if (depArrowTrack) {
+            depArrowTrack.classList.remove("dep-track");
+          }
+        }
+      }
+    };
+  }, [selectedLine, selectedMemSlotId, memSlotDependencies, verifierLogState]);
+
+  const handleArrowsClick = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      const hoveredElement = e.target as HTMLElement;
+      e.stopPropagation();
+      const depArrow = hoveredElement.closest(".dep-track") as HTMLElement;
+      if (!depArrow) {
+        return;
+      }
+      const idx = parseInt(depArrow.getAttribute("line-index") || "0", 10);
+
+      let prev = memSlotDependencies[0];
+      let next = memSlotDependencies[memSlotDependencies.length - 1];
+
+      memSlotDependencies.some((dep, i) => {
+        if (dep > idx) {
+          next = dep;
+          prev = memSlotDependencies[i - 1];
+          return true;
+        }
+        return false;
+      });
+
+      if (depArrow.classList.contains("active-down")) {
+        scrollToLine(next, verifierLogState.lines.length);
+      } else if (depArrow.classList.contains("active-up")) {
+        scrollToLine(prev, verifierLogState.lines.length);
+      }
+    },
+    [verifierLogState, memSlotDependencies],
+  );
+
+  const handleArrowsOver = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      const hoveredElement = e.target as HTMLElement;
+      const depArrow = hoveredElement.closest(".dep-track") as HTMLElement;
+      if (!depArrow) {
+        return;
+      }
+      const idx = parseInt(depArrow.getAttribute("line-index") || "0", 10);
+
+      let prev = memSlotDependencies[0];
+      let next = memSlotDependencies[memSlotDependencies.length - 1];
+
+      memSlotDependencies.some((dep, i) => {
+        if (dep > idx) {
+          next = dep;
+          prev = memSlotDependencies[i - 1];
+          return true;
+        }
+        return false;
+      });
+
+      let { min, max } = getVisibleIdxRange(verifierLogState.lines.length);
+      const isVisible = (idx: number) => {
+        return min < idx && idx < max;
+      };
+      const setTargetToPrev = () => {
+        depArrow.classList.add("active-up");
+        depArrow.classList.remove("active-down");
+      };
+      const setTargetToNext = () => {
+        depArrow.classList.add("active-down");
+        depArrow.classList.remove("active-up");
+      };
+
+      if (isVisible(prev) && isVisible(next)) return;
+
+      if (isVisible(prev)) {
+        setTargetToNext();
+      } else if (isVisible(next)) {
+        setTargetToPrev();
+      } else {
+        const mid = (min + max) / 2;
+        if (idx < mid) {
+          setTargetToPrev();
+        } else {
+          setTargetToNext();
+        }
+      }
+    },
+    [verifierLogState, memSlotDependencies],
+  );
+
   return (
     <div
       id="main-content"
@@ -947,16 +945,14 @@ export function MainContent({
       >
         <LineNumbers verifierLogState={verifierLogState} />
         <LineNumbersPC verifierLogState={verifierLogState} />
-        {selectedMemSlotId === "" ? (
-          <div id="dependency-arrows" />
-        ) : (
-          <DependencyArrows
-            lines={verifierLogState.lines}
-            selectedLine={selectedLine}
-            memSlotDependencies={memSlotDependencies}
-            selectedMemSlotId={selectedMemSlotId}
-          />
-        )}
+        <div
+          id="dependency-arrows"
+          onMouseOver={handleArrowsOver}
+          onClick={handleArrowsClick}
+        >
+          <DependencyArrowsPlain verifierLogState={verifierLogState} />
+        </div>
+
         <LogLines
           verifierLogState={verifierLogState}
           handleLogLinesClick={handleLogLinesClick}

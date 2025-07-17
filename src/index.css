@@ -138,32 +138,49 @@ body {
   color: #000;
 }
 
-.active_mem_slot .selected-line .mem-slot {
+.active_mem_slot .selected-line .mem-slot,
+.dependency-line .mem-slot {
   font-weight: bold;
 }
 
 .line-numbers-line,
 .dep-arrow,
 .log-line {
-  height: 20px;
+  min-height: 1.4em;
 }
 
-.dep-arrow .active-up-arrow,
-.dep-arrow .active-down-arrow {
-  display: none;
+.dep-arrow {
+  position: relative;
 }
 
-.dep-arrow.active-up .inactive-arrow,
-.dep-arrow.active-down .inactive-arrow {
-  display: none;
+.dep-end::before {
+  content: "\2514 \2500"; /*└─*/
+  padding-left: 10px;
 }
 
-.dep-arrow.active-up .active-up-arrow {
-  display: inline;
+.dep-start::before {
+  content: "\250C \2500"; /*┌─*/
+  padding-left: 10px;
 }
 
-.dep-arrow.active-down .active-down-arrow {
-  display: inline;
+.dep-mid::before {
+  content: "\251C \2500"; /*├─*/
+  padding-left: 10px;
+}
+
+.dep-track::before {
+  content: "\2502 \00a0"; /*│ */
+  padding-left: 10px;
+}
+
+.dep-track.active-up:hover:before {
+  content: "\25B2 \00a0"; /*▲ */
+  padding-left: 10px;
+}
+
+.dep-track.active-down:hover:before {
+  content: "\25BC \00a0"; /*▼ */
+  padding-left: 10px;
 }
 
 .log-line:hover {
