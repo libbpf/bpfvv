@@ -883,18 +883,18 @@ export function MainContent({
         return;
       }
       const idx = parseInt(depArrow.getAttribute("line-index") || "0", 10);
+      const idxs = [...memSlotDependencies, selectedLine];
 
-      let prev = memSlotDependencies[0];
-      let next = memSlotDependencies[memSlotDependencies.length - 1];
-
-      memSlotDependencies.some((dep, i) => {
-        if (dep > idx) {
-          next = dep;
-          prev = memSlotDependencies[i - 1];
-          return true;
+      let prev = idxs[0];
+      let next = idxs[idxs.length - 1];
+      for (let i = 1; i < idxs.length; i++) {
+        if (idxs[i] > idx) {
+          next = idxs[i];
+          break;
+        } else {
+          prev = idxs[i];
         }
-        return false;
-      });
+      }
 
       if (depArrow.classList.contains("active-down")) {
         scrollToLine(next, verifierLogState.lines.length);
@@ -902,7 +902,7 @@ export function MainContent({
         scrollToLine(prev, verifierLogState.lines.length);
       }
     },
-    [verifierLogState, memSlotDependencies],
+    [verifierLogState, memSlotDependencies, selectedLine],
   );
 
   const handleArrowsOver = useCallback(
@@ -913,18 +913,18 @@ export function MainContent({
         return;
       }
       const idx = parseInt(depArrow.getAttribute("line-index") || "0", 10);
+      const idxs = [...memSlotDependencies, selectedLine];
 
-      let prev = memSlotDependencies[0];
-      let next = memSlotDependencies[memSlotDependencies.length - 1];
-
-      memSlotDependencies.some((dep, i) => {
-        if (dep > idx) {
-          next = dep;
-          prev = memSlotDependencies[i - 1];
-          return true;
+      let prev = idxs[0];
+      let next = idxs[idxs.length - 1];
+      for (let i = 1; i < idxs.length; i++) {
+        if (idxs[i] > idx) {
+          next = idxs[i];
+          break;
+        } else {
+          prev = idxs[i];
         }
-        return false;
-      });
+      }
 
       let { min, max } = getVisibleIdxRange(verifierLogState.lines.length);
       const isVisible = (idx: number) => {
@@ -954,7 +954,7 @@ export function MainContent({
         }
       }
     },
-    [verifierLogState, memSlotDependencies],
+    [verifierLogState, memSlotDependencies, selectedLine],
   );
 
   return (
