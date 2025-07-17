@@ -155,7 +155,7 @@ export function Example() {
 function ExitInstruction({ frame }: { frame: number }) {
   return (
     <b>
-      `{"}"} exit ; return to stack frame ${frame}`
+      {"}"} exit ; return to stack frame {frame}
     </b>
   );
 }
@@ -209,10 +209,12 @@ export function LoadStatus({ lines }: { lines: ParsedLine[] }) {
 const LogLineRaw = ({
   line,
   frame,
+  indentLevel,
   idx,
 }: {
   line: ParsedLine;
   frame: number;
+  indentLevel: number;
   idx: number;
 }) => {
   const topClasses = ["log-line"];
@@ -236,7 +238,8 @@ const LogLineRaw = ({
   } else if (ins?.jmp?.kind === BpfJmpKind.BPF2BPF_CALL) {
     content = (
       <b>
-        <CallHtml line={line} />` {"{"} ; enter new stack frame ${frame}`
+        <CallHtml line={line} />
+        {" {"} ; enter new stack frame {frame}
       </b>
     );
   } else if (ins?.jmp?.kind === BpfJmpKind.EXIT) {
@@ -256,8 +259,17 @@ const LogLineRaw = ({
 
   const lineId = "line-" + idx;
 
+  let logLineStyle = {
+    paddingLeft: `${indentLevel <= 0 ? 0 : indentLevel * 30}px`,
+  };
+
   return (
-    <div line-index={idx} id={lineId} className={topClasses.join(" ")}>
+    <div
+      style={logLineStyle}
+      line-index={idx}
+      id={lineId}
+      className={topClasses.join(" ")}
+    >
       {content}
     </div>
   );
@@ -593,6 +605,7 @@ const LogLinesRaw = ({
   handleLogLinesOut: (event: React.MouseEvent<HTMLDivElement>) => void;
 }) => {
   const { bpfStates, lines } = verifierLogState;
+  let indentLevel = 0;
   return (
     <div
       id="formatted-log-lines"
@@ -601,9 +614,15 @@ const LogLinesRaw = ({
       onMouseOut={handleLogLinesOut}
     >
       {lines.map((line) => {
+        const frame = getBpfState(bpfStates, line.idx).state.frame;
+        indentLevel = frame;
+        if (line.bpfIns?.jmp?.kind === BpfJmpKind.BPF2BPF_CALL) {
+          indentLevel -= 1;
+        }
         return (
           <LogLine
-            frame={getBpfState(bpfStates, line.idx).state.frame}
+            frame={frame}
+            indentLevel={indentLevel}
             line={line}
             idx={line.idx}
             key={`log_line_${line.idx}`}
