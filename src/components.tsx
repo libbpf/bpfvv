@@ -340,7 +340,7 @@ function getMemSlotDisplayValue(
   }
 }
 
-function MemSlot({
+export function MemSlot({
   line,
   op,
 }: {
