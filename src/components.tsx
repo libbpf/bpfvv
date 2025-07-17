@@ -812,9 +812,14 @@ export function MainContent({
   }, [selectedLine, selectedMemSlotId, memSlotDependencies, verifierLogState]);
 
   useEffect(() => {
-    if (selectedMemSlotId === "") {
+    if (
+      selectedMemSlotId === "" ||
+      memSlotDependencies.length === 0 ||
+      memSlotDependencies[0] === selectedLine
+    ) {
       return;
     }
+
     const depArrowSelected = document.getElementById(
       getDepArrowDomId(selectedLine),
     );
