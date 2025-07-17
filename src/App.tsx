@@ -166,6 +166,10 @@ function App() {
     onGotoEnd,
   ]);
 
+  useEffect(() => {
+    onGotoEnd();
+  }, [verifierLogState, onGotoEnd]);
+
   const loadInputText = useCallback((text: string) => {
     setVerifierLogState(processRawLines(text.split("\n")));
   }, []);
