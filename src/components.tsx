@@ -4,15 +4,14 @@ import {
   BpfJmpCode,
   BpfJmpKind,
   BpfOperand,
-  BpfState,
   Effect,
-  getBpfState,
-  getMemSlotDependencies,
   OperandType,
   ParsedLine,
   ParsedLineType,
-  VerifierLogState,
 } from "./parser";
+import { getMemSlotDependencies } from "./analyzer";
+
+import { BpfState, getBpfState, VerifierLogState } from "./analyzer";
 
 import { getVisibleIdxRange, scrollToLine } from "./utils";
 
