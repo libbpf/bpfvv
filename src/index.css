@@ -1,0 +1,311 @@
+body {
+  margin: 0;
+  padding: 20px;
+  font-family: Arial, sans-serif;
+  font-size: 14px;
+}
+
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: none;
+  margin: 0;
+  height: calc(100vh - 40px); /* Account for body padding */
+}
+
+.file-input-container {
+  display: flex;
+  justify-content: left;
+  align-items: center;
+}
+
+.navigation-panel {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.main-content {
+  display: flex;
+  flex: 1;
+  gap: 10px;
+  min-height: 0; /* Important for flex child to respect parent height */
+  font-family: monospace;
+  font-size: 14px;
+}
+
+#log-container {
+  display: flex;
+  flex-direction: row;
+  flex: 0.5;
+  min-width: 0;
+  gap: 0;
+  overflow: auto;
+}
+
+#input-text {
+  height: 100%;
+}
+
+.line-numbers {
+  padding: 10px 8px;
+  background-color: #f0f0f0;
+  border: 1px solid #ccc;
+  border-right: none;
+  border-radius: 4px 0 0 4px;
+  line-height: 1.4;
+  text-align: right;
+  color: #888888;
+  user-select: none;
+  min-width: 3em;
+  white-space: pre;
+  height: fit-content;
+}
+
+#line-numbers-pc {
+  color: #444444;
+}
+
+#dependency-arrows {
+  padding-top: 10px;
+  padding-bottom: 10px;
+  line-height: 1.4;
+  text-align: right;
+  user-select: none;
+  min-width: 2em;
+  white-space: pre;
+  height: fit-content;
+}
+
+#formatted-log-lines {
+  border: 1px solid #ccc;
+  border-radius: 0 4px 4px 0;
+  border-left: none;
+  background: white;
+  padding: 10px;
+  line-height: 1.4;
+  white-space: pre;
+  height: fit-content;
+}
+
+.state-panel {
+  flex: 0.5;
+  min-width: 200px;
+  padding: 10px;
+  background-color: #f8f8f8;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  overflow: auto;
+  max-width: none;
+}
+
+.mem-slot {
+  cursor: pointer;
+}
+
+.mem-slot:hover {
+  border: 1px solid black;
+}
+
+.register-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.line-numbers .selected-line {
+  background-color: #d4d4d4;
+}
+
+.ignorable-line {
+  color: #cccccc;
+}
+
+.selected-line,
+.ignorable-line.selected-line {
+  background-color: #ccccff;
+  color: #000;
+}
+
+.active_mem_slot .normal-line {
+  color: #888888;
+}
+
+.active_mem_slot .normal-line.selected-line,
+.active_mem_slot .normal-line.dependency-line {
+  color: #000;
+}
+
+.active_mem_slot .selected-line .mem-slot,
+.dependency-line .mem-slot {
+  font-weight: bold;
+}
+
+.line-numbers-line,
+.dep-arrow,
+.log-line {
+  min-height: 1.4em;
+}
+
+.dep-arrow {
+  position: relative;
+}
+
+.dep-end::before {
+  content: "\2514 \2500"; /*└─*/
+  padding-left: 10px;
+}
+
+.dep-start::before {
+  content: "\250C \2500"; /*┌─*/
+  padding-left: 10px;
+}
+
+.dep-mid::before {
+  content: "\251C \2500"; /*├─*/
+  padding-left: 10px;
+}
+
+.dep-track::before {
+  content: "\2502 \00a0"; /*│ */
+  padding-left: 10px;
+}
+
+.dep-track.active-up:hover:before {
+  content: "\25B2 \00a0"; /*▲ */
+  padding-left: 10px;
+}
+
+.dep-track.active-down:hover:before {
+  content: "\25BC \00a0"; /*▼ */
+  padding-left: 10px;
+}
+
+.log-line:hover {
+  background-color: #eeeeff;
+  color: #000;
+}
+
+.dependency-line {
+  background-color: #eeeeee;
+}
+
+.state-panel table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: monospace;
+  font-size: 14px;
+}
+
+.state-panel td {
+  padding: 4px 8px;
+  border-bottom: 1px solid #ddd;
+}
+
+.state-panel tr:hover {
+  background-color: #f5f5f5;
+}
+
+.state-panel td:first-child {
+  font-weight: bold;
+  color: #555;
+  width: 7ch;
+}
+
+.state-panel td:last-child {
+  font-family: monospace;
+  word-break: break-all;
+}
+
+.effect-write {
+  background-color: #ffeeee;
+}
+
+.effect-read {
+  background-color: #eeffee;
+}
+
+#state-panel-header {
+  font-weight: bold;
+  margin-bottom: 10px;
+  color: #000044;
+}
+
+#state-panel-header div {
+  display: inline-block;
+  margin-right: 32px;
+}
+
+.dependency-mem-slot {
+  font-weight: bold;
+}
+
+.selected-mem-slot {
+  border: 1px solid black;
+}
+
+.howto-link {
+  display: block;
+  padding: 8px;
+  margin: 4px 0;
+  text-decoration: none;
+  color: #0066cc;
+  font-size: 18px;
+  text-align: right;
+  font-weight: bold;
+}
+
+.howto-link:hover {
+  text-decoration: underline;
+}
+
+.top-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+#mem-slot-tooltip {
+  position: fixed;
+  display: none;
+  background-color: white;
+  padding: 5px 10px;
+  font-family: monospace;
+  font-size: 12px;
+  z-index: 1000;
+  pointer-events: none;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  border-style: solid;
+  border-color: black;
+  border-width: 1px;
+}
+
+#mem-slot-tooltip-arrow {
+  content: "";
+  position: absolute;
+  transform: translateX(-50%);
+  border-width: 0 5px 5px 5px;
+  border-style: solid;
+  border-color: transparent transparent #333 transparent;
+}
+
+.hint-line {
+  font-size: 14px;
+  color: black;
+  font-family: monospace;
+}
+
+.hint-line span {
+  font-weight: bold;
+}
+
+#goto-line-input {
+  width: 60px;
+}
+
+.scratched {
+  color: gray;
+}
