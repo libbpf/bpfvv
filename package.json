@@ -36,6 +36,7 @@
       "^.+\\.(ts|tsx)$": "ts-jest"
     }
   },
+  "homepage": "https://libbpf.github.io/bpfvv/",
   "browserslist": {
     "production": [
       ">0.2%",
