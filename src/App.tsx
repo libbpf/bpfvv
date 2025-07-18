@@ -1,7 +1,7 @@
 import React from "react";
 import { useCallback, useEffect, useState } from "react";
 
-import { VerifierLogState, processRawLines } from "./parser";
+import { VerifierLogState, processRawLines } from "./analyzer";
 
 import {
   fetchLogFromUrl,
