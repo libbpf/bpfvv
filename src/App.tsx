@@ -1,5 +1,5 @@
 import React from "react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { VerifierLogState, processRawLines } from "./analyzer";
 
@@ -84,6 +84,7 @@ function App() {
   });
   const [loadError, setLoadError] = useState<string | null>(null);
   const { line: selectedLine, memSlotId: selectedMemSlotId } = selectedState;
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const setSelectedLineScroll = useCallback(
     (nextSelected: number) => {
@@ -113,6 +114,10 @@ function App() {
   const onClear = useCallback(() => {
     setVerifierLogState({ lines: [], bpfStates: [] });
     setSelectedState({ line: 0, memSlotId: "" });
+    const fiCurrent = fileInputRef.current;
+    if (fiCurrent) {
+      fiCurrent.value = "";
+    }
   }, []);
 
   useEffect(() => {
@@ -306,7 +311,12 @@ function App() {
       <div className="container">
         <div className="top-bar">
           <div className="file-input-container">
-            <input type="file" id="file-input" onChange={onFileInputChange} />
+            <input
+              type="file"
+              id="file-input"
+              onChange={onFileInputChange}
+              ref={fileInputRef}
+            />
             <LoadStatus lines={verifierLogState.lines} />
           </div>
           <a
