@@ -6,13 +6,7 @@ import {
   VerifierLogState,
 } from "./analyzer";
 
-import {
-  BPF_CALLEE_SAVED_REGS,
-  BPF_SCRATCH_REGS,
-  Effect,
-  ParsedLine,
-  parseLine,
-} from "./parser";
+import { BPF_CALLEE_SAVED_REGS, BPF_SCRATCH_REGS, Effect } from "./parser";
 
 const expectInitialBpfState = (s: BpfState) => {
   expect(s.frame).toBe(0);
@@ -41,7 +35,7 @@ describe("analyzer", () => {
   const basicVerifierLog = `
 processed 23 insns (limit 1000000) max_states_per_insn 0 total_states 1 peak_states 1 mark_read 1
 ERROR: Error loading BPF program for usdt___a_out_test_struct_by_val_reg_pair_loc0_2.
-Kernel error log: 
+Kernel error log:
 0: R1=ctx() R10=fp0
 ;  @ bpftrace.bpf.o:0
 0: (b7) r2 = 1                        ; R2_w=1
