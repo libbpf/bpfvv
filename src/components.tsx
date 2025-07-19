@@ -514,16 +514,17 @@ export function ToolTip({
   hoveredLine: number;
   hoveredMemSlotId: string;
 }) {
-  const toolTipRef: React.RefObject<null> = useRef(null);
+  const toolTipRef = useRef<HTMLInputElement>(null);
   const [toolTipWidth, setToolTipWidth] = useState(0);
   useEffect(() => {
     if (!toolTipRef) {
       return;
     }
-    const cur: any = toolTipRef.current;
-    if (cur instanceof HTMLElement) {
-      setToolTipWidth(cur.offsetWidth);
+    const cur = toolTipRef.current;
+    if (!cur) {
+      return;
     }
+    setToolTipWidth(cur.offsetWidth);
   }, [hoveredMemSlotId]);
 
   const { bpfStates, lines } = verifierLogState;
