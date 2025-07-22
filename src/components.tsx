@@ -146,7 +146,7 @@ export function Example() {
       id="example-link"
       href={`${window.location.pathname}?url=${EXAMPLE_LOG_URL}`}
     >
-      Click here to load a log example
+      Load an example log
     </a>
   );
 }
@@ -197,12 +197,7 @@ function JmpInstruction({ line }: { line: ParsedLine }) {
 }
 
 export function LoadStatus({ lines }: { lines: ParsedLine[] }) {
-  const percentage = (100 * 100) / 100;
-  return (
-    <div id="load-status">
-      Loaded {percentage.toFixed(0)}% ({lines.length} lines)
-    </div>
-  );
+  return <div id="load-status">({lines.length} lines)</div>;
 }
 
 const LogLineRaw = ({
