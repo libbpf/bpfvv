@@ -45,6 +45,8 @@ body {
   min-height: 0; /* Important for flex child to respect parent height */
   font-family: monospace;
   font-size: 14px;
+  border: 2px solid #ccc;
+  border-radius: 4px;
 }
 
 #log-container {
@@ -63,9 +65,7 @@ body {
 .line-numbers {
   padding: 10px 8px;
   background-color: #f0f0f0;
-  border: 1px solid #ccc;
-  border-right: none;
-  border-radius: 4px 0 0 4px;
+  border-right: 1px solid #ccc;
   line-height: 1.4;
   text-align: right;
   color: #888888;
@@ -91,9 +91,6 @@ body {
 }
 
 #formatted-log-lines {
-  border: 1px solid #ccc;
-  border-radius: 0 4px 4px 0;
-  border-left: none;
   background: white;
   padding: 10px;
   line-height: 1.4;
@@ -106,10 +103,9 @@ body {
   min-width: 200px;
   padding: 10px;
   background-color: #f8f8f8;
-  border: 1px solid #ccc;
-  border-radius: 4px;
   overflow: auto;
   max-width: none;
+  border-left: 1px solid #ccc;
 }
 
 .mem-slot {
