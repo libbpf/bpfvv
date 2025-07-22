@@ -18,11 +18,11 @@ describe("App", () => {
     render(<App />);
 
     const exampleLinkEl = document.getElementById("example-link");
-    expect(exampleLinkEl?.innerHTML).toBe("Click here to load a log example");
+    expect(exampleLinkEl?.innerHTML).toBe("Load an example log");
 
     const inputEl = document.getElementById("input-text");
     expect(inputEl?.getAttribute("placeholder")).toBe(
-      "Paste the verifier log here or choose a file",
+      "Paste a verifier log here or choose a file",
     );
     expect(inputEl?.tagName).toBe("TEXTAREA");
 

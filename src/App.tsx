@@ -60,7 +60,7 @@ const ContentRaw = ({
       <textarea
         id="input-text"
         onPaste={handlePaste}
-        placeholder="Paste the verifier log here or choose a file"
+        placeholder="Paste a verifier log here or choose a file"
       />
     );
   }
@@ -309,26 +309,7 @@ function App() {
   return (
     <div className="App">
       <div className="container">
-        <div className="top-bar">
-          <div className="file-input-container">
-            <input
-              type="file"
-              id="file-input"
-              onChange={onFileInputChange}
-              ref={fileInputRef}
-            />
-            <LoadStatus lines={verifierLogState.lines} />
-          </div>
-          <a
-            href="https://github.com/theihor/bpfvv/blob/master/HOWTO.md"
-            className="howto-link"
-            target="_blank"
-            rel="noreferrer"
-          >
-            HOWTO.md
-          </a>
-        </div>
-        <Example />
+        <h1>BPF Verifier Visualizer</h1>
         <div className="navigation-panel">
           <label id="goto-line">Go to:</label>
           <input
@@ -336,19 +317,42 @@ function App() {
             onChange={onLineInputChange}
             id="goto-line-input"
             placeholder="line number"
+            className="line-nav-item"
             min="0"
             max={verifierLogState.lines.length}
             value={selectedLine + 1}
           />
-          <button id="goto-start" onClick={onGotoStart}>
-            &lt;&lt;
+          <button
+            id="goto-start"
+            className="line-nav-item"
+            onClick={onGotoStart}
+          >
+            Start
           </button>
-          <button id="goto-end" onClick={onGotoEnd}>
-            &gt;&gt;
+          <button id="goto-end" className="line-nav-item" onClick={onGotoEnd}>
+            End
           </button>
-          <button id="clear" onClick={onClear}>
+          <button id="clear" className="line-nav-item" onClick={onClear}>
             Clear
           </button>
+          <LoadStatus lines={verifierLogState.lines} />
+          <div className="file-input-container">
+            <input
+              type="file"
+              id="file-input"
+              onChange={onFileInputChange}
+              ref={fileInputRef}
+            />
+          </div>
+          <Example />
+          <a
+            href="https://github.com/theihor/bpfvv/blob/master/HOWTO.md"
+            className="howto-link"
+            target="_blank"
+            rel="noreferrer"
+          >
+            How To Use
+          </a>
         </div>
         <Content
           loadError={loadError}
