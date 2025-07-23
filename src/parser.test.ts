@@ -1,24 +1,43 @@
 import {
   parseLine,
-  parseOpcodeIns,
   parseBpfStateExprs,
   ParsedLineType,
   BpfJmpKind,
+  BpfAluInstruction,
+  BpfInstructionKind,
+  ParsedLine,
+  BpfJmpInstruction,
+  BpfSubprogramCallInstruction,
 } from "./parser";
 
 const AluInstructionSample = "0: (b7) r2 = 1                        ; R2_w=1";
 const BPFStateExprSample = "; R2_w=1 R10=fp0 fp-24_w=1";
 const MemoryWriteSample = "1: (7b) *(u64 *)(r10 -24) = r2" + BPFStateExprSample;
-const CallInstructionSample = "(85) call bpf_probe_read_user#112";
-const CallLineSample = "7: " + CallInstructionSample;
+const CallInstructionSample = "7: (85) call bpf_probe_read_user#112";
+
+function expectBpfAluIns(line: ParsedLine): BpfAluInstruction {
+  expect(line.type).toBe(ParsedLineType.INSTRUCTION);
+  expect(line.bpfIns).toBeDefined();
+  const ins = line.bpfIns!;
+  expect(ins.kind).toBe(BpfInstructionKind.ALU);
+  return <BpfAluInstruction>ins;
+}
+
+function expectBpfJmpIns(line: ParsedLine): BpfJmpInstruction {
+  expect(line.type).toBe(ParsedLineType.INSTRUCTION);
+  expect(line.bpfIns).toBeDefined();
+  const ins = line.bpfIns!;
+  expect(ins.kind).toBe(BpfInstructionKind.JMP);
+  return <BpfJmpInstruction>ins;
+}
 
 describe("parser", () => {
   it("parses ALU instructions with state expressions", () => {
     const parsed = parseLine(AluInstructionSample, 0);
-    expect(parsed.type).toBe(ParsedLineType.INSTRUCTION);
-    expect(parsed.bpfIns?.pc).toBe(0);
-    expect(parsed.bpfIns?.alu?.operator).toBe("=");
-    expect(parsed.bpfIns?.writes).toContain("r2");
+    const ins: BpfAluInstruction = expectBpfAluIns(parsed);
+    expect(ins?.pc).toBe(0);
+    expect(ins?.operator).toBe("=");
+    expect(ins?.writes).toContain("r2");
     expect(parsed.bpfStateExprs?.[0]).toMatchObject({
       id: "r2",
       value: "1",
@@ -27,29 +46,22 @@ describe("parser", () => {
 
   it("parses memory write instruction", () => {
     const parsed = parseLine(MemoryWriteSample, 0);
-    expect(parsed.type).toBe(ParsedLineType.INSTRUCTION);
-    expect(parsed.bpfIns?.pc).toBe(1);
-    expect(parsed.bpfIns?.alu?.dst.id).toBe("fp-24");
-    expect(parsed.bpfIns?.alu?.src.id).toBe("r2");
+    const ins: BpfAluInstruction = expectBpfAluIns(parsed);
+    expect(ins.pc).toBe(1);
+    expect(ins.kind).toBe(BpfInstructionKind.ALU);
+    expect(ins.dst.id).toBe("fp-24");
+    expect(ins.src.id).toBe("r2");
     expect(parsed.bpfStateExprs?.length).toBe(3);
   });
 
   it("parses call instruction via parseOpcodeIns", () => {
-    const { ins, rest } = parseOpcodeIns(CallInstructionSample, 7);
-    expect(rest).toBe("");
-    if (!ins) {
-      throw new Error("ins is undefined");
-    }
-    expect(ins.jmp?.kind).toBe(BpfJmpKind.HELPER_CALL);
-    expect(ins.jmp?.target).toBe("bpf_probe_read_user#112");
+    const parsed = parseLine(CallInstructionSample, 7);
+    let ins: BpfJmpInstruction = expectBpfJmpIns(parsed);
+    expect(ins.jmpKind).toBe(BpfJmpKind.HELPER_CALL);
+    ins = <BpfSubprogramCallInstruction>ins;
+    expect(ins.target).toBe("bpf_probe_read_user#112");
     expect(ins.reads).toContain("r1");
     expect(ins.writes).toContain("r0");
-  });
-
-  it("parses call line with parseLine", () => {
-    const parsed = parseLine(CallLineSample, 0);
-    expect(parsed.bpfIns?.pc).toBe(7);
-    expect(parsed.bpfIns?.jmp?.kind).toBe(BpfJmpKind.HELPER_CALL);
   });
 
   it("parses verifier state expressions", () => {
