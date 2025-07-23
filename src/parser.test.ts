@@ -140,8 +140,9 @@ describe("parser", () => {
       idx: 5,
       raw: CSourceLineSample,
       content: "n->key = 3;",
-      filename: "rbtree.c",
-      line: 201,
+      fileName: "rbtree.c",
+      lineNum: 201,
+      id: "rbtree.c:201",
     });
   });
 });

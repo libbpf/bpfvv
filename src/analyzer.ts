@@ -3,6 +3,7 @@ import {
   BPF_SCRATCH_REGS,
   BpfInstructionKind,
   BpfJmpKind,
+  CSourceLine,
   Effect,
   ParsedLine,
   ParsedLineType,
@@ -27,6 +28,40 @@ export type BpfState = {
   pc: number;
 };
 
+export class CSourceMap {
+  // deduped C source lines, id is a key in this array
+  cSourceLines: Map<string, CSourceLine> = new Map<string, CSourceLine>();
+  // log line idx -> C source line id
+  logLineToCLine: Map<number, string> = new Map<number, string>();
+  // C source line id -> log line idx
+  cLineToLogLines: Map<string, Set<number>> = new Map<string, Set<number>>();
+  // fileName -> [minLineNum, maxLineNum]
+  fileRange: Map<string, [number, number]> = new Map<
+    string,
+    [number, number]
+  >();
+
+  addCSourceLine(line: CSourceLine, idxs: number[]): void {
+    if (!this.cSourceLines.has(line.id)) {
+      this.cSourceLines.set(line.id, line);
+    }
+    const idxSet = this.cLineToLogLines.get(line.id) || new Set<number>();
+    idxs.forEach((idx) => {
+      this.logLineToCLine.set(idx, line.id);
+      idxSet.add(idx);
+    });
+    this.cLineToLogLines.set(line.id, idxSet);
+
+    const range = this.fileRange.get(line.fileName) || [
+      line.lineNum,
+      line.lineNum,
+    ];
+    range[0] = Math.min(range[0], line.lineNum);
+    range[1] = Math.max(range[1], line.lineNum);
+    this.fileRange.set(line.fileName, range);
+  }
+}
+
 /*
     VerifierLogState represents the entirety of the processed BPF verifier log, ready for consumption by the UI.
     The basic unit of the log is a line, which generally corresponds to a single BPF instruction.
@@ -35,6 +70,7 @@ export type BpfState = {
 export type VerifierLogState = {
   lines: ParsedLine[];
   bpfStates: BpfState[];
+  cSourceMap: CSourceMap;
 };
 
 export function makeValue(
@@ -213,8 +249,24 @@ export function processRawLines(rawLines: string[]): VerifierLogState {
   let bpfStates: BpfState[] = [];
   let lines: ParsedLine[] = [];
   let savedBpfStates: BpfState[] = [];
+  let idxsForCLine: number[] = [];
+  let currentCSourceLine: CSourceLine | undefined;
+  const cSourceMap = new CSourceMap();
+
   rawLines.forEach((rawLine, idx) => {
     const parsedLine = parseLine(rawLine, idx);
+    switch (parsedLine.type) {
+      case ParsedLineType.C_SOURCE:
+        if (currentCSourceLine) {
+          cSourceMap.addCSourceLine(currentCSourceLine, idxsForCLine);
+          idxsForCLine = [];
+        }
+        currentCSourceLine = parsedLine;
+        break;
+      case ParsedLineType.INSTRUCTION:
+        idxsForCLine.push(idx);
+        break;
+    }
     const bpfState = nextBpfState(
       getBpfState(bpfStates, idx).state,
       parsedLine,
@@ -223,7 +275,10 @@ export function processRawLines(rawLines: string[]): VerifierLogState {
     bpfStates.push(bpfState);
     lines.push(parsedLine);
   });
-  return { lines, bpfStates };
+  if (currentCSourceLine) {
+    cSourceMap.addCSourceLine(currentCSourceLine, idxsForCLine);
+  }
+  return { lines, bpfStates, cSourceMap };
 }
 
 export function getMemSlotDependencies(
