@@ -212,8 +212,9 @@ export type InstructionLine = {
 export type CSourceLine = {
   type: ParsedLineType.C_SOURCE;
   content: string;
-  filename: string;
-  line: number;
+  fileName: string;
+  lineNum: number;
+  id: string;
 } & GenericParsedLine;
 
 export type ParsedLine = UnrecognizedLine | InstructionLine | CSourceLine;
@@ -767,13 +768,16 @@ function parseOpcodeIns(str: string, pc: number): BpfInstructionPair {
 function parseCSourceLine(str: string, idx: number): CSourceLine | null {
   const { match } = consumeRegex(RE_C_SOURCE_LINE, str);
   if (!match) return null;
+  const fileName = match[2];
+  const lineNum = parseInt(match[3], 10);
   return {
     type: ParsedLineType.C_SOURCE,
     idx,
     raw: str,
     content: match[1],
-    filename: match[2],
-    line: parseInt(match[3], 10),
+    fileName,
+    lineNum,
+    id: `${fileName}:${lineNum}`,
   };
 }
 
