@@ -311,7 +311,9 @@ function App() {
       <div className="container">
         <h1>BPF Verifier Visualizer</h1>
         <div className="navigation-panel">
-          <label id="goto-line" className="line-nav-item">Go to:</label>
+          <label id="goto-line" className="line-nav-item">
+            Go to:
+          </label>
           <input
             type="number"
             onChange={onLineInputChange}

@@ -175,7 +175,8 @@ export function HoveredLineHint({
   }
   return (
     <div id="hint-hovered-line" className="hint-line">
-      <span>Raw line {hoveredLine + 1}:</span> {lines[hoveredLine].raw}
+      <span>[hovered raw line] {hoveredLine + 1}:</span>{" "}
+      {lines[hoveredLine].raw}
     </div>
   );
 }
@@ -401,7 +402,7 @@ export function SelectedLineHint({
   }
   return (
     <div id="hint-selected-line" className="hint-line">
-      <span>[selected] Raw line {selectedLine + 1}:</span>{" "}
+      <span>[selected raw line] {selectedLine + 1}:</span>{" "}
       {lines[selectedLine].raw}
     </div>
   );
