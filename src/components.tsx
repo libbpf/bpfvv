@@ -1,7 +1,6 @@
 import React, { ReactElement } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  BpfJmpCode,
   BpfJmpKind,
   BpfOperand,
   Effect,
@@ -195,10 +194,6 @@ function ConditionalJmpInstruction({
   ins: BpfConditionalJmpInstruction;
   line: ParsedLine;
 }) {
-  const code = ins.opcode.code;
-  if (code === BpfJmpCode.JA) {
-    return <>goto {ins.target}</>;
-  }
   return (
     <>
       if (
@@ -210,11 +205,15 @@ function ConditionalJmpInstruction({
   );
 }
 
-function JmpInstruction(
-  ins: BpfJmpInstruction,
-  line: ParsedLine,
-  frame: number,
-) {
+export function JmpInstruction({
+  ins,
+  line,
+  frame,
+}: {
+  ins: BpfJmpInstruction;
+  line: ParsedLine;
+  frame: number;
+}) {
   switch (ins.jmpKind) {
     case BpfJmpKind.SUBPROGRAM_CALL:
       return (
@@ -233,11 +232,19 @@ function JmpInstruction(
           <CallHtml ins={ins} line={line} />
         </>
       );
+    case BpfJmpKind.UNCONDITIONAL_GOTO:
+    case BpfJmpKind.MAY_GOTO:
+    case BpfJmpKind.GOTO_OR_NOP:
+      return (
+        <>
+          {ins.goto}&nbsp;{ins.target}
+        </>
+      );
     case BpfJmpKind.CONDITIONAL_GOTO:
       return <ConditionalJmpInstruction ins={ins} line={line} />;
   }
 
-  return null;
+  return <>{line.raw}</>;
 }
 
 export function LoadStatus({ lines }: { lines: ParsedLine[] }) {
@@ -277,7 +284,7 @@ const LogLineRaw = ({
       );
       break;
     case BpfInstructionKind.JMP:
-      content = JmpInstruction(ins, line, frame);
+      content = <JmpInstruction ins={ins} line={line} frame={frame} />;
       break;
     case BpfInstructionKind.ADDR_SPACE_CAST:
       content = (

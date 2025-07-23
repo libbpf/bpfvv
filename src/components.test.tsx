@@ -3,8 +3,23 @@
  */
 import "@testing-library/jest-dom";
 import { render, screen } from "@testing-library/react";
-import { MemSlot } from "./components";
-import { BpfOperand, OperandType, ParsedLine, ParsedLineType } from "./parser";
+import { JmpInstruction, MemSlot } from "./components";
+import {
+  BpfJmpKind,
+  BpfInstructionClass,
+  BpfInstructionKind,
+  BpfJmpCode,
+  BpfOperand,
+  OperandType,
+  OpcodeSource,
+  ParsedLine,
+  ParsedLineType,
+  BpfTargetJmpInstruction,
+  BpfConditionalJmpInstruction,
+  BpfJmpInstruction,
+  BpfExitInstruction,
+  BpfGotoJmpInstruction,
+} from "./parser";
 
 function createOp(
   type: OperandType,
@@ -23,11 +38,11 @@ function createOp(
   };
 }
 
-function createParsedLine(raw: string, idx: number): ParsedLine {
-  return { raw, idx, type: ParsedLineType.INSTRUCTION };
-}
-
 describe("MemSlot", () => {
+  function createParsedLine(raw: string, idx: number): ParsedLine {
+    return { raw, idx, type: ParsedLineType.INSTRUCTION };
+  }
+
   it("renders raw line when op is undefined", () => {
     const line = createParsedLine("test raw line", 0);
     render(<MemSlot line={line} op={undefined} />);
@@ -92,6 +107,170 @@ describe("MemSlot", () => {
     expect(divs.length).toBe(1);
     expect(divs[0].innerHTML).toBe(
       '*(u32 *)(<span id="mem-slot-r2-line-0" class="mem-slot r2" data-id="r2">r2</span> +0)',
+    );
+  });
+});
+
+describe("JmpInstruction", () => {
+  function createTargetJmpIns(
+    jmpCode: BpfJmpCode,
+    jmpKind: BpfJmpKind.HELPER_CALL | BpfJmpKind.SUBPROGRAM_CALL,
+  ): BpfTargetJmpInstruction {
+    return {
+      kind: BpfInstructionKind.JMP,
+      jmpKind,
+      opcode: {
+        iclass: BpfInstructionClass.JMP,
+        code: jmpCode,
+        source: OpcodeSource.K,
+      },
+      target: "pc+3",
+      reads: [],
+      writes: [],
+    };
+  }
+
+  function createGotoJmpIns(
+    goto: string,
+    jmpCode: BpfJmpCode,
+    jmpKind:
+      | BpfJmpKind.MAY_GOTO
+      | BpfJmpKind.GOTO_OR_NOP
+      | BpfJmpKind.UNCONDITIONAL_GOTO,
+  ): BpfGotoJmpInstruction {
+    return {
+      kind: BpfInstructionKind.JMP,
+      goto,
+      jmpKind,
+      opcode: {
+        iclass: BpfInstructionClass.JMP,
+        code: jmpCode,
+        source: OpcodeSource.K,
+      },
+      target: "pc+3",
+      reads: [],
+      writes: [],
+    };
+  }
+
+  function createLine(bpfIns: BpfJmpInstruction): ParsedLine {
+    return {
+      raw: "",
+      idx: 0,
+      bpfIns,
+      type: ParsedLineType.INSTRUCTION,
+    };
+  }
+
+  it("renders an exit", () => {
+    const ins: BpfExitInstruction = {
+      kind: BpfInstructionKind.JMP,
+      jmpKind: BpfJmpKind.EXIT,
+      opcode: {
+        iclass: BpfInstructionClass.JMP,
+        code: BpfJmpCode.JEQ,
+        source: OpcodeSource.K,
+      },
+      reads: [],
+      writes: [],
+    };
+    const line = createLine(ins);
+
+    render(<JmpInstruction ins={ins} line={line} frame={1} />);
+    const divs = document.getElementsByTagName("div");
+    expect(divs.length).toBe(1);
+    expect(divs[0].innerHTML).toBe("<b>} exit ; return to stack frame 1</b>");
+  });
+
+  it("renders a subprogram and target", () => {
+    const ins = createTargetJmpIns(BpfJmpCode.JA, BpfJmpKind.SUBPROGRAM_CALL);
+    const line = createLine(ins);
+
+    render(<JmpInstruction ins={ins} line={line} frame={1} />);
+    const divs = document.getElementsByTagName("div");
+    expect(divs.length).toBe(1);
+    expect(divs[0].innerHTML).toBe("<b> { ; enter new stack frame 1</b>");
+  });
+
+  it("renders a helper call and target", () => {
+    const ins = createTargetJmpIns(BpfJmpCode.JA, BpfJmpKind.HELPER_CALL);
+    const line = createLine(ins);
+
+    render(<JmpInstruction ins={ins} line={line} frame={1} />);
+    const divs = document.getElementsByTagName("div");
+    expect(divs.length).toBe(1);
+    expect(divs[0].innerHTML).toBe(
+      '<span id="mem-slot-r0-line-0" class="mem-slot r0" data-id="r0">r0</span>&nbsp;=&nbsp;',
+    );
+  });
+
+  it("renders an unconditional goto and target", () => {
+    const ins = createGotoJmpIns(
+      "goto",
+      BpfJmpCode.JA,
+      BpfJmpKind.UNCONDITIONAL_GOTO,
+    );
+    const line = createLine(ins);
+
+    render(<JmpInstruction ins={ins} line={line} frame={1} />);
+    const divs = document.getElementsByTagName("div");
+    expect(divs.length).toBe(1);
+    expect(divs[0].innerHTML).toBe("goto&nbsp;pc+3");
+  });
+
+  it("renders a may_goto and target", () => {
+    const ins = createGotoJmpIns(
+      "may_goto",
+      BpfJmpCode.JCOND,
+      BpfJmpKind.MAY_GOTO,
+    );
+    const line = createLine(ins);
+
+    render(<JmpInstruction ins={ins} line={line} frame={1} />);
+    const divs = document.getElementsByTagName("div");
+    expect(divs.length).toBe(1);
+    expect(divs[0].innerHTML).toBe("may_goto&nbsp;pc+3");
+  });
+
+  it("renders a goto_or_nop and target", () => {
+    const ins = createGotoJmpIns(
+      "goto_or_nop",
+      BpfJmpCode.JCOND,
+      BpfJmpKind.GOTO_OR_NOP,
+    );
+    const line = createLine(ins);
+
+    render(<JmpInstruction ins={ins} line={line} frame={1} />);
+    const divs = document.getElementsByTagName("div");
+    expect(divs.length).toBe(1);
+    expect(divs[0].innerHTML).toBe("goto_or_nop&nbsp;pc+3");
+  });
+
+  it("renders a mem slot wrapped goto", () => {
+    const ins: BpfConditionalJmpInstruction = {
+      kind: BpfInstructionKind.JMP,
+      jmpKind: BpfJmpKind.CONDITIONAL_GOTO,
+      opcode: {
+        iclass: BpfInstructionClass.JMP,
+        code: BpfJmpCode.JEQ,
+        source: OpcodeSource.K,
+      },
+      target: "pc+3",
+      cond: {
+        left: createOp(OperandType.REG, 2, -45, "r7"),
+        op: "==",
+        right: createOp(OperandType.REG, 2, -45, "r8"),
+      },
+      reads: [],
+      writes: [],
+    };
+    const line = createLine(ins);
+
+    render(<JmpInstruction ins={ins} line={line} frame={1} />);
+    const divs = document.getElementsByTagName("div");
+    expect(divs.length).toBe(1);
+    expect(divs[0].innerHTML).toBe(
+      'if (<span id="mem-slot-r7-line-0" class="mem-slot r7" data-id="r7">r7</span>&nbsp;==&nbsp;<span id="mem-slot-r8-line-0" class="mem-slot r8" data-id="r8">r8</span>)&nbsp;goto&nbsp;pc+3',
     );
   });
 });
