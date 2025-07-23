@@ -90,6 +90,7 @@ export enum BpfJmpKind {
 export enum BpfInstructionKind {
   ALU = "ALU",
   JMP = "JMP",
+  ADDR_SPACE_CAST = "ADDR_SPACE_CAST",
 }
 
 type GenericBpfInstruction = {
@@ -147,7 +148,17 @@ export type BpfAluInstruction = {
   src: BpfOperand;
 } & GenericBpfInstruction;
 
-export type BpfInstruction = BpfJmpInstruction | BpfAluInstruction;
+export type BpfAddressSpaceCastInstruction = {
+  kind: BpfInstructionKind.ADDR_SPACE_CAST;
+  dst: BpfOperand;
+  src: BpfOperand;
+  directionStr: string;
+} & GenericBpfInstruction;
+
+export type BpfInstruction =
+  | BpfAluInstruction
+  | BpfJmpInstruction
+  | BpfAddressSpaceCastInstruction;
 
 export enum OperandType {
   UNKNOWN = "UNKNOWN",
@@ -263,6 +274,8 @@ const RE_IMM_VALUE = /^(0x[0-9a-f]+|[+-]?[0-9]+)/;
 const RE_CALL_TARGET = /^call ([0-9a-z_#+-]+)/;
 const RE_JMP_TARGET = /^goto (pc[+-][0-9]+)/;
 const RE_FRAME_ID = /^frame([0-9]+): /;
+const RE_ADDR_SPACE_CAST =
+  /^(r[0-9]) = addr_space_cast\((r[0-9]), ([0-1], [0-1])\)/;
 
 const BPF_ALU_OPERATORS = [
   "s>>=",
@@ -400,6 +413,38 @@ const collectReads = (
   return reads;
 };
 
+const parseAddressSpaceCast = (
+  str: string,
+  opcode: BpfOpcode,
+): BpfInstructionPair => {
+  let { match, rest } = consumeRegex(RE_ADDR_SPACE_CAST, str);
+  if (!match) return { ins: undefined, rest: str };
+
+  const dst = registerOp(match[1]);
+  dst.location = {
+    offset: -str.length,
+    size: match[1].length,
+  };
+
+  const src = registerOp(match[2]);
+  src.location = {
+    offset: match[1].length + " = addr_space_cast(".length, // hacky...
+    size: match[2].length,
+  };
+
+  const ins: BpfAddressSpaceCastInstruction = {
+    kind: BpfInstructionKind.ADDR_SPACE_CAST,
+    opcode: opcode,
+    dst,
+    src,
+    directionStr: match[3],
+    reads: [src.id],
+    writes: [dst.id],
+  };
+
+  return { ins, rest };
+};
+
 const parseAluInstruction = (
   str: string,
   opcode: BpfOpcode,
@@ -407,6 +452,17 @@ const parseAluInstruction = (
   let dst;
   let src;
   let rest: string;
+
+  if (
+    opcode.iclass === BpfInstructionClass.ALU64 &&
+    opcode.code === BpfAluCode.MOV &&
+    opcode.source === OpcodeSource.X
+  ) {
+    const parsed = parseAddressSpaceCast(str, opcode);
+    if (parsed.ins) {
+      return parsed;
+    }
+  }
 
   let _dst = parseAluDst(str);
   dst = _dst[0];
