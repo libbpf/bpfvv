@@ -309,8 +309,8 @@ function App() {
   return (
     <div className="App">
       <div className="container">
-        <h1>BPF Verifier Visualizer</h1>
         <div className="navigation-panel">
+          <h1>BPF Verifier Visualizer</h1>
           <label id="goto-line" className="line-nav-item">
             Go to:
           </label>

@@ -324,5 +324,7 @@ body {
 
 h1 {
   font-size: 20px;
-  margin: 0px 0px 8px 0px;
+  margin: 0px 20px 0px 0px;
+  padding-right: 20px;
+  border-right: 1px solid #000;
 }
