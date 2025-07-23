@@ -156,6 +156,17 @@ body {
   min-height: 1.4em;
 }
 
+.log-line {
+  display: flex;
+}
+
+.line-indent {
+  width: 20px;
+  display: inline-block;
+  border-left: 1px solid #dbdbdb;
+  align-self: stretch;
+}
+
 .dep-arrow {
   position: relative;
 }
