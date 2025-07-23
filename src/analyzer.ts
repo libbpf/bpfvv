@@ -1,6 +1,7 @@
 import {
   BPF_CALLEE_SAVED_REGS,
   BPF_SCRATCH_REGS,
+  BpfInstructionKind,
   BpfJmpKind,
   Effect,
   ParsedLine,
@@ -165,17 +166,21 @@ function nextBpfState(
   };
 
   let newState: BpfState;
-  switch (line.bpfIns?.jmp?.kind) {
-    case BpfJmpKind.BPF2BPF_CALL:
-      newState = pushStackFrame(bpfState, savedBpfStates);
-      setIdxAndPc(newState);
-      return newState;
-    case BpfJmpKind.EXIT:
-      newState = popStackFrame(bpfState, savedBpfStates);
-      setIdxAndPc(newState);
-      return newState;
-    default:
-      break;
+  const ins = line.bpfIns;
+  if (
+    ins?.kind === BpfInstructionKind.JMP &&
+    ins?.jmpKind === BpfJmpKind.SUBPROGRAM_CALL
+  ) {
+    newState = pushStackFrame(bpfState, savedBpfStates);
+    setIdxAndPc(newState);
+    return newState;
+  } else if (
+    ins?.kind === BpfInstructionKind.JMP &&
+    ins?.jmpKind === BpfJmpKind.EXIT
+  ) {
+    newState = popStackFrame(bpfState, savedBpfStates);
+    setIdxAndPc(newState);
+    return newState;
   }
 
   newState = copyBpfState(bpfState);

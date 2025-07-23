@@ -74,45 +74,80 @@ type BpfOpcode = {
   source: OpcodeSource;
 };
 
-export enum BpfJmpKind {
-  NONE = 0,
-  EXIT = 1,
-  UNCONDITIONAL_GOTO = 2,
-  CONDITIONAL_GOTO = 3,
-  HELPER_CALL = 4,
-  BPF2BPF_CALL = 5,
-}
-
-type BpfJmpInstruction = {
-  target: string;
-  cond?: {
-    left: BpfOperand;
-    op: string;
-    right: BpfOperand;
-  };
-  kind: BpfJmpKind;
-};
-
-type BpfAluInstruction = {
-  operator: string;
-  dst: BpfOperand;
-  src: BpfOperand;
-};
-
 export type RawLineLocation = {
   offset: number; // negative: -10 means length-10
   size: number;
 };
 
-type BpfInstruction = {
+export enum BpfJmpKind {
+  EXIT = 1,
+  UNCONDITIONAL_GOTO = 2,
+  CONDITIONAL_GOTO = 3,
+  HELPER_CALL = 4,
+  SUBPROGRAM_CALL = 5,
+}
+
+export enum BpfInstructionKind {
+  ALU = "ALU",
+  JMP = "JMP",
+}
+
+type GenericBpfInstruction = {
   pc?: number;
   opcode: BpfOpcode;
   reads: string[];
   writes: string[];
-  jmp?: BpfJmpInstruction;
-  alu?: BpfAluInstruction;
   location?: RawLineLocation;
 };
+
+type GenericJmpInstruction = {
+  kind: BpfInstructionKind.JMP;
+} & GenericBpfInstruction;
+
+export type BpfExitInstruction = {
+  jmpKind: BpfJmpKind.EXIT;
+} & GenericJmpInstruction;
+
+export type BpfUnconditionalJmpInstruction = {
+  jmpKind: BpfJmpKind.UNCONDITIONAL_GOTO;
+  target: string;
+} & GenericJmpInstruction;
+
+export type BpfConditionalJmpInstruction = {
+  jmpKind: BpfJmpKind.CONDITIONAL_GOTO;
+  target: string;
+  cond: {
+    left: BpfOperand;
+    op: string;
+    right: BpfOperand;
+  };
+} & GenericJmpInstruction;
+
+export type BpfHelperCallInstruction = {
+  jmpKind: BpfJmpKind.HELPER_CALL;
+  target: string;
+} & GenericJmpInstruction;
+
+export type BpfSubprogramCallInstruction = {
+  jmpKind: BpfJmpKind.SUBPROGRAM_CALL;
+  target: string;
+} & GenericJmpInstruction;
+
+export type BpfJmpInstruction =
+  | BpfExitInstruction
+  | BpfHelperCallInstruction
+  | BpfSubprogramCallInstruction
+  | BpfConditionalJmpInstruction
+  | BpfUnconditionalJmpInstruction;
+
+export type BpfAluInstruction = {
+  kind: BpfInstructionKind.ALU;
+  operator: string;
+  dst: BpfOperand;
+  src: BpfOperand;
+} & GenericBpfInstruction;
+
+export type BpfInstruction = BpfJmpInstruction | BpfAluInstruction;
 
 export enum OperandType {
   UNKNOWN = "UNKNOWN",
@@ -402,13 +437,12 @@ const parseAluInstruction = (
   };
   rest = consumeSpaces(_src[1]);
 
-  const ins: BpfInstruction = {
+  const ins: BpfAluInstruction = {
+    kind: BpfInstructionKind.ALU,
     opcode: opcode,
-    alu: {
-      operator: operator,
-      dst: dst,
-      src: src,
-    },
+    operator: operator,
+    dst: dst,
+    src: src,
     reads: collectReads(operator, dst, src),
     writes: [dst.id],
   };
@@ -416,25 +450,29 @@ const parseAluInstruction = (
   return { ins, rest };
 };
 
-const helperCall = (opcode: BpfOpcode, target: string): BpfInstruction => {
+const helperCall = (
+  opcode: BpfOpcode,
+  target: string,
+): BpfHelperCallInstruction => {
   return {
+    kind: BpfInstructionKind.JMP,
     opcode: opcode,
-    jmp: {
-      target: target,
-      kind: BpfJmpKind.HELPER_CALL,
-    },
+    target: target,
+    jmpKind: BpfJmpKind.HELPER_CALL,
     reads: BPF_SCRATCH_REGS,
     writes: ["r0", ...BPF_SCRATCH_REGS],
   };
 };
 
-const bpf2bpfCall = (opcode: BpfOpcode, target: string): BpfInstruction => {
+const bpfSubprogramCall = (
+  opcode: BpfOpcode,
+  target: string,
+): BpfSubprogramCallInstruction => {
   return {
+    kind: BpfInstructionKind.JMP,
+    jmpKind: BpfJmpKind.SUBPROGRAM_CALL,
     opcode: opcode,
-    jmp: {
-      target: target,
-      kind: BpfJmpKind.BPF2BPF_CALL,
-    },
+    target: target,
     reads: BPF_SCRATCH_REGS,
     writes: ["r0", ...BPF_CALLEE_SAVED_REGS],
   };
@@ -445,10 +483,10 @@ const parseCall = (str: string, opcode: BpfOpcode): BpfInstructionPair => {
   if (!match) return { ins: undefined, rest: str };
   const target = match[1];
 
-  let ins: BpfInstruction;
+  let ins: BpfJmpInstruction;
   // TODO: is this heuristic good enough?
   if (target.startsWith("pc+") || target.startsWith("pc-")) {
-    ins = bpf2bpfCall(opcode, target);
+    ins = bpfSubprogramCall(opcode, target);
   } else {
     ins = helperCall(opcode, target);
   }
@@ -509,16 +547,15 @@ const parseConditionalJmp = (
   const target = jmpTarget.match[1];
   rest = consumeSpaces(jmpTarget.rest);
 
-  const ins: BpfInstruction = {
+  const ins: BpfConditionalJmpInstruction = {
+    kind: BpfInstructionKind.JMP,
+    jmpKind: BpfJmpKind.CONDITIONAL_GOTO,
     opcode: opcode,
-    jmp: {
-      target: target,
-      cond: {
-        left: leftOp.op,
-        op: operator,
-        right: rightOp.op,
-      },
-      kind: BpfJmpKind.CONDITIONAL_GOTO,
+    target: target,
+    cond: {
+      left: leftOp.op,
+      op: operator,
+      right: rightOp.op,
     },
     reads: [leftOp.op.id, rightOp.op.id],
     writes: [], // technically goto writes pc, but we don't care about it (?)
@@ -534,12 +571,11 @@ const parseUnconditionalJmp = (
   if (!match) return { ins: undefined, rest: str };
   const target = consumeRegex(RE_JMP_TARGET, str);
   if (!target.match) return { ins: undefined, rest: str };
-  const ins: BpfInstruction = {
+  const ins: BpfUnconditionalJmpInstruction = {
+    kind: BpfInstructionKind.JMP,
+    jmpKind: BpfJmpKind.UNCONDITIONAL_GOTO,
     opcode: opcode,
-    jmp: {
-      target: target.match[1],
-      kind: BpfJmpKind.UNCONDITIONAL_GOTO,
-    },
+    target: target.match[1],
     reads: [],
     writes: [],
   };
@@ -549,12 +585,10 @@ const parseUnconditionalJmp = (
 const parseExit = (str: string, opcode: BpfOpcode): BpfInstructionPair => {
   const match = consumeString("exit", str);
   if (!match) return { ins: undefined, rest: str };
-  const ins: BpfInstruction = {
+  const ins: BpfExitInstruction = {
+    kind: BpfInstructionKind.JMP,
+    jmpKind: BpfJmpKind.EXIT,
     opcode,
-    jmp: {
-      target: "exit",
-      kind: BpfJmpKind.EXIT,
-    },
     reads: [],
     // exit (return) writes all regs because
     // r0 is set to return value

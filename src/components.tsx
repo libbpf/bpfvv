@@ -8,6 +8,12 @@ import {
   OperandType,
   ParsedLine,
   ParsedLineType,
+  BpfInstruction,
+  BpfJmpInstruction,
+  BpfInstructionKind,
+  BpfConditionalJmpInstruction,
+  BpfSubprogramCallInstruction,
+  BpfHelperCallInstruction,
 } from "./parser";
 import { getMemSlotDependencies } from "./analyzer";
 
@@ -51,18 +57,20 @@ const EXAMPLE_LOG_URL =
   "https://gist.githubusercontent.com/theihor/e0002c119414e6b40e2192bd7ced01b1/raw/866bcc155c2ce848dcd4bc7fd043a97f39a2d370/gistfile1.txt";
 const RIGHT_ARROW = "->";
 
-function CallHtml({ line }: { line: ParsedLine }) {
-  const ins = line.bpfIns;
-  if (!ins) {
-    return <></>;
-  }
+function CallHtml({
+  ins,
+  line,
+}: {
+  ins: BpfHelperCallInstruction | BpfSubprogramCallInstruction;
+  line: ParsedLine;
+}) {
   const location = ins.location;
   if (!location) {
     return <></>;
   }
   const start = line.raw.length + location.offset;
   const end = start + location.size;
-  const target = ins.jmp?.target || "";
+  const target = ins.target || "";
   const helperName = target.substring(0, target.indexOf("#"));
 
   const args = bpfHelpersMap.get(helperName);
@@ -181,21 +189,56 @@ export function HoveredLineHint({
   );
 }
 
-function JmpInstruction({ line }: { line: ParsedLine }) {
-  const code = line?.bpfIns?.opcode?.code;
+function ConditionalJmpInstruction({
+  ins,
+  line,
+}: {
+  ins: BpfConditionalJmpInstruction;
+  line: ParsedLine;
+}) {
+  const code = ins.opcode.code;
   if (code === BpfJmpCode.JA) {
-    return <>goto {line.bpfIns?.jmp?.target}</>;
+    return <>goto {ins.target}</>;
   }
   return (
     <>
       if (
-      <MemSlot line={line} op={line.bpfIns?.jmp?.cond?.left} />
-      &nbsp;
-      {line.bpfIns?.jmp?.cond?.op}&nbsp;
-      <MemSlot line={line} op={line.bpfIns?.jmp?.cond?.right} />) goto&nbsp;
-      {line.bpfIns?.jmp?.target}
+      <MemSlot line={line} op={ins.cond.left} />
+      &nbsp;{ins.cond.op}&nbsp;
+      <MemSlot line={line} op={ins.cond.right} />
+      )&nbsp;goto&nbsp;{ins.target}
     </>
   );
+}
+
+function JmpInstruction(
+  ins: BpfJmpInstruction,
+  line: ParsedLine,
+  frame: number,
+) {
+  switch (ins.jmpKind) {
+    case BpfJmpKind.SUBPROGRAM_CALL:
+      return (
+        <b>
+          <CallHtml ins={ins} line={line} />
+          {" {"} ; enter new stack frame {frame}
+        </b>
+      );
+    case BpfJmpKind.EXIT:
+      return <ExitInstruction frame={frame} />;
+    case BpfJmpKind.HELPER_CALL:
+      return (
+        <>
+          <RegSpan lineIdx={line.idx} reg={"r0"} display={undefined} />
+          &nbsp;=&nbsp;
+          <CallHtml ins={ins} line={line} />
+        </>
+      );
+    case BpfJmpKind.CONDITIONAL_GOTO:
+      return <ConditionalJmpInstruction ins={ins} line={line} />;
+  }
+
+  return null;
 }
 
 export function LoadStatus({ lines }: { lines: ParsedLine[] }) {
@@ -224,36 +267,22 @@ const LogLineRaw = ({
   let content;
   const ins = line.bpfIns;
 
-  if (ins?.alu) {
-    content = (
-      <>
-        <MemSlot line={line} op={ins.alu.dst} />
-        &nbsp;{ins.alu.operator}&nbsp;
-        <MemSlot line={line} op={ins.alu.src} />
-      </>
-    );
-  } else if (ins?.jmp?.kind === BpfJmpKind.BPF2BPF_CALL) {
-    content = (
-      <b>
-        <CallHtml line={line} />
-        {" {"} ; enter new stack frame {frame}
-      </b>
-    );
-  } else if (ins?.jmp?.kind === BpfJmpKind.EXIT) {
-    content = <ExitInstruction frame={frame} />;
-  } else if (ins?.jmp?.kind === BpfJmpKind.HELPER_CALL) {
-    content = (
-      <>
-        <RegSpan lineIdx={line.idx} reg={"r0"} display={undefined} />
-        &nbsp;=&nbsp;
-        <CallHtml line={line} />
-      </>
-    );
-  } else if (ins?.jmp) {
-    content = <JmpInstruction line={line} />;
-  } else {
-    content = line.raw;
+  switch (ins?.kind) {
+    case BpfInstructionKind.ALU:
+      content = (
+        <>
+          <MemSlot line={line} op={ins.dst} />
+          &nbsp;{ins.operator}&nbsp;
+          <MemSlot line={line} op={ins.src} />
+        </>
+      );
+      break;
+    case BpfInstructionKind.JMP:
+      content = JmpInstruction(ins, line, frame);
+      break;
   }
+
+  if (!content) content = <>{line.raw}</>;
 
   const lineId = "line-" + idx;
   const indentSpans: ReactElement[] = [];
@@ -283,13 +312,13 @@ function getMemSlotDisplayValue(
 ) {
   const prevValue = prevBpfState.values.get(memSlotId);
   const value = verifierLogState.values.get(memSlotId);
-  const ins = lines[idx].bpfIns;
+  const ins: BpfInstruction | undefined = lines[idx].bpfIns;
   switch (value?.effect) {
     case Effect.WRITE:
     case Effect.UPDATE:
-      if (memSlotId === "MEM") {
+      if (ins?.kind === BpfInstructionKind.ALU && memSlotId === "MEM") {
         // show the value of register that was stored
-        const reg = ins?.alu?.src.id;
+        const reg = ins.src.id;
         if (reg) {
           const regValue = verifierLogState.values.get(reg);
           return () => {
@@ -614,7 +643,10 @@ const LogLinesRaw = ({
       {lines.map((line) => {
         const frame = getBpfState(bpfStates, line.idx).state.frame;
         indentLevel = frame;
-        if (line.bpfIns?.jmp?.kind === BpfJmpKind.BPF2BPF_CALL) {
+        if (
+          line.bpfIns?.kind === BpfInstructionKind.JMP &&
+          line.bpfIns?.jmpKind === BpfJmpKind.SUBPROGRAM_CALL
+        ) {
           indentLevel -= 1;
         }
         return (
