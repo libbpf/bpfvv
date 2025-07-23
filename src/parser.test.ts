@@ -3,6 +3,7 @@ import {
   parseBpfStateExprs,
   ParsedLineType,
   BpfJmpKind,
+  BpfJmpCode,
   BpfInstruction,
   BpfAluInstruction,
   BpfInstructionKind,
@@ -18,6 +19,8 @@ const MemoryWriteSample = "1: (7b) *(u64 *)(r10 -24) = r2" + BPFStateExprSample;
 const CallInstructionSample = "7: (85) call bpf_probe_read_user#112";
 const AddrSpaceCastSample =
   "2976: (bf) r1 = addr_space_cast(r7, 0, 1)     ; frame1: R1_w=arena";
+const ConditionalPseudoMayGotoSample = "2984: (e5) may_goto pc+3";
+const ConditionalPseudoGotoOrNopSample = "2984: (e5) goto_or_nop pc+3";
 
 function expectBpfIns(line: ParsedLine): BpfInstruction {
   expect(line.type).toBe(ParsedLineType.INSTRUCTION);
@@ -36,6 +39,24 @@ function expectBpfJmpIns(line: ParsedLine): BpfJmpInstruction {
   const ins = expectBpfIns(line);
   expect(ins.kind).toBe(BpfInstructionKind.JMP);
   return <BpfJmpInstruction>ins;
+}
+
+function expectBpfMayJmpInstruction(line: ParsedLine): BpfTargetJmpInstruction {
+  const ins = expectBpfIns(line);
+  expect(ins.kind).toBe(BpfInstructionKind.JMP);
+  const jmpIns = <BpfJmpInstruction>ins;
+  expect(jmpIns.jmpKind).toBe(BpfJmpKind.MAY_GOTO);
+  return <BpfTargetJmpInstruction>ins;
+}
+
+function expectBpfJmpOrNopInstruction(
+  line: ParsedLine,
+): BpfTargetJmpInstruction {
+  const ins = expectBpfIns(line);
+  expect(ins.kind).toBe(BpfInstructionKind.JMP);
+  const jmpIns = <BpfJmpInstruction>ins;
+  expect(jmpIns.jmpKind).toBe(BpfJmpKind.GOTO_OR_NOP);
+  return <BpfTargetJmpInstruction>ins;
 }
 
 function expectAddrSpaceCastIns(
@@ -93,5 +114,19 @@ describe("parser", () => {
     expect(ins.directionStr).toBe("0, 1");
     expect(ins.reads).toContain("r7");
     expect(ins.writes).toContain("r1");
+  });
+
+  it("parses conditional pseudo may goto", () => {
+    const parsed = parseLine(ConditionalPseudoMayGotoSample, 0);
+    const ins = expectBpfMayJmpInstruction(parsed);
+    expect(ins.target).toBe("pc+3");
+    expect(ins.opcode.code).toBe(BpfJmpCode.JCOND);
+  });
+
+  it("parses conditional pseudo goto_or_nop", () => {
+    const parsed = parseLine(ConditionalPseudoGotoOrNopSample, 0);
+    const ins = expectBpfJmpOrNopInstruction(parsed);
+    expect(ins.target).toBe("pc+3");
+    expect(ins.opcode.code).toBe(BpfJmpCode.JCOND);
   });
 });

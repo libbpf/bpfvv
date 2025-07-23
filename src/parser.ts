@@ -12,7 +12,7 @@
         - It is feasible to modify verifier log upstream to make it more friendly to parsing, but even then we want to be able to parse older formats
  */
 
-enum BpfInstructionClass {
+export enum BpfInstructionClass {
   LD = 0x0,
   LDX = 0x1,
   ST = 0x2,
@@ -54,6 +54,7 @@ export enum BpfJmpCode {
   JLE = 0xb,
   JSLT = 0xc,
   JSLE = 0xd,
+  JCOND = 0xe,
 }
 
 export enum Effect {
@@ -63,7 +64,7 @@ export enum Effect {
   UPDATE = "UPDATE", // read then write, e.g. r0 += 1
 }
 
-enum OpcodeSource {
+export enum OpcodeSource {
   K = "K", // use 32-bit ‘imm’ value as source operand
   X = "X", // use ‘src_reg’ register value as source operand
 }
@@ -83,8 +84,10 @@ export enum BpfJmpKind {
   EXIT = 1,
   UNCONDITIONAL_GOTO = 2,
   CONDITIONAL_GOTO = 3,
-  HELPER_CALL = 4,
-  SUBPROGRAM_CALL = 5,
+  MAY_GOTO = 4,
+  GOTO_OR_NOP = 5,
+  HELPER_CALL = 6,
+  SUBPROGRAM_CALL = 7,
 }
 
 export enum BpfInstructionKind {
@@ -111,11 +114,17 @@ export type BpfExitInstruction = {
 } & GenericJmpInstruction;
 
 export type BpfTargetJmpInstruction = {
-  jmpKind:
-    | BpfJmpKind.HELPER_CALL
-    | BpfJmpKind.SUBPROGRAM_CALL
-    | BpfJmpKind.UNCONDITIONAL_GOTO;
+  jmpKind: BpfJmpKind.HELPER_CALL | BpfJmpKind.SUBPROGRAM_CALL;
   target: string;
+} & GenericJmpInstruction;
+
+export type BpfGotoJmpInstruction = {
+  jmpKind:
+    | BpfJmpKind.UNCONDITIONAL_GOTO
+    | BpfJmpKind.GOTO_OR_NOP
+    | BpfJmpKind.MAY_GOTO;
+  target: string;
+  goto: string;
 } & GenericJmpInstruction;
 
 export type BpfConditionalJmpInstruction = {
@@ -131,6 +140,7 @@ export type BpfConditionalJmpInstruction = {
 export type BpfJmpInstruction =
   | BpfExitInstruction
   | BpfTargetJmpInstruction
+  | BpfGotoJmpInstruction
   | BpfConditionalJmpInstruction;
 
 export type BpfAluInstruction = {
@@ -264,7 +274,7 @@ const RE_REGISTER = /^(r10|r[0-9]|w[0-9])/;
 const RE_MEMORY_REF = /^\*\((u8|u16|u32|u64) \*\)\((r10|r[0-9]) ([+-][0-9]+)\)/;
 const RE_IMM_VALUE = /^(0x[0-9a-f]+|[+-]?[0-9]+)/;
 const RE_CALL_TARGET = /^call ([0-9a-z_#+-]+)/;
-const RE_JMP_TARGET = /^goto (pc[+-][0-9]+)/;
+const RE_GOTO_OP = /^((?:may_)?goto|goto_or_nop) (pc[+-][0-9]+)/;
 const RE_FRAME_ID = /^frame([0-9]+): /;
 const RE_ADDR_SPACE_CAST =
   /^(r[0-9]) = addr_space_cast\((r[0-9]), ([0-1], [0-1])\)/;
@@ -588,9 +598,10 @@ function parseConditionalJmp(
   };
   rest = consumeSpaces(rightOp.rest);
 
-  let jmpTarget = consumeRegex(RE_JMP_TARGET, consumeSpaces(rest));
-  if (!jmpTarget.match) return { ins: undefined, rest: str };
-  const target = jmpTarget.match[1];
+  let jmpTarget = consumeRegex(RE_GOTO_OP, consumeSpaces(rest));
+  if (!jmpTarget.match || jmpTarget.match[1] != "goto")
+    return { ins: undefined, rest: str };
+  const target = jmpTarget.match[2];
   rest = consumeSpaces(jmpTarget.rest);
 
   const ins: BpfConditionalJmpInstruction = {
@@ -613,19 +624,48 @@ function parseUnconditionalJmp(
   str: string,
   opcode: BpfOpcode,
 ): BpfInstructionPair {
-  let { match, rest } = consumeString("goto ", str);
-  if (!match) return { ins: undefined, rest: str };
-  const target = consumeRegex(RE_JMP_TARGET, str);
-  if (!target.match) return { ins: undefined, rest: str };
-  const ins: BpfTargetJmpInstruction = {
+  const target = consumeRegex(RE_GOTO_OP, str);
+  if (!target.match || target.match[1] !== "goto") {
+    return { ins: undefined, rest: str };
+  }
+  const ins: BpfGotoJmpInstruction = {
     kind: BpfInstructionKind.JMP,
     jmpKind: BpfJmpKind.UNCONDITIONAL_GOTO,
+    goto: target.match[1],
     opcode: opcode,
-    target: target.match[1],
+    target: target.match[2],
     reads: [],
     writes: [],
   };
-  return { ins, rest };
+  return { ins, rest: consumeString("goto ", str).rest };
+}
+
+function parseConditionalPseudoJmp(
+  str: string,
+  opcode: BpfOpcode,
+): BpfInstructionPair {
+  const target = consumeRegex(RE_GOTO_OP, str);
+  if (!target.match) return { ins: undefined, rest: str };
+
+  let jmpKind = BpfJmpKind.MAY_GOTO;
+  if (target.match[1] === "may_goto") {
+    jmpKind = BpfJmpKind.MAY_GOTO;
+  } else if (target.match[1] === "goto_or_nop") {
+    jmpKind = BpfJmpKind.GOTO_OR_NOP;
+  } else {
+    return { ins: undefined, rest: str };
+  }
+
+  const ins: BpfGotoJmpInstruction = {
+    kind: BpfInstructionKind.JMP,
+    jmpKind,
+    goto: target.match[1],
+    opcode: opcode,
+    target: target.match[2],
+    reads: [],
+    writes: [],
+  };
+  return { ins, rest: consumeString(target.match[1], str).rest };
 }
 
 function parseExit(str: string, opcode: BpfOpcode): BpfInstructionPair {
@@ -665,6 +705,8 @@ function parseJmpInstruction(
       return parseConditionalJmp(str, opcode);
     case BpfJmpCode.JA:
       return parseUnconditionalJmp(str, opcode);
+    case BpfJmpCode.JCOND:
+      return parseConditionalPseudoJmp(str, opcode);
     case BpfJmpCode.EXIT:
       return parseExit(str, opcode);
     default:
