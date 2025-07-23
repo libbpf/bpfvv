@@ -253,18 +253,17 @@ const LogLineRaw = ({
   }
 
   const lineId = "line-" + idx;
+  const indentSpans: ReactElement[] = [];
 
-  let logLineStyle = {
-    paddingLeft: `${indentLevel <= 0 ? 0 : indentLevel * 30}px`,
-  };
+  for (let i = 1; i < indentLevel; ++i) {
+    indentSpans.push(
+      <span key={`indent-line${i}`} className="line-indent"></span>,
+    );
+  }
 
   return (
-    <div
-      style={logLineStyle}
-      line-index={idx}
-      id={lineId}
-      className={topClasses.join(" ")}
-    >
+    <div line-index={idx} id={lineId} className={topClasses.join(" ")}>
+      {indentSpans}
       {content}
     </div>
   );
