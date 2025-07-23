@@ -280,6 +280,16 @@ const LogLineRaw = ({
     case BpfInstructionKind.JMP:
       content = JmpInstruction(ins, line, frame);
       break;
+    case BpfInstructionKind.ADDR_SPACE_CAST:
+      content = (
+        <>
+          <MemSlot line={line} op={ins.dst} />
+          {" = addr_space_cast("}
+          <MemSlot line={line} op={ins.src} />
+          {`, ${ins.directionStr})`}
+        </>
+      );
+      break;
   }
 
   if (!content) content = <>{line.raw}</>;
