@@ -69,7 +69,7 @@ describe("parser", () => {
     expect(parsed.bpfStateExprs?.length).toBe(3);
   });
 
-  it("parses call instruction via parseOpcodeIns", () => {
+  it("parses call instruction", () => {
     const parsed = parseLine(CallInstructionSample, 7);
     let ins: BpfJmpInstruction = expectBpfJmpIns(parsed);
     expect(ins.jmpKind).toBe(BpfJmpKind.HELPER_CALL);
