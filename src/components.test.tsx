@@ -19,6 +19,8 @@ import {
   BpfJmpInstruction,
   BpfExitInstruction,
   BpfGotoJmpInstruction,
+  parseLine,
+  InstructionLine,
 } from "./parser";
 
 function createOp(
@@ -40,7 +42,7 @@ function createOp(
 
 describe("MemSlot", () => {
   function createParsedLine(raw: string, idx: number): ParsedLine {
-    return { raw, idx, type: ParsedLineType.INSTRUCTION };
+    return parseLine(raw, idx);
   }
 
   it("renders raw line when op is undefined", () => {
@@ -153,11 +155,12 @@ describe("JmpInstruction", () => {
     };
   }
 
-  function createLine(bpfIns: BpfJmpInstruction): ParsedLine {
+  function createLine(bpfIns: BpfJmpInstruction): InstructionLine {
     return {
       raw: "",
       idx: 0,
       bpfIns,
+      bpfStateExprs: [],
       type: ParsedLineType.INSTRUCTION,
     };
   }

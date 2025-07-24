@@ -11,6 +11,7 @@ import {
   BpfJmpInstruction,
   BpfTargetJmpInstruction,
   BpfAddressSpaceCastInstruction,
+  InstructionLine,
 } from "./parser";
 
 const AluInstructionSample = "0: (b7) r2 = 1                        ; R2_w=1";
@@ -24,9 +25,8 @@ const ConditionalPseudoGotoOrNopSample = "2984: (e5) goto_or_nop pc+3";
 
 function expectBpfIns(line: ParsedLine): BpfInstruction {
   expect(line.type).toBe(ParsedLineType.INSTRUCTION);
-  expect(line.bpfIns).toBeDefined();
-  const ins = line.bpfIns!;
-  return ins;
+  const insLine = <InstructionLine>line;
+  return insLine.bpfIns;
 }
 
 function expectBpfAluIns(line: ParsedLine): BpfAluInstruction {
@@ -71,10 +71,11 @@ describe("parser", () => {
   it("parses ALU instructions with state expressions", () => {
     const parsed = parseLine(AluInstructionSample, 0);
     const ins: BpfAluInstruction = expectBpfAluIns(parsed);
+    const bpfStateExprs = (<InstructionLine>parsed).bpfStateExprs;
     expect(ins?.pc).toBe(0);
     expect(ins?.operator).toBe("=");
     expect(ins?.writes).toContain("r2");
-    expect(parsed.bpfStateExprs?.[0]).toMatchObject({
+    expect(bpfStateExprs[0]).toMatchObject({
       id: "r2",
       value: "1",
     });
@@ -83,11 +84,12 @@ describe("parser", () => {
   it("parses memory write instruction", () => {
     const parsed = parseLine(MemoryWriteSample, 0);
     const ins: BpfAluInstruction = expectBpfAluIns(parsed);
+    const bpfStateExprs = (<InstructionLine>parsed).bpfStateExprs;
     expect(ins.pc).toBe(1);
     expect(ins.kind).toBe(BpfInstructionKind.ALU);
     expect(ins.dst.id).toBe("fp-24");
     expect(ins.src.id).toBe("r2");
-    expect(parsed.bpfStateExprs?.length).toBe(3);
+    expect(bpfStateExprs.length).toBe(3);
   });
 
   it("parses call instruction", () => {
