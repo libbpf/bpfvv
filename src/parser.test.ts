@@ -22,6 +22,7 @@ const AddrSpaceCastSample =
   "2976: (bf) r1 = addr_space_cast(r7, 0, 1)     ; frame1: R1_w=arena";
 const ConditionalPseudoMayGotoSample = "2984: (e5) may_goto pc+3";
 const ConditionalPseudoGotoOrNopSample = "2984: (e5) goto_or_nop pc+3";
+const CSourceLineSample = "; n->key = 3; @ rbtree.c:201";
 
 function expectBpfIns(line: ParsedLine): BpfInstruction {
   expect(line.type).toBe(ParsedLineType.INSTRUCTION);
@@ -130,5 +131,17 @@ describe("parser", () => {
     const ins = expectBpfJmpOrNopInstruction(parsed);
     expect(ins.target).toBe("pc+3");
     expect(ins.opcode.code).toBe(BpfJmpCode.JCOND);
+  });
+
+  it("parses C source line matching RE_C_SOURCE_LINE regex", () => {
+    const parsed = parseLine(CSourceLineSample, 5);
+    expect(parsed).toEqual({
+      type: ParsedLineType.C_SOURCE,
+      idx: 5,
+      raw: CSourceLineSample,
+      content: "n->key = 3;",
+      filename: "rbtree.c",
+      line: 201,
+    });
   });
 });
