@@ -7,7 +7,6 @@ import {
   OperandType,
   ParsedLine,
   ParsedLineType,
-  BpfInstruction,
   BpfJmpInstruction,
   BpfInstructionKind,
   BpfConditionalJmpInstruction,
@@ -320,33 +319,15 @@ const LogLineRaw = ({
 const LogLine = React.memo(LogLineRaw);
 
 function getMemSlotDisplayValue(
-  idx: number,
   verifierLogState: BpfState,
   prevBpfState: BpfState,
   memSlotId: string,
-  lines: ParsedLine[],
 ) {
   const prevValue = prevBpfState.values.get(memSlotId);
   const value = verifierLogState.values.get(memSlotId);
-  const ins: BpfInstruction | undefined = lines[idx].bpfIns;
   switch (value?.effect) {
     case Effect.WRITE:
     case Effect.UPDATE:
-      if (ins?.kind === BpfInstructionKind.ALU && memSlotId === "MEM") {
-        // show the value of register that was stored
-        const reg = ins.src.id;
-        if (reg) {
-          const regValue = verifierLogState.values.get(reg);
-          return () => {
-            return (
-              <>
-                {RIGHT_ARROW} {regValue?.value}
-              </>
-            );
-          };
-        }
-        return null;
-      }
       let newVal = value?.value;
       let oldVal = prevValue?.value || "";
       if (newVal === oldVal) {
@@ -488,13 +469,7 @@ function StatePanelRaw({
       }
     }
 
-    const contentFunc = getMemSlotDisplayValue(
-      idx,
-      bpfState,
-      prevBpfState,
-      id,
-      lines,
-    );
+    const contentFunc = getMemSlotDisplayValue(bpfState, prevBpfState, id);
 
     rows.push(
       <tr className={className} key={rowCounter}>
@@ -522,7 +497,7 @@ function StatePanelRaw({
   // then the rest
   const sortedValues: string[] = [];
   for (const key of bpfState.values.keys()) {
-    if (!key.startsWith("r") && !key.startsWith("fp-")) {
+    if (!key.startsWith("r") && !key.startsWith("fp-") && key !== "MEM") {
       sortedValues.push(key);
     }
   }
@@ -597,11 +572,9 @@ export function ToolTip({
     const memSlotId = memSlot.getAttribute("data-id") || "";
 
     contentFunc = getMemSlotDisplayValue(
-      hoveredLine,
       verifierLogState,
       prevBpfState,
       memSlotId,
-      lines,
     );
 
     if (contentFunc) {
