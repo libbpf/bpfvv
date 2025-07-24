@@ -11,6 +11,7 @@ import {
   BpfInstructionKind,
   BpfConditionalJmpInstruction,
   BpfTargetJmpInstruction,
+  InstructionLine,
 } from "./parser";
 import { getMemSlotDependencies } from "./analyzer";
 
@@ -242,12 +243,41 @@ export function JmpInstruction({
     case BpfJmpKind.CONDITIONAL_GOTO:
       return <ConditionalJmpInstruction ins={ins} line={line} />;
   }
-
-  return <>{line.raw}</>;
 }
 
 export function LoadStatus({ lines }: { lines: ParsedLine[] }) {
   return <div id="load-status">({lines.length} lines)</div>;
+}
+
+function InstructionLineContent({
+  line,
+  frame,
+}: {
+  line: InstructionLine;
+  frame: number;
+}) {
+  const ins = line.bpfIns;
+  switch (ins.kind) {
+    case BpfInstructionKind.ALU:
+      return (
+        <>
+          <MemSlot line={line} op={ins.dst} />
+          &nbsp;{ins.operator}&nbsp;
+          <MemSlot line={line} op={ins.src} />
+        </>
+      );
+    case BpfInstructionKind.JMP:
+      return <JmpInstruction ins={ins} line={line} frame={frame} />;
+    case BpfInstructionKind.ADDR_SPACE_CAST:
+      return (
+        <>
+          <MemSlot line={line} op={ins.dst} />
+          {" = addr_space_cast("}
+          <MemSlot line={line} op={ins.src} />
+          {`, ${ins.directionStr})`}
+        </>
+      );
+  }
 }
 
 const LogLineRaw = ({
@@ -261,43 +291,19 @@ const LogLineRaw = ({
   indentLevel: number;
   idx: number;
 }) => {
+  let content;
   const topClasses = ["log-line"];
 
-  if (!line?.bpfIns && !line?.bpfStateExprs) {
-    topClasses.push("ignorable-line");
-  } else {
-    topClasses.push("normal-line");
-  }
-
-  let content;
-  const ins = line.bpfIns;
-
-  switch (ins?.kind) {
-    case BpfInstructionKind.ALU:
-      content = (
-        <>
-          <MemSlot line={line} op={ins.dst} />
-          &nbsp;{ins.operator}&nbsp;
-          <MemSlot line={line} op={ins.src} />
-        </>
-      );
+  switch (line.type) {
+    case ParsedLineType.INSTRUCTION:
+      topClasses.push("normal-line");
+      content = InstructionLineContent({ line, frame });
       break;
-    case BpfInstructionKind.JMP:
-      content = <JmpInstruction ins={ins} line={line} frame={frame} />;
-      break;
-    case BpfInstructionKind.ADDR_SPACE_CAST:
-      content = (
-        <>
-          <MemSlot line={line} op={ins.dst} />
-          {" = addr_space_cast("}
-          <MemSlot line={line} op={ins.src} />
-          {`, ${ins.directionStr})`}
-        </>
-      );
+    default:
+      topClasses.push("ignorable-line");
+      content = <>{line.raw}</>;
       break;
   }
-
-  if (!content) content = <>{line.raw}</>;
 
   const lineId = "line-" + idx;
   const indentSpans: ReactElement[] = [];
@@ -633,8 +639,9 @@ const LogLinesRaw = ({
         const frame = getBpfState(bpfStates, line.idx).state.frame;
         indentLevel = frame;
         if (
-          line.bpfIns?.kind === BpfInstructionKind.JMP &&
-          line.bpfIns?.jmpKind === BpfJmpKind.SUBPROGRAM_CALL
+          line.type === ParsedLineType.INSTRUCTION &&
+          line.bpfIns.kind === BpfInstructionKind.JMP &&
+          line.bpfIns.jmpKind === BpfJmpKind.SUBPROGRAM_CALL
         ) {
           indentLevel -= 1;
         }
@@ -684,7 +691,9 @@ const LineNumbersPCRaw = ({
       {verifierLogState.lines.map((line) => {
         return (
           <div className="line-numbers-line" key={`line_num_pc_${line.idx}`}>
-            {typeof line.bpfIns?.pc === "number" ? line.bpfIns.pc + ":" : "\n"}
+            {line.type === ParsedLineType.INSTRUCTION
+              ? line.bpfIns.pc + ":"
+              : "\n"}
           </div>
         );
       })}
@@ -739,8 +748,9 @@ export function MainContent({
     if (lines.length === 0) {
       return [];
     }
-    const ins = lines[selectedLine].bpfIns;
-    if (!ins) return [];
+    const line = lines[selectedLine];
+    if (line.type !== ParsedLineType.INSTRUCTION) return [];
+    const ins = line.bpfIns;
     // if user clicked on a mem slot that is written to,
     // then switch target to the first read slot
     let memSlotId = selectedMemSlotId;
@@ -785,9 +795,10 @@ export function MainContent({
         if (selectedLine === idx) {
           return;
         }
-        const isIgnorable = !line?.bpfIns && !line?.bpfStateExprs;
-
-        if (isIgnorable || !memSlotDependencies.includes(idx)) {
+        if (
+          line.type === ParsedLineType.UNRECOGNIZED ||
+          !memSlotDependencies.includes(idx)
+        ) {
           return;
         }
 

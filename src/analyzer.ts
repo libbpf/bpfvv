@@ -233,8 +233,7 @@ export function getMemSlotDependencies(
 ): Set<number> {
   const { lines, bpfStates } = verifierLogState;
   let deps = new Set<number>();
-  const ins = lines[selectedLine].bpfIns;
-  if (!ins) return deps;
+  if (lines[selectedLine].type !== ParsedLineType.INSTRUCTION) return deps;
 
   const bpfState = bpfStates[selectedLine];
   if (!bpfState) return deps;
@@ -245,9 +244,8 @@ export function getMemSlotDependencies(
   if (!bpfState.lastKnownWrites.has(memSlotId)) return deps;
 
   const depIdx = bpfState.lastKnownWrites.get(memSlotId);
-  if (!depIdx) return deps;
+  if (!depIdx || lines[depIdx].type !== ParsedLineType.INSTRUCTION) return deps;
   const depIns = lines[depIdx].bpfIns;
-  if (!depIns) return deps;
 
   const nReads = depIns?.reads?.length;
 

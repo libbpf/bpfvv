@@ -193,13 +193,22 @@ export enum ParsedLineType {
   INSTRUCTION = "INSTRUCTION",
 }
 
-export type ParsedLine = {
+type GenericParsedLine = {
   idx: number;
-  type: ParsedLineType;
   raw: string;
-  bpfIns?: BpfInstruction;
-  bpfStateExprs?: BpfStateExpr[];
 };
+
+export type UnrecognizedLine = {
+  type: ParsedLineType.UNRECOGNIZED;
+} & GenericParsedLine;
+
+export type InstructionLine = {
+  type: ParsedLineType.INSTRUCTION;
+  bpfIns: BpfInstruction;
+  bpfStateExprs: BpfStateExpr[];
+} & GenericParsedLine;
+
+export type ParsedLine = UnrecognizedLine | InstructionLine;
 
 type BpfStateExpr = {
   id: string;
@@ -746,39 +755,39 @@ function parseOpcodeIns(str: string, pc: number): BpfInstructionPair {
   return { ins: undefined, rest: str };
 }
 
-export function parseLine(rawLine: string, idx: number): ParsedLine {
+function parseBpfInstruction(
+  rawLine: string,
+  idx: number,
+): InstructionLine | null {
   let { match, rest } = consumeRegex(
     RE_PROGRAM_COUNTER,
     consumeSpaces(rawLine),
   );
-  let ins = undefined;
-  if (match) {
-    const pc = parseInt(match[1], 10);
-    const parsedIns = parseOpcodeIns(consumeSpaces(rest), pc);
-    if (parsedIns.ins) {
-      ins = parsedIns.ins;
-    }
-    rest = consumeSpaces(parsedIns.rest);
-  }
+  if (!match) return null;
 
-  if (ins) {
-    let exprs: BpfStateExpr[] = [];
-    const parsedExprs = parseBpfStateExprs(rest);
-    if (parsedExprs.exprs) {
-      exprs = parsedExprs.exprs;
-    }
-    return {
-      idx,
-      type: ParsedLineType.INSTRUCTION,
-      raw: rawLine,
-      bpfIns: ins,
-      bpfStateExprs: exprs,
-    };
-  }
+  const pc = parseInt(match[1], 10);
+  const parsedIns = parseOpcodeIns(consumeSpaces(rest), pc);
+  if (!parsedIns.ins) return null;
+
+  const ins = parsedIns.ins;
+  rest = consumeSpaces(parsedIns.rest);
+  const { exprs } = parseBpfStateExprs(rest);
+  return {
+    type: ParsedLineType.INSTRUCTION,
+    idx,
+    raw: rawLine,
+    bpfIns: ins,
+    bpfStateExprs: exprs,
+  };
+}
+
+export function parseLine(rawLine: string, idx: number): ParsedLine {
+  let parsed: ParsedLine | null = parseBpfInstruction(rawLine, idx);
+  if (parsed) return parsed;
 
   return {
-    idx,
     type: ParsedLineType.UNRECOGNIZED,
+    idx,
     raw: rawLine,
   };
 }
