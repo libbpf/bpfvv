@@ -175,7 +175,7 @@ export function HoveredLineHint({
   }
   return (
     <div id="hint-hovered-line" className="hint-line">
-      <span>[hovered raw line] {hoveredLine + 1}:</span>{" "}
+      <span>[hovered raw line] {hoveredLine + 1}:</span>&nbsp;
       {lines[hoveredLine].raw}
     </div>
   );
@@ -189,9 +189,10 @@ function JmpInstruction({ line }: { line: ParsedLine }) {
   return (
     <>
       if (
-      <MemSlot line={line} op={line.bpfIns?.jmp?.cond?.left} />{" "}
-      {line.bpfIns?.jmp?.cond?.op}{" "}
-      <MemSlot line={line} op={line.bpfIns?.jmp?.cond?.right} />) goto{" "}
+      <MemSlot line={line} op={line.bpfIns?.jmp?.cond?.left} />
+      &nbsp;
+      {line.bpfIns?.jmp?.cond?.op}&nbsp;
+      <MemSlot line={line} op={line.bpfIns?.jmp?.cond?.right} />) goto&nbsp;
       {line.bpfIns?.jmp?.target}
     </>
   );
@@ -226,7 +227,8 @@ const LogLineRaw = ({
   if (ins?.alu) {
     content = (
       <>
-        <MemSlot line={line} op={ins.alu.dst} /> {ins.alu.operator}{" "}
+        <MemSlot line={line} op={ins.alu.dst} />
+        &nbsp;{ins.alu.operator}&nbsp;
         <MemSlot line={line} op={ins.alu.src} />
       </>
     );
@@ -242,7 +244,8 @@ const LogLineRaw = ({
   } else if (ins?.jmp?.kind === BpfJmpKind.HELPER_CALL) {
     content = (
       <>
-        <RegSpan lineIdx={line.idx} reg={"r0"} display={undefined} /> ={" "}
+        <RegSpan lineIdx={line.idx} reg={"r0"} display={undefined} />
+        &nbsp;=&nbsp;
         <CallHtml line={line} />
       </>
     );
@@ -401,7 +404,7 @@ export function SelectedLineHint({
   }
   return (
     <div id="hint-selected-line" className="hint-line">
-      <span>[selected raw line] {selectedLine + 1}:</span>{" "}
+      <span>[selected raw line] {selectedLine + 1}:</span>&nbsp;
       {lines[selectedLine].raw}
     </div>
   );

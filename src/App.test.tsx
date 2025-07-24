@@ -78,12 +78,12 @@ describe("App", () => {
 
     const firstLine = document.getElementById("line-0");
     expect(firstLine?.innerHTML).toBe(
-      '*(u8 *)(<span id="mem-slot-r7-line-0" class="mem-slot r7" data-id="r7">r7</span> +1303) = <span id="mem-slot-r1-line-0" class="mem-slot r1" data-id="r1">r1</span>',
+      '*(u8 *)(<span id="mem-slot-r7-line-0" class="mem-slot r7" data-id="r7">r7</span> +1303)&nbsp;=&nbsp;<span id="mem-slot-r1-line-0" class="mem-slot r1" data-id="r1">r1</span>',
     );
 
     const hintSelectedLineEl = document.getElementById("hint-selected-line");
     expect(hintSelectedLineEl?.innerHTML).toBe(
-      "<span>[selected raw line] 1:</span> 314: (73) *(u8 *)(r7 +1303) = r1      ; frame1: R1_w=0 R7=map_value(off=0,ks=4,vs=2808,imm=0)",
+      "<span>[selected raw line] 1:</span>&nbsp;314: (73) *(u8 *)(r7 +1303) = r1      ; frame1: R1_w=0 R7=map_value(off=0,ks=4,vs=2808,imm=0)",
     );
 
     expect(document.getElementById("state-panel")).toBeTruthy();
