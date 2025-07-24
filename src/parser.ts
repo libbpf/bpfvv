@@ -191,6 +191,7 @@ type BpfInstructionPair = {
 export enum ParsedLineType {
   UNRECOGNIZED = "UNRECOGNIZED",
   INSTRUCTION = "INSTRUCTION",
+  C_SOURCE = "C_SOURCE",
 }
 
 type GenericParsedLine = {
@@ -208,7 +209,14 @@ export type InstructionLine = {
   bpfStateExprs: BpfStateExpr[];
 } & GenericParsedLine;
 
-export type ParsedLine = UnrecognizedLine | InstructionLine;
+export type CSourceLine = {
+  type: ParsedLineType.C_SOURCE;
+  content: string;
+  filename: string;
+  line: number;
+} & GenericParsedLine;
+
+export type ParsedLine = UnrecognizedLine | InstructionLine | CSourceLine;
 
 type BpfStateExpr = {
   id: string;
@@ -287,6 +295,7 @@ const RE_GOTO_OP = /^((?:may_)?goto|goto_or_nop) (pc[+-][0-9]+)/;
 const RE_FRAME_ID = /^frame([0-9]+): /;
 const RE_ADDR_SPACE_CAST =
   /^(r[0-9]) = addr_space_cast\((r[0-9]), ([0-1], [0-1])\)/;
+const RE_C_SOURCE_LINE = /^; (.*) @ ([a-zA-Z0-9_\-.]+):([0-9]+)/;
 
 const BPF_ALU_OPERATORS = [
   "s>>=",
@@ -755,6 +764,19 @@ function parseOpcodeIns(str: string, pc: number): BpfInstructionPair {
   return { ins: undefined, rest: str };
 }
 
+function parseCSourceLine(str: string, idx: number): CSourceLine | null {
+  const { match } = consumeRegex(RE_C_SOURCE_LINE, str);
+  if (!match) return null;
+  return {
+    type: ParsedLineType.C_SOURCE,
+    idx,
+    raw: str,
+    content: match[1],
+    filename: match[2],
+    line: parseInt(match[3], 10),
+  };
+}
+
 function parseBpfInstruction(
   rawLine: string,
   idx: number,
@@ -782,7 +804,10 @@ function parseBpfInstruction(
 }
 
 export function parseLine(rawLine: string, idx: number): ParsedLine {
-  let parsed: ParsedLine | null = parseBpfInstruction(rawLine, idx);
+  let parsed: ParsedLine | null = parseCSourceLine(rawLine, idx);
+  if (parsed) return parsed;
+
+  parsed = parseBpfInstruction(rawLine, idx);
   if (parsed) return parsed;
 
   return {
