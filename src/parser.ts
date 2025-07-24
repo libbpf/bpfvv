@@ -103,14 +103,18 @@ type GenericBpfInstruction = {
 
 type GenericJmpInstruction = {
   kind: BpfInstructionKind.JMP;
+  jmpKind: BpfJmpKind;
 } & GenericBpfInstruction;
 
 export type BpfExitInstruction = {
   jmpKind: BpfJmpKind.EXIT;
 } & GenericJmpInstruction;
 
-export type BpfUnconditionalJmpInstruction = {
-  jmpKind: BpfJmpKind.UNCONDITIONAL_GOTO;
+export type BpfTargetJmpInstruction = {
+  jmpKind:
+    | BpfJmpKind.HELPER_CALL
+    | BpfJmpKind.SUBPROGRAM_CALL
+    | BpfJmpKind.UNCONDITIONAL_GOTO;
   target: string;
 } & GenericJmpInstruction;
 
@@ -124,22 +128,10 @@ export type BpfConditionalJmpInstruction = {
   };
 } & GenericJmpInstruction;
 
-export type BpfHelperCallInstruction = {
-  jmpKind: BpfJmpKind.HELPER_CALL;
-  target: string;
-} & GenericJmpInstruction;
-
-export type BpfSubprogramCallInstruction = {
-  jmpKind: BpfJmpKind.SUBPROGRAM_CALL;
-  target: string;
-} & GenericJmpInstruction;
-
 export type BpfJmpInstruction =
   | BpfExitInstruction
-  | BpfHelperCallInstruction
-  | BpfSubprogramCallInstruction
-  | BpfConditionalJmpInstruction
-  | BpfUnconditionalJmpInstruction;
+  | BpfTargetJmpInstruction
+  | BpfConditionalJmpInstruction;
 
 export type BpfAluInstruction = {
   kind: BpfInstructionKind.ALU;
@@ -506,7 +498,7 @@ function parseAluInstruction(
 function helperCall(
   opcode: BpfOpcode,
   target: string,
-): BpfHelperCallInstruction {
+): BpfTargetJmpInstruction {
   return {
     kind: BpfInstructionKind.JMP,
     opcode: opcode,
@@ -520,7 +512,7 @@ function helperCall(
 function bpfSubprogramCall(
   opcode: BpfOpcode,
   target: string,
-): BpfSubprogramCallInstruction {
+): BpfTargetJmpInstruction {
   return {
     kind: BpfInstructionKind.JMP,
     jmpKind: BpfJmpKind.SUBPROGRAM_CALL,
@@ -625,7 +617,7 @@ function parseUnconditionalJmp(
   if (!match) return { ins: undefined, rest: str };
   const target = consumeRegex(RE_JMP_TARGET, str);
   if (!target.match) return { ins: undefined, rest: str };
-  const ins: BpfUnconditionalJmpInstruction = {
+  const ins: BpfTargetJmpInstruction = {
     kind: BpfInstructionKind.JMP,
     jmpKind: BpfJmpKind.UNCONDITIONAL_GOTO,
     opcode: opcode,

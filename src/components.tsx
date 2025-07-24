@@ -12,8 +12,7 @@ import {
   BpfJmpInstruction,
   BpfInstructionKind,
   BpfConditionalJmpInstruction,
-  BpfSubprogramCallInstruction,
-  BpfHelperCallInstruction,
+  BpfTargetJmpInstruction,
 } from "./parser";
 import { getMemSlotDependencies } from "./analyzer";
 
@@ -61,7 +60,7 @@ function CallHtml({
   ins,
   line,
 }: {
-  ins: BpfHelperCallInstruction | BpfSubprogramCallInstruction;
+  ins: BpfTargetJmpInstruction;
   line: ParsedLine;
 }) {
   const location = ins.location;
@@ -75,7 +74,7 @@ function CallHtml({
 
   const args = bpfHelpersMap.get(helperName);
 
-  let contents = [];
+  let contents: ReactElement[] = [];
   if (args) {
     let i = 1;
 
@@ -514,7 +513,7 @@ function StatePanelRaw({
   }
 
   // then the rest
-  const sortedValues = [];
+  const sortedValues: string[] = [];
   for (const key of bpfState.values.keys()) {
     if (!key.startsWith("r") && !key.startsWith("fp-")) {
       sortedValues.push(key);

@@ -8,7 +8,7 @@ import {
   BpfInstructionKind,
   ParsedLine,
   BpfJmpInstruction,
-  BpfSubprogramCallInstruction,
+  BpfTargetJmpInstruction,
   BpfAddressSpaceCastInstruction,
 } from "./parser";
 
@@ -71,10 +71,10 @@ describe("parser", () => {
 
   it("parses call instruction", () => {
     const parsed = parseLine(CallInstructionSample, 7);
-    let ins: BpfJmpInstruction = expectBpfJmpIns(parsed);
+    let ins = expectBpfJmpIns(parsed);
     expect(ins.jmpKind).toBe(BpfJmpKind.HELPER_CALL);
-    ins = <BpfSubprogramCallInstruction>ins;
-    expect(ins.target).toBe("bpf_probe_read_user#112");
+    const targetIns = <BpfTargetJmpInstruction>ins;
+    expect(targetIns.target).toBe("bpf_probe_read_user#112");
     expect(ins.reads).toContain("r1");
     expect(ins.writes).toContain("r0");
   });

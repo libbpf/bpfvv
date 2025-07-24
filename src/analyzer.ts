@@ -168,15 +168,17 @@ function nextBpfState(
   let newState: BpfState;
   const ins = line.bpfIns;
   if (
-    ins?.kind === BpfInstructionKind.JMP &&
-    ins?.jmpKind === BpfJmpKind.SUBPROGRAM_CALL
+    ins &&
+    ins.kind === BpfInstructionKind.JMP &&
+    ins.jmpKind === BpfJmpKind.SUBPROGRAM_CALL
   ) {
     newState = pushStackFrame(bpfState, savedBpfStates);
     setIdxAndPc(newState);
     return newState;
   } else if (
-    ins?.kind === BpfInstructionKind.JMP &&
-    ins?.jmpKind === BpfJmpKind.EXIT
+    ins &&
+    ins.kind === BpfInstructionKind.JMP &&
+    ins.jmpKind === BpfJmpKind.EXIT
   ) {
     newState = popStackFrame(bpfState, savedBpfStates);
     setIdxAndPc(newState);
