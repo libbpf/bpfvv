@@ -299,6 +299,10 @@ const LogLineRaw = ({
       topClasses.push("normal-line");
       content = InstructionLineContent({ line, frame });
       break;
+    case ParsedLineType.C_SOURCE:
+      topClasses.push("inline-c-source-line");
+      content = <>{line.raw}</>;
+      break;
     default:
       topClasses.push("ignorable-line");
       content = <>{line.raw}</>;
@@ -790,6 +794,14 @@ export function MainContent({
         selectedMemSlotIdEl.classList.add("selected-mem-slot");
       }
 
+      const relevantCLineIds: Set<string> = new Set();
+      for (const idx of [selectedLine, ...memSlotDependencies]) {
+        const cLineId = verifierLogState.cSourceMap.logLineToCLine.get(idx);
+        if (cLineId) {
+          relevantCLineIds.add(cLineId);
+        }
+      }
+
       verifierLogState.lines.forEach((line) => {
         const idx = line.idx;
         if (selectedLine === idx) {
@@ -797,7 +809,10 @@ export function MainContent({
         }
         if (
           line.type === ParsedLineType.UNRECOGNIZED ||
-          !memSlotDependencies.includes(idx)
+          (line.type === ParsedLineType.INSTRUCTION &&
+            !memSlotDependencies.includes(idx)) ||
+          (line.type === ParsedLineType.C_SOURCE &&
+            !relevantCLineIds.has(line.id))
         ) {
           return;
         }
