@@ -1,7 +1,7 @@
 import React from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { VerifierLogState, processRawLines } from "./analyzer";
+import { CSourceMap, VerifierLogState, processRawLines } from "./analyzer";
 
 import {
   fetchLogFromUrl,
@@ -73,6 +73,7 @@ function App() {
   const [verifierLogState, setVerifierLogState] = useState<VerifierLogState>({
     lines: [],
     bpfStates: [],
+    cSourceMap: new CSourceMap(),
   });
   const [hoveredState, setHoveredState] = useState<LogLineState>({
     memSlotId: "",
@@ -112,7 +113,11 @@ function App() {
   }, [setSelectedLineScroll, verifierLogState]);
 
   const onClear = useCallback(() => {
-    setVerifierLogState({ lines: [], bpfStates: [] });
+    setVerifierLogState({
+      lines: [],
+      bpfStates: [],
+      cSourceMap: new CSourceMap(),
+    });
     setSelectedState({ line: 0, memSlotId: "" });
     const fiCurrent = fileInputRef.current;
     if (fiCurrent) {

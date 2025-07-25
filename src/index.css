@@ -130,13 +130,20 @@ body {
   color: #cccccc;
 }
 
+.inline-c-source-line,
+.active_mem_slot .inline-c-source-line.selected-line,
+.active_mem_slot .inline-c-source-line.dependency-line {
+  color: blue;
+}
+
 .selected-line,
 .ignorable-line.selected-line {
   background-color: #ccccff;
   color: #000;
 }
 
-.active_mem_slot .normal-line {
+.active_mem_slot .normal-line,
+.active_mem_slot .inline-c-source-line {
   color: #888888;
 }
 

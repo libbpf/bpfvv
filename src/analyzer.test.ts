@@ -320,4 +320,122 @@ to caller at 705:
       });
     });
   });
+
+  describe("builds correct CSourceMap", () => {
+    const verifierLogFragmentWithSimpleCSource = `
+; n->key = 3; @ rbtree.c:201
+0: (b7) r2 = 1                        ; R2_w=1
+1: (7b) *(u64 *)(r10 -24) = r2        ; R2_w=1 R10=fp0 fp-24_w=1
+; proc->pid = task->pid; @ rbtree.c:204
+2: (79) r3 = *(u64 *)(r1 +32)         ; R1=ctx() R3_w=scalar()
+3: (07) r3 += -16                     ; R3_w=scalar()
+; n->key = 5; @ rbtree.c:206
+4: (bf) r1 = r10                      ; R1_w=fp0 R10=fp0
+`;
+
+    describe("for verifierLogFragmentWithSimpleCSource", () => {
+      const strings = verifierLogFragmentWithSimpleCSource.split("\n");
+      strings.shift(); // remove the first \n
+      const logState: VerifierLogState = processRawLines(strings);
+      const { cSourceMap } = logState;
+
+      it("creates correct C source line entries", () => {
+        expect(cSourceMap.cSourceLines.size).toBe(3);
+
+        let line = cSourceMap.cSourceLines.get("rbtree.c:201");
+        expect(line).toMatchObject({
+          content: "n->key = 3;",
+          fileName: "rbtree.c",
+          lineNum: 201,
+          id: "rbtree.c:201",
+        });
+
+        line = cSourceMap.cSourceLines.get("rbtree.c:204");
+        expect(line).toMatchObject({
+          content: "proc->pid = task->pid;",
+          fileName: "rbtree.c",
+          lineNum: 204,
+          id: "rbtree.c:204",
+        });
+
+        line = cSourceMap.cSourceLines.get("rbtree.c:206");
+        expect(line).toMatchObject({
+          content: "n->key = 5;",
+          fileName: "rbtree.c",
+          lineNum: 206,
+          id: "rbtree.c:206",
+        });
+      });
+
+      it("maps log lines to C source lines correctly", () => {
+        expect(cSourceMap.logLineToCLine.get(1)).toBe("rbtree.c:201");
+        expect(cSourceMap.logLineToCLine.get(2)).toBe("rbtree.c:201");
+        expect(cSourceMap.logLineToCLine.get(4)).toBe("rbtree.c:204");
+        expect(cSourceMap.logLineToCLine.get(5)).toBe("rbtree.c:204");
+        expect(cSourceMap.logLineToCLine.get(7)).toBe("rbtree.c:206");
+      });
+
+      it("maps C source lines to log lines correctly", () => {
+        expect(cSourceMap.cLineToLogLines.get("rbtree.c:201")).toEqual(
+          new Set([1, 2]),
+        );
+        expect(cSourceMap.cLineToLogLines.get("rbtree.c:204")).toEqual(
+          new Set([4, 5]),
+        );
+        expect(cSourceMap.cLineToLogLines.get("rbtree.c:206")).toEqual(
+          new Set([7]),
+        );
+      });
+
+      it("tracks file range correctly", () => {
+        const rbtreeRange = cSourceMap.fileRange.get("rbtree.c");
+        expect(rbtreeRange).toEqual([201, 206]);
+      });
+    });
+
+    const verifierLogFragmentWithAPieceOfLoop = `
+; for (int i = 0; i < STACK_MAX_LEN; ++i) { @ pyperf.h:313
+195: (07) r7 += 150                   ; R7=300
+196: (55) if r7 != 0x258 goto pc+4    ; R7=300
+; for (int i = 0; i < STACK_MAX_LEN; ++i) { @ pyperf.h:313
+195: (07) r7 += 150                   ; R7_w=150
+196: (55) if r7 != 0x258 goto pc+4    ; R7_w=150
+`;
+
+    describe("processes verifierLogFragmentWithAPieceOfLoop correctly", () => {
+      const strings = verifierLogFragmentWithAPieceOfLoop.split("\n");
+      strings.shift(); // remove the first \n
+      const logState: VerifierLogState = processRawLines(strings);
+      const { cSourceMap } = logState;
+
+      it("creates correct C source line entries", () => {
+        expect(cSourceMap.cSourceLines.size).toBe(1);
+
+        let line = cSourceMap.cSourceLines.get("pyperf.h:313");
+        expect(line).toMatchObject({
+          content: "for (int i = 0; i < STACK_MAX_LEN; ++i) {",
+          fileName: "pyperf.h",
+          lineNum: 313,
+          id: "pyperf.h:313",
+        });
+      });
+
+      it("maps log lines to C source lines correctly", () => {
+        [1, 2, 4, 5].forEach((idx) => {
+          expect(cSourceMap.logLineToCLine.get(idx)).toBe("pyperf.h:313");
+        });
+      });
+
+      it("maps C source lines to log lines correctly", () => {
+        expect(cSourceMap.cLineToLogLines.get("pyperf.h:313")).toEqual(
+          new Set([1, 2, 4, 5]),
+        );
+      });
+
+      it("tracks file range correctly", () => {
+        const rbtreeRange = cSourceMap.fileRange.get("pyperf.h");
+        expect(rbtreeRange).toEqual([313, 313]);
+      });
+    });
+  });
 });

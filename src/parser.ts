@@ -191,15 +191,33 @@ type BpfInstructionPair = {
 export enum ParsedLineType {
   UNRECOGNIZED = "UNRECOGNIZED",
   INSTRUCTION = "INSTRUCTION",
+  C_SOURCE = "C_SOURCE",
 }
 
-export type ParsedLine = {
+type GenericParsedLine = {
   idx: number;
-  type: ParsedLineType;
   raw: string;
-  bpfIns?: BpfInstruction;
-  bpfStateExprs?: BpfStateExpr[];
 };
+
+export type UnrecognizedLine = {
+  type: ParsedLineType.UNRECOGNIZED;
+} & GenericParsedLine;
+
+export type InstructionLine = {
+  type: ParsedLineType.INSTRUCTION;
+  bpfIns: BpfInstruction;
+  bpfStateExprs: BpfStateExpr[];
+} & GenericParsedLine;
+
+export type CSourceLine = {
+  type: ParsedLineType.C_SOURCE;
+  content: string;
+  fileName: string;
+  lineNum: number;
+  id: string;
+} & GenericParsedLine;
+
+export type ParsedLine = UnrecognizedLine | InstructionLine | CSourceLine;
 
 type BpfStateExpr = {
   id: string;
@@ -278,6 +296,7 @@ const RE_GOTO_OP = /^((?:may_)?goto|goto_or_nop) (pc[+-][0-9]+)/;
 const RE_FRAME_ID = /^frame([0-9]+): /;
 const RE_ADDR_SPACE_CAST =
   /^(r[0-9]) = addr_space_cast\((r[0-9]), ([0-1], [0-1])\)/;
+const RE_C_SOURCE_LINE = /^; (.*) @ ([a-zA-Z0-9_\-.]+):([0-9]+)/;
 
 const BPF_ALU_OPERATORS = [
   "s>>=",
@@ -746,39 +765,58 @@ function parseOpcodeIns(str: string, pc: number): BpfInstructionPair {
   return { ins: undefined, rest: str };
 }
 
-export function parseLine(rawLine: string, idx: number): ParsedLine {
+function parseCSourceLine(str: string, idx: number): CSourceLine | null {
+  const { match } = consumeRegex(RE_C_SOURCE_LINE, str);
+  if (!match) return null;
+  const fileName = match[2];
+  const lineNum = parseInt(match[3], 10);
+  return {
+    type: ParsedLineType.C_SOURCE,
+    idx,
+    raw: str,
+    content: match[1],
+    fileName,
+    lineNum,
+    id: `${fileName}:${lineNum}`,
+  };
+}
+
+function parseBpfInstruction(
+  rawLine: string,
+  idx: number,
+): InstructionLine | null {
   let { match, rest } = consumeRegex(
     RE_PROGRAM_COUNTER,
     consumeSpaces(rawLine),
   );
-  let ins = undefined;
-  if (match) {
-    const pc = parseInt(match[1], 10);
-    const parsedIns = parseOpcodeIns(consumeSpaces(rest), pc);
-    if (parsedIns.ins) {
-      ins = parsedIns.ins;
-    }
-    rest = consumeSpaces(parsedIns.rest);
-  }
+  if (!match) return null;
 
-  if (ins) {
-    let exprs: BpfStateExpr[] = [];
-    const parsedExprs = parseBpfStateExprs(rest);
-    if (parsedExprs.exprs) {
-      exprs = parsedExprs.exprs;
-    }
-    return {
-      idx,
-      type: ParsedLineType.INSTRUCTION,
-      raw: rawLine,
-      bpfIns: ins,
-      bpfStateExprs: exprs,
-    };
-  }
+  const pc = parseInt(match[1], 10);
+  const parsedIns = parseOpcodeIns(consumeSpaces(rest), pc);
+  if (!parsedIns.ins) return null;
+
+  const ins = parsedIns.ins;
+  rest = consumeSpaces(parsedIns.rest);
+  const { exprs } = parseBpfStateExprs(rest);
+  return {
+    type: ParsedLineType.INSTRUCTION,
+    idx,
+    raw: rawLine,
+    bpfIns: ins,
+    bpfStateExprs: exprs,
+  };
+}
+
+export function parseLine(rawLine: string, idx: number): ParsedLine {
+  let parsed: ParsedLine | null = parseCSourceLine(rawLine, idx);
+  if (parsed) return parsed;
+
+  parsed = parseBpfInstruction(rawLine, idx);
+  if (parsed) return parsed;
 
   return {
-    idx,
     type: ParsedLineType.UNRECOGNIZED,
+    idx,
     raw: rawLine,
   };
 }

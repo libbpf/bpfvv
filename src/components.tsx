@@ -7,11 +7,11 @@ import {
   OperandType,
   ParsedLine,
   ParsedLineType,
-  BpfInstruction,
   BpfJmpInstruction,
   BpfInstructionKind,
   BpfConditionalJmpInstruction,
   BpfTargetJmpInstruction,
+  InstructionLine,
 } from "./parser";
 import { getMemSlotDependencies } from "./analyzer";
 
@@ -243,12 +243,41 @@ export function JmpInstruction({
     case BpfJmpKind.CONDITIONAL_GOTO:
       return <ConditionalJmpInstruction ins={ins} line={line} />;
   }
-
-  return <>{line.raw}</>;
 }
 
 export function LoadStatus({ lines }: { lines: ParsedLine[] }) {
   return <div id="load-status">({lines.length} lines)</div>;
+}
+
+function InstructionLineContent({
+  line,
+  frame,
+}: {
+  line: InstructionLine;
+  frame: number;
+}) {
+  const ins = line.bpfIns;
+  switch (ins.kind) {
+    case BpfInstructionKind.ALU:
+      return (
+        <>
+          <MemSlot line={line} op={ins.dst} />
+          &nbsp;{ins.operator}&nbsp;
+          <MemSlot line={line} op={ins.src} />
+        </>
+      );
+    case BpfInstructionKind.JMP:
+      return <JmpInstruction ins={ins} line={line} frame={frame} />;
+    case BpfInstructionKind.ADDR_SPACE_CAST:
+      return (
+        <>
+          <MemSlot line={line} op={ins.dst} />
+          {" = addr_space_cast("}
+          <MemSlot line={line} op={ins.src} />
+          {`, ${ins.directionStr})`}
+        </>
+      );
+  }
 }
 
 const LogLineRaw = ({
@@ -262,43 +291,23 @@ const LogLineRaw = ({
   indentLevel: number;
   idx: number;
 }) => {
+  let content;
   const topClasses = ["log-line"];
 
-  if (!line?.bpfIns && !line?.bpfStateExprs) {
-    topClasses.push("ignorable-line");
-  } else {
-    topClasses.push("normal-line");
-  }
-
-  let content;
-  const ins = line.bpfIns;
-
-  switch (ins?.kind) {
-    case BpfInstructionKind.ALU:
-      content = (
-        <>
-          <MemSlot line={line} op={ins.dst} />
-          &nbsp;{ins.operator}&nbsp;
-          <MemSlot line={line} op={ins.src} />
-        </>
-      );
+  switch (line.type) {
+    case ParsedLineType.INSTRUCTION:
+      topClasses.push("normal-line");
+      content = InstructionLineContent({ line, frame });
       break;
-    case BpfInstructionKind.JMP:
-      content = <JmpInstruction ins={ins} line={line} frame={frame} />;
+    case ParsedLineType.C_SOURCE:
+      topClasses.push("inline-c-source-line");
+      content = <>{line.raw}</>;
       break;
-    case BpfInstructionKind.ADDR_SPACE_CAST:
-      content = (
-        <>
-          <MemSlot line={line} op={ins.dst} />
-          {" = addr_space_cast("}
-          <MemSlot line={line} op={ins.src} />
-          {`, ${ins.directionStr})`}
-        </>
-      );
+    default:
+      topClasses.push("ignorable-line");
+      content = <>{line.raw}</>;
       break;
   }
-
-  if (!content) content = <>{line.raw}</>;
 
   const lineId = "line-" + idx;
   const indentSpans: ReactElement[] = [];
@@ -320,33 +329,15 @@ const LogLineRaw = ({
 const LogLine = React.memo(LogLineRaw);
 
 function getMemSlotDisplayValue(
-  idx: number,
   verifierLogState: BpfState,
   prevBpfState: BpfState,
   memSlotId: string,
-  lines: ParsedLine[],
 ) {
   const prevValue = prevBpfState.values.get(memSlotId);
   const value = verifierLogState.values.get(memSlotId);
-  const ins: BpfInstruction | undefined = lines[idx].bpfIns;
   switch (value?.effect) {
     case Effect.WRITE:
     case Effect.UPDATE:
-      if (ins?.kind === BpfInstructionKind.ALU && memSlotId === "MEM") {
-        // show the value of register that was stored
-        const reg = ins.src.id;
-        if (reg) {
-          const regValue = verifierLogState.values.get(reg);
-          return () => {
-            return (
-              <>
-                {RIGHT_ARROW} {regValue?.value}
-              </>
-            );
-          };
-        }
-        return null;
-      }
       let newVal = value?.value;
       let oldVal = prevValue?.value || "";
       if (newVal === oldVal) {
@@ -488,13 +479,7 @@ function StatePanelRaw({
       }
     }
 
-    const contentFunc = getMemSlotDisplayValue(
-      idx,
-      bpfState,
-      prevBpfState,
-      id,
-      lines,
-    );
+    const contentFunc = getMemSlotDisplayValue(bpfState, prevBpfState, id);
 
     rows.push(
       <tr className={className} key={rowCounter}>
@@ -522,7 +507,7 @@ function StatePanelRaw({
   // then the rest
   const sortedValues: string[] = [];
   for (const key of bpfState.values.keys()) {
-    if (!key.startsWith("r") && !key.startsWith("fp-")) {
+    if (!key.startsWith("r") && !key.startsWith("fp-") && key !== "MEM") {
       sortedValues.push(key);
     }
   }
@@ -597,11 +582,9 @@ export function ToolTip({
     const memSlotId = memSlot.getAttribute("data-id") || "";
 
     contentFunc = getMemSlotDisplayValue(
-      hoveredLine,
       verifierLogState,
       prevBpfState,
       memSlotId,
-      lines,
     );
 
     if (contentFunc) {
@@ -660,8 +643,9 @@ const LogLinesRaw = ({
         const frame = getBpfState(bpfStates, line.idx).state.frame;
         indentLevel = frame;
         if (
-          line.bpfIns?.kind === BpfInstructionKind.JMP &&
-          line.bpfIns?.jmpKind === BpfJmpKind.SUBPROGRAM_CALL
+          line.type === ParsedLineType.INSTRUCTION &&
+          line.bpfIns.kind === BpfInstructionKind.JMP &&
+          line.bpfIns.jmpKind === BpfJmpKind.SUBPROGRAM_CALL
         ) {
           indentLevel -= 1;
         }
@@ -711,7 +695,9 @@ const LineNumbersPCRaw = ({
       {verifierLogState.lines.map((line) => {
         return (
           <div className="line-numbers-line" key={`line_num_pc_${line.idx}`}>
-            {typeof line.bpfIns?.pc === "number" ? line.bpfIns.pc + ":" : "\n"}
+            {line.type === ParsedLineType.INSTRUCTION
+              ? line.bpfIns.pc + ":"
+              : "\n"}
           </div>
         );
       })}
@@ -766,8 +752,9 @@ export function MainContent({
     if (lines.length === 0) {
       return [];
     }
-    const ins = lines[selectedLine].bpfIns;
-    if (!ins) return [];
+    const line = lines[selectedLine];
+    if (line.type !== ParsedLineType.INSTRUCTION) return [];
+    const ins = line.bpfIns;
     // if user clicked on a mem slot that is written to,
     // then switch target to the first read slot
     let memSlotId = selectedMemSlotId;
@@ -807,14 +794,26 @@ export function MainContent({
         selectedMemSlotIdEl.classList.add("selected-mem-slot");
       }
 
+      const relevantCLineIds: Set<string> = new Set();
+      for (const idx of [selectedLine, ...memSlotDependencies]) {
+        const cLineId = verifierLogState.cSourceMap.logLineToCLine.get(idx);
+        if (cLineId) {
+          relevantCLineIds.add(cLineId);
+        }
+      }
+
       verifierLogState.lines.forEach((line) => {
         const idx = line.idx;
         if (selectedLine === idx) {
           return;
         }
-        const isIgnorable = !line?.bpfIns && !line?.bpfStateExprs;
-
-        if (isIgnorable || !memSlotDependencies.includes(idx)) {
+        if (
+          line.type === ParsedLineType.UNRECOGNIZED ||
+          (line.type === ParsedLineType.INSTRUCTION &&
+            !memSlotDependencies.includes(idx)) ||
+          (line.type === ParsedLineType.C_SOURCE &&
+            !relevantCLineIds.has(line.id))
+        ) {
           return;
         }
 
