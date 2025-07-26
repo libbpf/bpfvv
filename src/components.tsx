@@ -446,6 +446,23 @@ export function SelectedLineHint({
   );
 }
 
+function HideShowButton({
+  isVisible,
+  handleHideShowClick,
+}: {
+  isVisible: boolean;
+  handleHideShowClick: (event: React.MouseEvent<HTMLDivElement>) => void;
+}) {
+  return (
+    <div className="hide-show-button" onClick={handleHideShowClick}>
+      {isVisible ? "⇒" : "⇐"}
+      <div className="hide-show-tooltip">
+        {isVisible ? "Hide" : "Expand"} state panel
+      </div>
+    </div>
+  );
+}
+
 function StatePanelRaw({
   selectedLine,
   verifierLogState,
@@ -457,6 +474,11 @@ function StatePanelRaw({
   let rows: ReactElement[] = [];
   const { state: bpfState, idx } = getBpfState(bpfStates, selectedLine);
   const prevBpfState = getBpfState(bpfStates, idx - 1).state;
+  const [isVisible, setIsVisible] = useState<boolean>(true);
+
+  const handleHideShowClick = useCallback(() => {
+    setIsVisible((prev) => !prev);
+  }, [setIsVisible]);
 
   let rowCounter = 1;
 
@@ -516,13 +538,28 @@ function StatePanelRaw({
     addRow(key);
   }
 
+  if (!isVisible) {
+    return (
+      <div id="state-panel-collapsed" className="state-panel">
+        <HideShowButton
+          isVisible={isVisible}
+          handleHideShowClick={handleHideShowClick}
+        />
+      </div>
+    );
+  }
+
   return (
-    <div id="state-panel" className="state-panel">
+    <div id="state-panel-shown" className="state-panel">
       <div id="state-panel-header">
         <div>Line: {selectedLine + 1}</div>
         <div>PC: {bpfState.pc}</div>
         <div>Frame: {bpfState.frame}</div>
       </div>
+      <HideShowButton
+        isVisible={isVisible}
+        handleHideShowClick={handleHideShowClick}
+      />
       <table>
         <tbody>{rows}</tbody>
       </table>

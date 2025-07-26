@@ -86,7 +86,7 @@ describe("App", () => {
       "<span>[selected raw line] 1:</span>&nbsp;314: (73) *(u8 *)(r7 +1303) = r1      ; frame1: R1_w=0 R7=map_value(off=0,ks=4,vs=2808,imm=0)",
     );
 
-    expect(document.getElementById("state-panel")).toBeTruthy();
+    expect(document.getElementById("state-panel-shown")).toBeTruthy();
 
     const statePanelHeader = document.getElementById("state-panel-header");
     expect(statePanelHeader?.innerHTML).toBe(
@@ -102,7 +102,7 @@ describe("App", () => {
     }
     fireEvent(clearEl, createEvent.click(clearEl));
     expect(document.getElementById("log-container")).toBeFalsy();
-    expect(document.getElementById("state-panel")).toBeFalsy();
+    expect(document.getElementById("state-panel-shown")).toBeFalsy();
     expect(document.getElementById("input-text")).toBeTruthy();
     expect(document.getElementById("input-text")).toBeVisible();
   });

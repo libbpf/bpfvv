@@ -52,7 +52,7 @@ body {
 #log-container {
   display: flex;
   flex-direction: row;
-  flex: 0.5;
+  flex: 1;
   min-width: 0;
   gap: 0;
   overflow: auto;
@@ -96,16 +96,26 @@ body {
   line-height: 1.4;
   white-space: pre;
   height: fit-content;
+  flex-grow: 1;
 }
 
 .state-panel {
-  flex: 0.5;
-  min-width: 200px;
-  padding: 10px;
   background-color: #f8f8f8;
-  overflow: auto;
-  max-width: none;
   border-left: 1px solid #ccc;
+  position: relative;
+}
+
+#state-panel-shown {
+  flex: 1;
+  padding: 10px;
+  overflow: auto;
+}
+
+#state-panel-collapsed {
+  flex: none;
+  width: 30px;
+  padding: 10px;
+  text-align: center;
 }
 
 .mem-slot {
@@ -253,6 +263,8 @@ body {
 }
 
 #state-panel-header {
+  display: flex;
+  flex-direction: row;
   font-weight: bold;
   margin-bottom: 10px;
   color: #000044;
@@ -334,4 +346,40 @@ h1 {
   margin: 0px 20px 0px 0px;
   padding-right: 20px;
   border-right: 1px solid #000;
+}
+
+/* Hide/Show Button */
+.hide-show-button {
+  position: absolute;
+  font-size: 30px;
+  font-weight: normal;
+  top: 0px;
+  right: 15px;
+  text-align: center;
+  cursor: pointer;
+}
+
+.hide-show-button:hover {
+  color: blue;
+}
+
+.hide-show-button .hide-show-tooltip {
+  display: none;
+}
+
+.hide-show-button:hover .hide-show-tooltip {
+  display: block;
+}
+
+.hide-show-tooltip {
+  position: absolute;
+  top: 6px;
+  right: 30px;
+  width: 160px;
+  font-size: 12px;
+  background-color: #f8f8f8;
+  padding: 5px;
+  border: 1px solid #ccc;
+  color: #000;
+  box-shadow: rgba(0, 0, 0, 0.24) 0px 3px 8px;
 }
