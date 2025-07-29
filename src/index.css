@@ -5,6 +5,13 @@ body {
   font-size: 14px;
 }
 
+h1 {
+  font-size: 20px;
+  margin: 0px 20px 0px 0px;
+  padding-right: 20px;
+  border-right: 1px solid #000;
+}
+
 .container {
   display: flex;
   flex-direction: column;
@@ -12,6 +19,33 @@ body {
   max-width: none;
   margin: 0;
   height: calc(100vh - 40px); /* Account for body padding */
+}
+
+.main-content {
+  display: flex;
+  flex: 1;
+  gap: 10px;
+  min-height: 0; /* Important for flex child to respect parent height */
+  font-family: monospace;
+  font-size: 14px;
+  border: 2px solid #ccc;
+  border-radius: 4px;
+}
+
+#input-text {
+  height: 100%;
+}
+
+/* Top Navigation */
+
+.navigation-panel {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.line-nav-item {
+  margin-right: 10px;
 }
 
 .file-input-container {
@@ -28,26 +62,27 @@ body {
   min-width: 200px;
 }
 
-.navigation-panel {
-  display: flex;
-  align-items: center;
-  margin-bottom: 10px;
+#goto-line-input {
+  width: 60px;
 }
 
-.line-nav-item {
-  margin-right: 10px;
+.howto-link {
+  display: block;
+  padding: 0px 20px;
+  margin: 0px;
+  text-decoration: none;
+  color: #0066cc;
+  font-size: 18px;
+  text-align: right;
+  font-weight: bold;
+  flex-grow: 1;
 }
 
-.main-content {
-  display: flex;
-  flex: 1;
-  gap: 10px;
-  min-height: 0; /* Important for flex child to respect parent height */
-  font-family: monospace;
-  font-size: 14px;
-  border: 2px solid #ccc;
-  border-radius: 4px;
+.howto-link:hover {
+  text-decoration: underline;
 }
+
+/* Log Lines */
 
 #log-container {
   display: flex;
@@ -56,10 +91,6 @@ body {
   min-width: 0;
   gap: 0;
   overflow: auto;
-}
-
-#input-text {
-  height: 100%;
 }
 
 .line-numbers {
@@ -79,17 +110,6 @@ body {
   color: #444444;
 }
 
-#dependency-arrows {
-  padding-top: 10px;
-  padding-bottom: 10px;
-  line-height: 1.4;
-  text-align: right;
-  user-select: none;
-  min-width: 2em;
-  white-space: pre;
-  height: fit-content;
-}
-
 #formatted-log-lines {
   background: white;
   padding: 10px;
@@ -97,25 +117,6 @@ body {
   white-space: pre;
   height: fit-content;
   flex-grow: 1;
-}
-
-.state-panel {
-  background-color: #f8f8f8;
-  border-left: 1px solid #ccc;
-  position: relative;
-}
-
-#state-panel-shown {
-  flex: 1;
-  padding: 10px;
-  overflow: auto;
-}
-
-#state-panel-collapsed {
-  flex: none;
-  width: 30px;
-  padding: 10px;
-  text-align: center;
 }
 
 .mem-slot {
@@ -184,6 +185,72 @@ body {
   align-self: stretch;
 }
 
+.log-line:hover {
+  background-color: #eeeeff;
+  color: #000;
+}
+
+.dependency-line {
+  background-color: #eeeeee;
+}
+
+.effect-write {
+  background-color: #ffeeee;
+}
+
+.effect-read {
+  background-color: #eeffee;
+}
+
+.dependency-mem-slot {
+  font-weight: bold;
+}
+
+.selected-mem-slot {
+  border: 1px solid black;
+}
+
+#mem-slot-tooltip {
+  position: fixed;
+  display: none;
+  background-color: white;
+  padding: 5px 10px;
+  font-family: monospace;
+  font-size: 12px;
+  z-index: 1000;
+  pointer-events: none;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  border-style: solid;
+  border-color: black;
+  border-width: 1px;
+}
+
+#mem-slot-tooltip-arrow {
+  content: "";
+  position: absolute;
+  transform: translateX(-50%);
+  border-width: 0 5px 5px 5px;
+  border-style: solid;
+  border-color: transparent transparent #333 transparent;
+}
+
+.scratched {
+  color: gray;
+}
+
+/* Dependency Arrows */
+
+#dependency-arrows {
+  padding-top: 10px;
+  padding-bottom: 10px;
+  line-height: 1.4;
+  text-align: right;
+  user-select: none;
+  min-width: 2em;
+  white-space: pre;
+  height: fit-content;
+}
+
 .dep-arrow {
   position: relative;
 }
@@ -218,13 +285,38 @@ body {
   padding-left: 10px;
 }
 
-.log-line:hover {
-  background-color: #eeeeff;
-  color: #000;
+/* State Panel */
+
+.state-panel {
+  background-color: #f8f8f8;
+  border-left: 1px solid #ccc;
+  position: relative;
 }
 
-.dependency-line {
-  background-color: #eeeeee;
+#state-panel-shown {
+  flex: 1;
+  padding: 10px;
+  overflow: auto;
+}
+
+#state-panel-collapsed {
+  flex: none;
+  width: 30px;
+  padding: 10px;
+  text-align: center;
+}
+
+#state-panel-header {
+  display: flex;
+  flex-direction: row;
+  font-weight: bold;
+  margin-bottom: 10px;
+  color: #000044;
+}
+
+#state-panel-header div {
+  display: inline-block;
+  margin-right: 32px;
 }
 
 .state-panel table {
@@ -254,101 +346,8 @@ body {
   word-break: break-all;
 }
 
-.effect-write {
-  background-color: #ffeeee;
-}
+/* Panel Hide/Show Button */
 
-.effect-read {
-  background-color: #eeffee;
-}
-
-#state-panel-header {
-  display: flex;
-  flex-direction: row;
-  font-weight: bold;
-  margin-bottom: 10px;
-  color: #000044;
-}
-
-#state-panel-header div {
-  display: inline-block;
-  margin-right: 32px;
-}
-
-.dependency-mem-slot {
-  font-weight: bold;
-}
-
-.selected-mem-slot {
-  border: 1px solid black;
-}
-
-.howto-link {
-  display: block;
-  padding: 0px 20px;
-  margin: 0px;
-  text-decoration: none;
-  color: #0066cc;
-  font-size: 18px;
-  text-align: right;
-  font-weight: bold;
-  flex-grow: 1;
-}
-
-.howto-link:hover {
-  text-decoration: underline;
-}
-
-#mem-slot-tooltip {
-  position: fixed;
-  display: none;
-  background-color: white;
-  padding: 5px 10px;
-  font-family: monospace;
-  font-size: 12px;
-  z-index: 1000;
-  pointer-events: none;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-  border-style: solid;
-  border-color: black;
-  border-width: 1px;
-}
-
-#mem-slot-tooltip-arrow {
-  content: "";
-  position: absolute;
-  transform: translateX(-50%);
-  border-width: 0 5px 5px 5px;
-  border-style: solid;
-  border-color: transparent transparent #333 transparent;
-}
-
-.hint-line {
-  font-size: 14px;
-  color: black;
-  font-family: monospace;
-}
-
-.hint-line span {
-  font-weight: bold;
-}
-
-#goto-line-input {
-  width: 60px;
-}
-
-.scratched {
-  color: gray;
-}
-
-h1 {
-  font-size: 20px;
-  margin: 0px 20px 0px 0px;
-  padding-right: 20px;
-  border-right: 1px solid #000;
-}
-
-/* Hide/Show Button */
 .hide-show-button {
   position: absolute;
   font-size: 30px;
@@ -382,4 +381,16 @@ h1 {
   border: 1px solid #ccc;
   color: #000;
   box-shadow: rgba(0, 0, 0, 0.24) 0px 3px 8px;
+}
+
+/* Footer */
+
+.hint-line {
+  font-size: 14px;
+  color: black;
+  font-family: monospace;
+}
+
+.hint-line span {
+  font-weight: bold;
 }
