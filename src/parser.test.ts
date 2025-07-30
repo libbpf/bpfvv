@@ -18,8 +18,9 @@ const AluInstructionSample = "0: (b7) r2 = 1                        ; R2_w=1";
 const BPFStateExprSample = "; R2_w=1 R10=fp0 fp-24_w=1";
 const MemoryWriteSample = "1: (7b) *(u64 *)(r10 -24) = r2" + BPFStateExprSample;
 const CallInstructionSample = "7: (85) call bpf_probe_read_user#112";
-const AddrSpaceCastSample =
+const AddrSpaceCastSample1 =
   "2976: (bf) r1 = addr_space_cast(r7, 0, 1)     ; frame1: R1_w=arena";
+const AddrSpaceCastSample2 = "75: (bf) r1 = addr_space_cast(r2, 0, 64)";
 const ConditionalPseudoMayGotoSample = "2984: (e5) may_goto pc+3";
 const ConditionalPseudoGotoOrNopSample = "2984: (e5) goto_or_nop pc+3";
 const CSourceLineSample = "; n->key = 3; @ rbtree.c:201";
@@ -110,12 +111,20 @@ describe("parser", () => {
   });
 
   it("parses addr_space_cast", () => {
-    const parsed = parseLine(AddrSpaceCastSample, 13);
-    const ins = expectAddrSpaceCastIns(parsed);
+    let parsed = parseLine(AddrSpaceCastSample1, 13);
+    let ins = expectAddrSpaceCastIns(parsed);
     expect(ins.dst.id).toBe("r1");
     expect(ins.src.id).toBe("r7");
     expect(ins.directionStr).toBe("0, 1");
     expect(ins.reads).toContain("r7");
+    expect(ins.writes).toContain("r1");
+
+    parsed = parseLine(AddrSpaceCastSample2, 13);
+    ins = expectAddrSpaceCastIns(parsed);
+    expect(ins.dst.id).toBe("r1");
+    expect(ins.src.id).toBe("r2");
+    expect(ins.directionStr).toBe("0, 64");
+    expect(ins.reads).toContain("r2");
     expect(ins.writes).toContain("r1");
   });
 

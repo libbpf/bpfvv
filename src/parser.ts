@@ -295,7 +295,7 @@ const RE_CALL_TARGET = /^call ([0-9a-z_#+-]+)/;
 const RE_GOTO_OP = /^((?:may_)?goto|goto_or_nop) (pc[+-][0-9]+)/;
 const RE_FRAME_ID = /^frame([0-9]+): /;
 const RE_ADDR_SPACE_CAST =
-  /^(r[0-9]) = addr_space_cast\((r[0-9]), ([0-1], [0-1])\)/;
+  /^(r[0-9]) = addr_space_cast\((r[0-9]), ([0-9]+, [0-9]+)\)/;
 const RE_C_SOURCE_LINE = /^; (.*) @ ([a-zA-Z0-9_\-.]+):([0-9]+)/;
 
 const BPF_ALU_OPERATORS = [
