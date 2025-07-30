@@ -19,6 +19,7 @@ import {
   SelectedLineHint,
   ToolTip,
 } from "./components";
+import { ParsedLineType } from "./parser";
 
 const ContentRaw = ({
   loadError,
@@ -125,6 +126,27 @@ function App() {
     }
   }, []);
 
+  function siblingInstructionLine(idx: number, delta: number = 1): number {
+    // if delta is 1 we are looking for the next instruction
+    // if delta is -1 we are looking for the previous instruction
+    const n = verifierLogState.lines.length;
+    for (let i = normalIdx(idx + delta, n); 0 <= i && i < n; i += delta) {
+      const line = verifierLogState.lines[i];
+      if (line.type === ParsedLineType.INSTRUCTION) {
+        return i;
+      }
+    }
+    return normalIdx(idx, n);
+  }
+
+  function nextInstructionLine(idx: number): number {
+    return siblingInstructionLine(idx, 1);
+  }
+
+  function prevInstructionLine(idx: number): number {
+    return siblingInstructionLine(idx, -1);
+  }
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       let delta = 0;
@@ -133,11 +155,11 @@ function App() {
       switch (e.key) {
         case "ArrowDown":
         case "j":
-          delta = 1;
+          delta = nextInstructionLine(selectedLine) - selectedLine;
           break;
         case "ArrowUp":
         case "k":
-          delta = -1;
+          delta = prevInstructionLine(selectedLine) - selectedLine;
           break;
         case "PageDown":
           delta = page;
