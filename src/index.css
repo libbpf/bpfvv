@@ -124,7 +124,7 @@ h1 {
 }
 
 .mem-slot:hover {
-  border: 1px solid black;
+  background-color: #ccccff;
 }
 
 .register-panel {
@@ -171,7 +171,7 @@ h1 {
 .line-numbers-line,
 .dep-arrow,
 .log-line {
-  min-height: 1.4em;
+  height: 20px;
 }
 
 .log-line {
