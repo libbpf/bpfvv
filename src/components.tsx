@@ -58,9 +58,11 @@ const RIGHT_ARROW = "->";
 function CallHtml({
   ins,
   line,
+  state,
 }: {
   ins: BpfTargetJmpInstruction;
   line: ParsedLine;
+  state: BpfState;
 }) {
   const location = ins.location;
   if (!location) {
@@ -111,14 +113,25 @@ function CallHtml({
       </>
     );
   } else {
-    const numArgs = 5;
+    let numArgs = 0;
+
+    // Guess the number of args from registers that had non-scratched value
+    for (let i = 1; i <= 5; i++) {
+      const value = state.values.get(`r${i}`);
+      if (value?.effect === Effect.UPDATE && value?.prevValue) {
+        numArgs = i;
+      }
+    }
+
+    let contents: ReactElement[] = [];
     contents.push(
       <React.Fragment key="line-start">
         {line.raw.slice(start, end)}
       </React.Fragment>,
     );
+
     contents.push(<React.Fragment key="paren-open">(</React.Fragment>);
-    for (let i = 1; i < 5; i++) {
+    for (let i = 1; i <= numArgs; i++) {
       const reg = `r${i}`;
       contents.push(
         <RegSpan
@@ -128,19 +141,11 @@ function CallHtml({
           key={`call_html_${reg}`}
         />,
       );
-      contents.push(
-        <React.Fragment key={`call_html_comma_${i}`}>, </React.Fragment>,
-      );
+      if (i < numArgs)
+        contents.push(
+          <React.Fragment key={`call_html_comma_${i}`}>, </React.Fragment>,
+        );
     }
-    const reg = "r" + numArgs;
-    contents.push(
-      <RegSpan
-        lineIdx={line.idx}
-        reg={reg}
-        display={undefined}
-        key={`call_html_${reg}`}
-      />,
-    );
     contents.push(<React.Fragment key="paren-closed">)</React.Fragment>);
     return <>{contents}</>;
   }
@@ -208,28 +213,28 @@ function ConditionalJmpInstruction({
 export function JmpInstruction({
   ins,
   line,
-  frame,
+  state,
 }: {
   ins: BpfJmpInstruction;
   line: ParsedLine;
-  frame: number;
+  state: BpfState;
 }) {
   switch (ins.jmpKind) {
     case BpfJmpKind.SUBPROGRAM_CALL:
       return (
         <b>
-          <CallHtml ins={ins} line={line} />
-          {" {"} ; enter new stack frame {frame}
+          <CallHtml ins={ins} line={line} state={state} />
+          {" {"} ; enter new stack frame {state.frame}
         </b>
       );
     case BpfJmpKind.EXIT:
-      return <ExitInstruction frame={frame} />;
+      return <ExitInstruction frame={state.frame} />;
     case BpfJmpKind.HELPER_CALL:
       return (
         <>
           <RegSpan lineIdx={line.idx} reg={"r0"} display={undefined} />
           &nbsp;=&nbsp;
-          <CallHtml ins={ins} line={line} />
+          <CallHtml ins={ins} line={line} state={state} />
         </>
       );
     case BpfJmpKind.UNCONDITIONAL_GOTO:
@@ -251,10 +256,10 @@ export function LoadStatus({ lines }: { lines: ParsedLine[] }) {
 
 function InstructionLineContent({
   line,
-  frame,
+  state,
 }: {
   line: InstructionLine;
-  frame: number;
+  state: BpfState;
 }) {
   const ins = line.bpfIns;
   switch (ins.kind) {
@@ -267,7 +272,7 @@ function InstructionLineContent({
         </>
       );
     case BpfInstructionKind.JMP:
-      return <JmpInstruction ins={ins} line={line} frame={frame} />;
+      return <JmpInstruction ins={ins} line={line} state={state} />;
     case BpfInstructionKind.ADDR_SPACE_CAST:
       return (
         <>
@@ -282,12 +287,12 @@ function InstructionLineContent({
 
 const LogLineRaw = ({
   line,
-  frame,
+  state,
   indentLevel,
   idx,
 }: {
   line: ParsedLine;
-  frame: number;
+  state: BpfState;
   indentLevel: number;
   idx: number;
 }) => {
@@ -297,7 +302,7 @@ const LogLineRaw = ({
   switch (line.type) {
     case ParsedLineType.INSTRUCTION:
       topClasses.push("normal-line");
-      content = InstructionLineContent({ line, frame });
+      content = InstructionLineContent({ line, state });
       break;
     case ParsedLineType.C_SOURCE:
       topClasses.push("inline-c-source-line");
@@ -677,8 +682,8 @@ const LogLinesRaw = ({
       onMouseOut={handleLogLinesOut}
     >
       {lines.map((line) => {
-        const frame = getBpfState(bpfStates, line.idx).state.frame;
-        indentLevel = frame;
+        const bpfState = getBpfState(bpfStates, line.idx).state;
+        indentLevel = bpfState.frame;
         if (
           line.type === ParsedLineType.INSTRUCTION &&
           line.bpfIns.kind === BpfInstructionKind.JMP &&
@@ -688,8 +693,8 @@ const LogLinesRaw = ({
         }
         return (
           <LogLine
-            frame={frame}
             indentLevel={indentLevel}
+            state={bpfState}
             line={line}
             idx={line.idx}
             key={`log_line_${line.idx}`}
