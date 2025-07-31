@@ -13,6 +13,7 @@ import {
 export type BpfValue = {
   value: string;
   effect: Effect;
+  prevValue?: string;
 };
 
 /*
@@ -76,10 +77,13 @@ export type VerifierLogState = {
 export function makeValue(
   value: string,
   effect: Effect = Effect.NONE,
+  prevValue: string = "",
 ): BpfValue {
+  const ret: BpfValue = { value, effect };
   // @Hack display fp0 as fp-0
-  if (value === "fp0") value = "fp-0";
-  return { value, effect };
+  if (ret.value === "fp0") ret.value = "fp-0";
+  if (prevValue) ret.prevValue = prevValue;
+  return ret;
 }
 
 export function initialBpfState(): BpfState {
@@ -229,16 +233,21 @@ function nextBpfState(
   for (const id of line.bpfIns?.writes || []) {
     if (effects.has(id)) effects.set(id, Effect.UPDATE);
     else effects.set(id, Effect.WRITE);
-    newState.values.set(id, makeValue("", effects.get(id)));
+    const val = makeValue("", effects.get(id));
+    if (val.effect === Effect.UPDATE)
+      val.prevValue = newState.values.get(id)?.value;
+    newState.values.set(id, val);
     newState.lastKnownWrites.set(id, line.idx);
   }
 
   // verifier reported values
-  if (line.bpfStateExprs) {
-    for (const expr of line.bpfStateExprs) {
-      let effect = effects.get(expr.id) || Effect.NONE;
-      newState.values.set(expr.id, makeValue(expr.value, effect));
-    }
+  for (const expr of line.bpfStateExprs) {
+    const effect = effects.get(expr.id) || Effect.NONE;
+    const val: BpfValue | undefined = newState.values.get(expr.id);
+    newState.values.set(
+      expr.id,
+      makeValue(expr.value, effect, val?.prevValue || ""),
+    );
   }
 
   setIdxAndPc(newState);

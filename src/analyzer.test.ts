@@ -8,7 +8,7 @@ import {
 
 import { BPF_CALLEE_SAVED_REGS, BPF_SCRATCH_REGS, Effect } from "./parser";
 
-const expectInitialBpfState = (s: BpfState) => {
+function expectInitialBpfState(s: BpfState) {
   expect(s.frame).toBe(0);
   expect(s.idx).toBe(0);
   expect(s.pc).toBe(0);
@@ -25,7 +25,15 @@ const expectInitialBpfState = (s: BpfState) => {
       expect(val).toMatchObject({ value: "", effect: Effect.NONE });
     }
   }
-};
+}
+
+function bpfStatesFromLog(logString: string): BpfState[] {
+  const strings = logString.split("\n");
+  strings.shift(); // remove the first \n
+  const logState: VerifierLogState = processRawLines(strings);
+  const { bpfStates } = logState;
+  return bpfStates;
+}
 
 describe("analyzer", () => {
   it("returns valid initialBpfState()", () => {
@@ -51,10 +59,7 @@ processed 8 insns (limit 1000000) max_states_per_insn 0 total_states 0 peak_stat
 ERROR: Loading BPF object(s) failed.
 `;
   describe("processes basicVerifierLog end to end normally", () => {
-    const strings = basicVerifierLog.split("\n");
-    strings.shift(); // remove the first \n
-    const logState: VerifierLogState = processRawLines(strings);
-    const { bpfStates } = logState;
+    const bpfStates = bpfStatesFromLog(basicVerifierLog);
     for (let i = 0; i <= 4; i++) {
       expectInitialBpfState(bpfStates[i]);
     }
@@ -108,6 +113,7 @@ ERROR: Loading BPF object(s) failed.
       expect(s.values.get("r3")).toMatchObject({
         value: "scalar()",
         effect: Effect.UPDATE,
+        prevValue: "scalar()",
       });
     });
 
@@ -134,6 +140,7 @@ ERROR: Loading BPF object(s) failed.
       expect(s.values.get("r1")).toMatchObject({
         value: "fp-8",
         effect: Effect.UPDATE,
+        prevValue: "fp-0",
       });
     });
 
@@ -153,15 +160,21 @@ ERROR: Loading BPF object(s) failed.
       expect(s.frame).toBe(0);
       expect(s.idx).toBe(12);
       expect(s.pc).toBe(7);
-      expect(s.values.get("r0")).toMatchObject({
+      expect(s.values.get("r0")).toEqual({
         value: "",
         effect: Effect.WRITE,
       });
-      for (let i = 1; i <= 5; i++)
+      for (let i = 1; i <= 5; i++) {
         expect(s.values.get(`r${i}`)).toMatchObject({
           value: "",
           effect: Effect.UPDATE,
         });
+      }
+      expect(s.values.get("r1")?.prevValue).toBe("fp-8");
+      expect(s.values.get("r2")?.prevValue).toBe("16");
+      expect(s.values.get("r3")?.prevValue).toBe("scalar()");
+      expect(s.values.get("r4")?.prevValue).toBeUndefined();
+      expect(s.values.get("r5")?.prevValue).toBeUndefined();
     });
   });
 
@@ -185,10 +198,7 @@ to caller at 705:
 705: (bf) r9 = r0                       ; R0=rcu_ptr_task_struct(off=0,imm=0) R9_w=rcu_ptr_task_struct(off=0,imm=0)
 `;
   describe("processes verifierLogFragmentWithASubprogramCall end to end normally", () => {
-    const strings = verifierLogFragmentWithASubprogramCall.split("\n");
-    strings.shift(); // remove the first \n
-    const logState: VerifierLogState = processRawLines(strings);
-    const { bpfStates } = logState;
+    const bpfStates = bpfStatesFromLog(verifierLogFragmentWithASubprogramCall);
 
     const r1Value = "map_value(off=0,ks=4,vs=2808,imm=0)";
     const r2Value = "rcu_ptr_task_struct(off=0,imm=0)";
