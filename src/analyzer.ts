@@ -296,12 +296,10 @@ export function getMemSlotDependencies(
   const effect = bpfState.values.get(memSlotId)?.effect;
   if (!effect) return deps;
 
-  if (!bpfState.lastKnownWrites.has(memSlotId)) return deps;
-
   const depIdx = bpfState.lastKnownWrites.get(memSlotId);
   if (!depIdx || lines[depIdx].type !== ParsedLineType.INSTRUCTION) return deps;
-  const depIns = lines[depIdx].bpfIns;
 
+  const depIns = lines[depIdx].bpfIns;
   const nReads = depIns?.reads?.length;
 
   if (depIdx === selectedLine && effect === Effect.UPDATE) {
@@ -309,6 +307,12 @@ export function getMemSlotDependencies(
     if (prevBpfState.lastKnownWrites.has(memSlotId)) {
       const prevDepIdx = prevBpfState.lastKnownWrites.get(memSlotId);
       if (!prevDepIdx) return deps;
+
+      // stop the chain on scratches
+      const prevDepState = getBpfState(bpfStates, prevDepIdx).state;
+      const writtenValue = prevDepState.values.get(memSlotId)?.value;
+      if (!writtenValue) return deps;
+
       deps = getMemSlotDependencies(verifierLogState, prevDepIdx, memSlotId);
     }
   } else if (nReads === 1) {
