@@ -21,7 +21,10 @@ import {
   BpfGotoJmpInstruction,
   parseLine,
   InstructionLine,
+  BPF_SCRATCH_REGS,
 } from "./parser";
+import { BpfState, initialBpfState, makeValue } from "./analyzer";
+import { Effect } from "./parser";
 
 function createOp(
   type: OperandType,
@@ -117,6 +120,7 @@ describe("JmpInstruction", () => {
   function createTargetJmpIns(
     jmpCode: BpfJmpCode,
     jmpKind: BpfJmpKind.HELPER_CALL | BpfJmpKind.SUBPROGRAM_CALL,
+    target: string = "pc+3",
   ): BpfTargetJmpInstruction {
     return {
       kind: BpfInstructionKind.JMP,
@@ -126,9 +130,14 @@ describe("JmpInstruction", () => {
         code: jmpCode,
         source: OpcodeSource.K,
       },
-      target: "pc+3",
+      target,
       reads: [],
       writes: [],
+      // corresponds to "pc+3" in ParsedLine.raw
+      location: {
+        offset: -4,
+        size: 4,
+      },
     };
   }
 
@@ -157,12 +166,21 @@ describe("JmpInstruction", () => {
 
   function createLine(bpfIns: BpfJmpInstruction): InstructionLine {
     return {
-      raw: "",
+      raw: "call pc+3",
       idx: 0,
       bpfIns,
       bpfStateExprs: [],
       type: ParsedLineType.INSTRUCTION,
     };
+  }
+
+  function dummyBpfState(frame: number = 0): BpfState {
+    const state = initialBpfState();
+    state.frame = frame;
+    for (const reg of BPF_SCRATCH_REGS) {
+      state.values.set(reg, makeValue("", Effect.UPDATE));
+    }
+    return state;
   }
 
   it("renders an exit", () => {
@@ -179,7 +197,7 @@ describe("JmpInstruction", () => {
     };
     const line = createLine(ins);
 
-    render(<JmpInstruction ins={ins} line={line} frame={1} />);
+    render(<JmpInstruction ins={ins} line={line} state={dummyBpfState(1)} />);
     const divs = document.getElementsByTagName("div");
     expect(divs.length).toBe(1);
     expect(divs[0].innerHTML).toBe("<b>} exit ; return to stack frame 1</b>");
@@ -189,21 +207,21 @@ describe("JmpInstruction", () => {
     const ins = createTargetJmpIns(BpfJmpCode.JA, BpfJmpKind.SUBPROGRAM_CALL);
     const line = createLine(ins);
 
-    render(<JmpInstruction ins={ins} line={line} frame={1} />);
+    render(<JmpInstruction ins={ins} line={line} state={dummyBpfState(1)} />);
     const divs = document.getElementsByTagName("div");
     expect(divs.length).toBe(1);
-    expect(divs[0].innerHTML).toBe("<b> { ; enter new stack frame 1</b>");
+    expect(divs[0].innerHTML).toBe("<b>pc+3() { ; enter new stack frame 1</b>");
   });
 
   it("renders a helper call and target", () => {
     const ins = createTargetJmpIns(BpfJmpCode.JA, BpfJmpKind.HELPER_CALL);
     const line = createLine(ins);
 
-    render(<JmpInstruction ins={ins} line={line} frame={1} />);
+    render(<JmpInstruction ins={ins} line={line} state={dummyBpfState(1)} />);
     const divs = document.getElementsByTagName("div");
     expect(divs.length).toBe(1);
     expect(divs[0].innerHTML).toBe(
-      '<span id="mem-slot-r0-line-0" class="mem-slot r0" data-id="r0">r0</span>&nbsp;=&nbsp;',
+      '<span id="mem-slot-r0-line-0" class="mem-slot r0" data-id="r0">r0</span>&nbsp;=&nbsp;pc+3()',
     );
   });
 
@@ -215,7 +233,7 @@ describe("JmpInstruction", () => {
     );
     const line = createLine(ins);
 
-    render(<JmpInstruction ins={ins} line={line} frame={1} />);
+    render(<JmpInstruction ins={ins} line={line} state={dummyBpfState(1)} />);
     const divs = document.getElementsByTagName("div");
     expect(divs.length).toBe(1);
     expect(divs[0].innerHTML).toBe("goto&nbsp;pc+3");
@@ -229,7 +247,7 @@ describe("JmpInstruction", () => {
     );
     const line = createLine(ins);
 
-    render(<JmpInstruction ins={ins} line={line} frame={1} />);
+    render(<JmpInstruction ins={ins} line={line} state={dummyBpfState(1)} />);
     const divs = document.getElementsByTagName("div");
     expect(divs.length).toBe(1);
     expect(divs[0].innerHTML).toBe("may_goto&nbsp;pc+3");
@@ -243,7 +261,7 @@ describe("JmpInstruction", () => {
     );
     const line = createLine(ins);
 
-    render(<JmpInstruction ins={ins} line={line} frame={1} />);
+    render(<JmpInstruction ins={ins} line={line} state={dummyBpfState(1)} />);
     const divs = document.getElementsByTagName("div");
     expect(divs.length).toBe(1);
     expect(divs[0].innerHTML).toBe("goto_or_nop&nbsp;pc+3");
@@ -269,11 +287,77 @@ describe("JmpInstruction", () => {
     };
     const line = createLine(ins);
 
-    render(<JmpInstruction ins={ins} line={line} frame={1} />);
+    render(<JmpInstruction ins={ins} line={line} state={dummyBpfState(1)} />);
     const divs = document.getElementsByTagName("div");
     expect(divs.length).toBe(1);
     expect(divs[0].innerHTML).toBe(
       'if (<span id="mem-slot-r7-line-0" class="mem-slot r7" data-id="r7">r7</span>&nbsp;==&nbsp;<span id="mem-slot-r8-line-0" class="mem-slot r8" data-id="r8">r8</span>)&nbsp;goto&nbsp;pc+3',
     );
+  });
+
+  describe("CallHtml argument counting", () => {
+    function setCallArgValue(
+      state: BpfState,
+      arg: string,
+      preCallValue: string,
+    ) {
+      state.values.set(arg, makeValue("", Effect.UPDATE, preCallValue));
+    }
+
+    it("shows 3 arguments when r4 and r5 are scratched", () => {
+      const ins = createTargetJmpIns(
+        BpfJmpCode.JA,
+        BpfJmpKind.HELPER_CALL,
+        "bpf_helper#123",
+      );
+      const line = createLine(ins);
+      const state = initialBpfState();
+
+      setCallArgValue(state, "r1", "ctx()");
+      setCallArgValue(state, "r2", "16");
+      setCallArgValue(state, "r3", "fp-8");
+      setCallArgValue(state, "r4", "");
+      setCallArgValue(state, "r5", "");
+
+      render(<JmpInstruction ins={ins} line={line} state={state} />);
+      const divs = document.getElementsByTagName("div");
+      expect(divs.length).toBe(1);
+
+      // Should show r0 = call bpf_helper#123(r1, r2, r3)
+      const innerHTML = divs[0].innerHTML;
+      expect(innerHTML).toContain("r1");
+      expect(innerHTML).toContain("r2");
+      expect(innerHTML).toContain("r3");
+      expect(innerHTML).not.toMatch(/r4.*,/);
+      expect(innerHTML).not.toMatch(/r5.*,/);
+    });
+
+    it("shows 4 arguments when only r4 is not scratched", () => {
+      const ins = createTargetJmpIns(
+        BpfJmpCode.JA,
+        BpfJmpKind.HELPER_CALL,
+        "bpf_helper#123",
+      );
+      const line = createLine(ins);
+      const state = initialBpfState();
+
+      setCallArgValue(state, "r1", "");
+      setCallArgValue(state, "r2", "");
+      setCallArgValue(state, "r3", "");
+      setCallArgValue(state, "r4", "scalar()");
+      setCallArgValue(state, "r5", "");
+
+      render(<JmpInstruction ins={ins} line={line} state={state} />);
+      const divs = document.getElementsByTagName("div");
+      expect(divs.length).toBe(1);
+
+      // Should show r0 = call bpf_helper#123(r1, r2, r3)
+      const innerHTML = divs[0].innerHTML;
+      expect(innerHTML).toContain("r1");
+      expect(innerHTML).toContain("r2");
+      expect(innerHTML).toContain("r3");
+      expect(innerHTML).toContain("r4");
+      expect(innerHTML).not.toMatch(/r5.*,/);
+    });
   });
 });
