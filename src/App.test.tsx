@@ -106,4 +106,72 @@ describe("App", () => {
     expect(document.getElementById("input-text")).toBeTruthy();
     expect(document.getElementById("input-text")).toBeVisible();
   });
+
+  it("jumps to the next/prev instruction on key up/down", async () => {
+    render(<App />);
+
+    const inputEl = document.getElementById("input-text");
+    if (!inputEl) {
+      fail();
+    }
+
+    fireEvent(
+      inputEl,
+      createEvent.paste(inputEl, {
+        clipboardData: {
+          getData: () =>
+            `
+          0: (18) r1 = 0x11                     ; R1_w=17
+2: (b7) r2 = 0                        ; R2_w=0
+3: (85) call bpf_obj_new_impl#54651   ; R0_w=ptr_or_null_node_data(id=2,ref_obj_id=2) refs=2
+4: (bf) r6 = r0                       ; R0_w=ptr_or_null_node_data(id=2,ref_obj_id=2) R6_w=ptr_or_null_node_data(id=2,ref_obj_id=2) refs=2
+5: (b7) r7 = 1                        ; R7_w=1 refs=2
+; if (!n) @ rbtree.c:199
+6: (15) if r6 == 0x0 goto pc+104      ; R6_w=ptr_node_data(ref_obj_id=2) refs=2
+7: (b7) r1 = 4                        ; R1_w=4 ref
+            `,
+        },
+      }),
+    );
+
+    const logContainerEl = document.getElementById("log-container");
+    expect(logContainerEl).toBeTruthy();
+    expect(logContainerEl).toBeVisible();
+
+    const line5 = document.getElementById("line-5");
+    const line6 = document.getElementById("line-6");
+    const line7 = document.getElementById("line-7");
+
+    if (!line5 || !line6 || !line7 || !logContainerEl) {
+      fail();
+    }
+
+    expect(line5.innerHTML).toBe(
+      '<span id="mem-slot-r7-line-5" class="mem-slot r7" data-id="r7">r7</span>&nbsp;=&nbsp;1',
+    );
+
+    // Show that the next line is not an instruction
+    expect(line6.innerHTML).toBe("; if (!n) @ rbtree.c:199");
+
+    // Show the one after IS an instruction
+    expect(line7.innerHTML).toBe(
+      'if (<span id="mem-slot-r6-line-7" class="mem-slot r6" data-id="r6">r6</span>&nbsp;==&nbsp;0x0)&nbsp;goto&nbsp;pc+104',
+    );
+
+    // Click on Line 5
+    fireEvent(line5, createEvent.click(line5));
+    expect(line5.classList.contains("selected-line")).toBeTruthy();
+
+    // Keyboard Down Arrow
+    fireEvent.keyDown(logContainerEl, { key: "ArrowDown", code: "ArrowDown" });
+    expect(line5.classList.contains("selected-line")).toBeFalsy();
+    expect(line6.classList.contains("selected-line")).toBeFalsy();
+    expect(line7.classList.contains("selected-line")).toBeTruthy();
+
+    // Keyboard Up Arrow
+    fireEvent.keyDown(logContainerEl, { key: "ArrowUp", code: "ArrowUp" });
+    expect(line5.classList.contains("selected-line")).toBeTruthy();
+    expect(line6.classList.contains("selected-line")).toBeFalsy();
+    expect(line7.classList.contains("selected-line")).toBeFalsy();
+  });
 });
