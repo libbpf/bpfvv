@@ -8,6 +8,7 @@ import {
   ParsedLine,
   ParsedLineType,
   parseLine,
+  getCLineId,
 } from "./parser";
 
 export type BpfValue = {
@@ -70,6 +71,8 @@ export class CSourceMap {
  */
 export type VerifierLogState = {
   lines: ParsedLine[];
+  cLines: string[];
+  cLineIdtoIdx: Map<string, number>;
   bpfStates: BpfState[];
   cSourceMap: CSourceMap;
 };
@@ -254,6 +257,16 @@ function nextBpfState(
   return newState;
 }
 
+export function getEmptyVerifierState(): VerifierLogState {
+  return {
+    lines: [],
+    cLines: [],
+    cLineIdtoIdx: new Map(),
+    bpfStates: [],
+    cSourceMap: new CSourceMap(),
+  };
+}
+
 export function processRawLines(rawLines: string[]): VerifierLogState {
   let bpfStates: BpfState[] = [];
   let lines: ParsedLine[] = [];
@@ -265,16 +278,18 @@ export function processRawLines(rawLines: string[]): VerifierLogState {
   rawLines.forEach((rawLine, idx) => {
     const parsedLine = parseLine(rawLine, idx);
     switch (parsedLine.type) {
-      case ParsedLineType.C_SOURCE:
+      case ParsedLineType.C_SOURCE: {
         if (currentCSourceLine) {
           cSourceMap.addCSourceLine(currentCSourceLine, idxsForCLine);
           idxsForCLine = [];
         }
         currentCSourceLine = parsedLine;
         break;
-      case ParsedLineType.INSTRUCTION:
+      }
+      case ParsedLineType.INSTRUCTION: {
         idxsForCLine.push(idx);
         break;
+      }
     }
     const bpfState = nextBpfState(
       getBpfState(bpfStates, idx).state,
@@ -287,7 +302,38 @@ export function processRawLines(rawLines: string[]): VerifierLogState {
   if (currentCSourceLine) {
     cSourceMap.addCSourceLine(currentCSourceLine, idxsForCLine);
   }
-  return { lines, bpfStates, cSourceMap };
+
+  const cLines = [];
+  const cLineIdtoIdx: Map<string, number> = new Map();
+  let i = 0;
+  for (const [file, range] of cSourceMap.fileRange) {
+    let unknownStart = 0;
+    for (let j = range[0]; j < range[1]; ++j) {
+      const cLineId = getCLineId(file, j);
+      const sourceLine = cSourceMap.cSourceLines.get(cLineId);
+      if (!sourceLine) {
+        if (!unknownStart) {
+          unknownStart = i;
+        }
+        continue;
+      }
+      if (unknownStart > 0) {
+        cLines.push("");
+        cLineIdtoIdx.set(cLineId, i++);
+      }
+      unknownStart = 0;
+      cLines.push(cLineId);
+      cLineIdtoIdx.set(cLineId, i++);
+    }
+  }
+
+  return {
+    lines,
+    bpfStates,
+    cSourceMap,
+    cLines,
+    cLineIdtoIdx,
+  };
 }
 
 export function getMemSlotDependencies(

@@ -13,17 +13,18 @@ import {
   BpfTargetJmpInstruction,
   InstructionLine,
 } from "./parser";
-import { getMemSlotDependencies } from "./analyzer";
+import { CSourceMap, getMemSlotDependencies } from "./analyzer";
 
 import { BpfState, getBpfState, VerifierLogState } from "./analyzer";
 
-import { getVisibleIdxRange, scrollToLine } from "./utils";
+import { getVisibleIdxRange, scrollToLogLine } from "./utils";
 
 import BPF_HELPERS_JSON from "./bpf-helpers.json";
 
 export type LogLineState = {
   memSlotId: string;
   line: number;
+  cLine: string;
 };
 
 type HelperArg = {
@@ -172,9 +173,11 @@ function ExitInstruction({ frame }: { frame: number }) {
 
 export function HoveredLineHint({
   hoveredLine,
+  hoveredLineIdx,
   lines,
 }: {
   hoveredLine: number;
+  hoveredLineIdx: number;
   lines: ParsedLine[];
 }) {
   if (lines.length === 0 || hoveredLine < 0) {
@@ -186,7 +189,7 @@ export function HoveredLineHint({
   }
   return (
     <div id="hint-hovered-line" className="hint-line">
-      <span>[hovered raw line] {hoveredLine + 1}:</span>&nbsp;
+      <span>[hovered raw line] {hoveredLineIdx + 1}:</span>&nbsp;
       {lines[hoveredLine].raw}
     </div>
   );
@@ -250,8 +253,12 @@ export function JmpInstruction({
   }
 }
 
-export function LoadStatus({ lines }: { lines: ParsedLine[] }) {
-  return <div id="load-status">({lines.length} lines)</div>;
+export function LoadStatus({ lineCount }: { lineCount: number }) {
+  return (
+    <div id="load-status" className="line-nav-item">
+      ({lineCount} lines)
+    </div>
+  );
 }
 
 function InstructionLineContent({
@@ -435,9 +442,11 @@ const RegSpan = ({
 
 export function SelectedLineHint({
   selectedLine,
+  selectedLineIdx,
   lines,
 }: {
   selectedLine: number;
+  selectedLineIdx: number;
   lines: ParsedLine[];
 }) {
   if (lines.length === 0) {
@@ -445,7 +454,7 @@ export function SelectedLineHint({
   }
   return (
     <div id="hint-selected-line" className="hint-line">
-      <span>[selected raw line] {selectedLine + 1}:</span>&nbsp;
+      <span>[selected raw line] {selectedLineIdx + 1}:</span>&nbsp;
       {lines[selectedLine].raw}
     </div>
   );
@@ -453,16 +462,31 @@ export function SelectedLineHint({
 
 function HideShowButton({
   isVisible,
+  rightOpen,
+  name,
   handleHideShowClick,
 }: {
   isVisible: boolean;
+  rightOpen: boolean;
+  name: string;
   handleHideShowClick: (event: React.MouseEvent<HTMLDivElement>) => void;
 }) {
+  const classList = ["hide-show-button"];
+  if (rightOpen) {
+    classList.push("right");
+  } else {
+    classList.push("left");
+  }
+
+  if (!isVisible) {
+    classList.push("hidden");
+  }
+
   return (
-    <div className="hide-show-button" onClick={handleHideShowClick}>
-      {isVisible ? "⇒" : "⇐"}
+    <div className={classList.join(" ")} onClick={handleHideShowClick}>
+      {isVisible ? (rightOpen ? "⇒" : "⇐") : rightOpen ? "⇐" : "⇒"}
       <div className="hide-show-tooltip">
-        {isVisible ? "Hide" : "Expand"} state panel
+        {isVisible ? "Hide" : "Show"}&nbsp;{name}
       </div>
     </div>
   );
@@ -470,9 +494,11 @@ function HideShowButton({
 
 function StatePanelRaw({
   selectedLine,
+  selectedCLine,
   verifierLogState,
 }: {
   selectedLine: number;
+  selectedCLine: number;
   verifierLogState: VerifierLogState;
 }) {
   const { lines, bpfStates } = verifierLogState;
@@ -545,9 +571,11 @@ function StatePanelRaw({
 
   if (!isVisible) {
     return (
-      <div id="state-panel-collapsed" className="state-panel">
+      <div className="state-panel panel-hidden">
         <HideShowButton
           isVisible={isVisible}
+          rightOpen={true}
+          name="state panel"
           handleHideShowClick={handleHideShowClick}
         />
       </div>
@@ -555,14 +583,17 @@ function StatePanelRaw({
   }
 
   return (
-    <div id="state-panel-shown" className="state-panel">
+    <div id="state-panel" className="state-panel">
       <div id="state-panel-header">
-        <div>Line: {selectedLine + 1}</div>
+        <div>Log Line: {selectedLine + 1}</div>
+        <div>C Line: {selectedCLine}</div>
         <div>PC: {bpfState.pc}</div>
         <div>Frame: {bpfState.frame}</div>
       </div>
       <HideShowButton
         isVisible={isVisible}
+        rightOpen={true}
+        name="state panel"
         handleHideShowClick={handleHideShowClick}
       />
       <table>
@@ -663,16 +694,18 @@ export function ToolTip({
 
 const LogLinesRaw = ({
   verifierLogState,
+  logLines,
   handleLogLinesClick,
   handleLogLinesOver,
   handleLogLinesOut,
 }: {
   verifierLogState: VerifierLogState;
+  logLines: ParsedLine[];
   handleLogLinesClick: (event: React.MouseEvent<HTMLDivElement>) => void;
   handleLogLinesOver: (event: React.MouseEvent<HTMLDivElement>) => void;
   handleLogLinesOut: (event: React.MouseEvent<HTMLDivElement>) => void;
 }) => {
-  const { bpfStates, lines } = verifierLogState;
+  const { bpfStates } = verifierLogState;
   let indentLevel = 0;
   return (
     <div
@@ -681,9 +714,10 @@ const LogLinesRaw = ({
       onMouseOver={handleLogLinesOver}
       onMouseOut={handleLogLinesOut}
     >
-      {lines.map((line) => {
+      {logLines.map((line) => {
         const bpfState = getBpfState(bpfStates, line.idx).state;
-        indentLevel = bpfState.frame;
+        const frame = bpfState.frame;
+        indentLevel = frame;
         if (
           line.type === ParsedLineType.INSTRUCTION &&
           line.bpfIns.kind === BpfInstructionKind.JMP &&
@@ -707,34 +741,10 @@ const LogLinesRaw = ({
 
 const LogLines = React.memo(LogLinesRaw);
 
-const LineNumbersRaw = ({
-  verifierLogState,
-}: {
-  verifierLogState: VerifierLogState;
-}) => {
-  return (
-    <div id="line-numbers-idx" className="line-numbers">
-      {verifierLogState.lines.map((line) => {
-        return (
-          <div className="line-numbers-line" key={`line_num_${line.idx}`}>
-            {line.idx + 1}
-          </div>
-        );
-      })}
-    </div>
-  );
-};
-
-const LineNumbers = React.memo(LineNumbersRaw);
-
-const LineNumbersPCRaw = ({
-  verifierLogState,
-}: {
-  verifierLogState: VerifierLogState;
-}) => {
+const LineNumbersPCRaw = ({ logLines }: { logLines: ParsedLine[] }) => {
   return (
     <div id="line-numbers-pc" className="line-numbers">
-      {verifierLogState.lines.map((line) => {
+      {logLines.map((line) => {
         return (
           <div className="line-numbers-line" key={`line_num_pc_${line.idx}`}>
             {line.type === ParsedLineType.INSTRUCTION
@@ -749,14 +759,10 @@ const LineNumbersPCRaw = ({
 
 const LineNumbersPC = React.memo(LineNumbersPCRaw);
 
-const DependencyArrowsRaw = ({
-  verifierLogState,
-}: {
-  verifierLogState: VerifierLogState;
-}) => {
+const DependencyArrowsRaw = ({ logLines }: { logLines: ParsedLine[] }) => {
   return (
     <>
-      {verifierLogState.lines.map((line) => {
+      {logLines.map((line) => {
         return (
           <div
             className="dep-arrow"
@@ -772,19 +778,151 @@ const DependencyArrowsRaw = ({
 
 const DependencyArrowsPlain = React.memo(DependencyArrowsRaw);
 
+function CSourceFile({
+  file,
+  range,
+  cSourceMap,
+}: {
+  file: string;
+  range: [number, number];
+  cSourceMap: CSourceMap;
+}) {
+  const lineNums: ReactElement[] = [];
+  const sourceLines: ReactElement[] = [];
+
+  let unknownStart = 0;
+  for (let i = range[0]; i < range[1]; ++i) {
+    const sourceId = `${file}:${i}`;
+    const sourceLine = cSourceMap.cSourceLines.get(sourceId);
+    if (!sourceLine) {
+      if (!unknownStart) {
+        unknownStart = i;
+      }
+      continue;
+    }
+    if (unknownStart > 0) {
+      lineNums.push(
+        <div
+          className="line-numbers-line"
+          key={`c_line_num_${file}-${unknownStart}`}
+        >
+          {unknownStart}
+        </div>,
+      );
+      sourceLines.push(
+        <div
+          className="c-source-line ignorable-line"
+          key={`c_source_line_${file}-${unknownStart}`}
+        >
+          ..&nbsp;{i - 1}
+        </div>,
+      );
+    }
+    unknownStart = 0;
+    lineNums.push(
+      <div className="line-numbers-line" key={`c_line_num_${i}`}>
+        {i}
+      </div>,
+    );
+    sourceLines.push(
+      <div
+        className="c-source-line"
+        id={`line-${sourceId}`}
+        data-id={sourceId}
+        key={`c_source_line_${i}`}
+      >
+        {sourceLine.content}
+      </div>,
+    );
+  }
+
+  return (
+    <div className="c-source-file">
+      <div className="filename-header">{file}</div>
+      <div className="file-lines">
+        <div className="line-numbers">{lineNums}</div>
+        <div className="source-lines">{sourceLines}</div>
+      </div>
+    </div>
+  );
+}
+
+function CSourceLinesRaw({
+  handleCLinesClick,
+  verifierLogState,
+}: {
+  handleCLinesClick: (event: React.MouseEvent<HTMLDivElement>) => void;
+  verifierLogState: VerifierLogState;
+}) {
+  const [isVisible, setIsVisible] = useState<boolean>(true);
+
+  const handleHideShowClick = useCallback(() => {
+    setIsVisible((prev) => !prev);
+  }, [setIsVisible]);
+
+  if (!isVisible) {
+    return (
+      <div className="c-source-panel panel-hidden">
+        <HideShowButton
+          isVisible={isVisible}
+          rightOpen={false}
+          name="C source lines"
+          handleHideShowClick={handleHideShowClick}
+        />
+      </div>
+    );
+  }
+
+  const files: ReactElement[] = [];
+  for (const [file, range] of verifierLogState.cSourceMap.fileRange) {
+    files.push(
+      <CSourceFile
+        key={`filename-${file}`}
+        cSourceMap={verifierLogState.cSourceMap}
+        file={file}
+        range={range}
+      />,
+    );
+  }
+
+  return (
+    <div
+      id="c-source-container"
+      className="c-source-panel"
+      onClick={handleCLinesClick}
+    >
+      {files}
+      <HideShowButton
+        isVisible={isVisible}
+        rightOpen={false}
+        name="C source lines"
+        handleHideShowClick={handleHideShowClick}
+      />
+    </div>
+  );
+}
+
+const CSourceLines = React.memo(CSourceLinesRaw);
+
 export function MainContent({
   verifierLogState,
+  logLines,
   selectedLine,
   selectedMemSlotId,
+  selectedCLine,
   handleMainContentClick,
+  handleCLinesClick,
   handleLogLinesClick,
   handleLogLinesOver,
   handleLogLinesOut,
 }: {
   verifierLogState: VerifierLogState;
+  logLines: ParsedLine[];
   selectedLine: number;
   selectedMemSlotId: string;
+  selectedCLine: number;
   handleMainContentClick: (event: React.MouseEvent<HTMLDivElement>) => void;
+  handleCLinesClick: (event: React.MouseEvent<HTMLDivElement>) => void;
   handleLogLinesClick: (event: React.MouseEvent<HTMLDivElement>) => void;
   handleLogLinesOver: (event: React.MouseEvent<HTMLDivElement>) => void;
   handleLogLinesOut: (event: React.MouseEvent<HTMLDivElement>) => void;
@@ -824,6 +962,7 @@ export function MainContent({
     }
 
     const logLinesUpdated: [number, string][] = [];
+    const cLinesUpdated: string[] = [];
 
     let selectedMemSlotIdEl: HTMLElement | null;
 
@@ -859,6 +998,15 @@ export function MainContent({
           return;
         }
 
+        const cLine = verifierLogState.cSourceMap.logLineToCLine.get(idx);
+        if (cLine) {
+          const cLineEl = document.getElementById(`line-${cLine}`);
+          if (cLineEl) {
+            cLineEl.classList.add("dependency-line");
+            cLinesUpdated.push(cLine);
+          }
+        }
+
         const logLine = document.getElementById(`line-${idx}`);
         if (logLine) {
           logLine.classList.add("dependency-line");
@@ -882,6 +1030,12 @@ export function MainContent({
         selectedMemSlotIdEl.classList.remove("selected-mem-slot");
       }
       if (selectedMemSlotId !== "") {
+        cLinesUpdated.forEach((cLine) => {
+          const cLineEl = document.getElementById(`line-${cLine}`);
+          if (cLineEl) {
+            cLineEl.classList.remove("dependency-line");
+          }
+        });
         logLinesUpdated.forEach((pair) => {
           const logLine = document.getElementById(`line-${pair[0]}`);
           if (logLine) {
@@ -984,9 +1138,9 @@ export function MainContent({
       }
 
       if (depArrow.classList.contains("active-down")) {
-        scrollToLine(next, verifierLogState.lines.length);
+        scrollToLogLine(next, verifierLogState.lines.length);
       } else if (depArrow.classList.contains("active-up")) {
-        scrollToLine(prev, verifierLogState.lines.length);
+        scrollToLogLine(prev, verifierLogState.lines.length);
       }
     },
     [verifierLogState, memSlotDependencies, selectedLine],
@@ -1050,22 +1204,25 @@ export function MainContent({
       className="main-content"
       onClick={handleMainContentClick}
     >
+      <CSourceLines
+        handleCLinesClick={handleCLinesClick}
+        verifierLogState={verifierLogState}
+      />
       <div
         id="log-container"
         className={selectedMemSlotId !== "" ? "active_mem_slot" : ""}
       >
-        <LineNumbers verifierLogState={verifierLogState} />
-        <LineNumbersPC verifierLogState={verifierLogState} />
+        <LineNumbersPC logLines={logLines} />
         <div
           id="dependency-arrows"
           onMouseOver={handleArrowsOver}
           onClick={handleArrowsClick}
         >
-          <DependencyArrowsPlain verifierLogState={verifierLogState} />
+          <DependencyArrowsPlain logLines={logLines} />
         </div>
-
         <LogLines
           verifierLogState={verifierLogState}
+          logLines={logLines}
           handleLogLinesClick={handleLogLinesClick}
           handleLogLinesOver={handleLogLinesOver}
           handleLogLinesOut={handleLogLinesOut}
@@ -1073,6 +1230,7 @@ export function MainContent({
       </div>
       <StatePanel
         selectedLine={selectedLine}
+        selectedCLine={selectedCLine}
         verifierLogState={verifierLogState}
       />
     </div>
