@@ -765,6 +765,10 @@ function parseOpcodeIns(str: string, pc: number): BpfInstructionPair {
   return { ins: undefined, rest: str };
 }
 
+export function getCLineId(fileName: string, lineNum: number): string {
+  return `${fileName}:${lineNum}`;
+}
+
 function parseCSourceLine(str: string, idx: number): CSourceLine | null {
   const { match } = consumeRegex(RE_C_SOURCE_LINE, str);
   if (!match) return null;
@@ -777,7 +781,7 @@ function parseCSourceLine(str: string, idx: number): CSourceLine | null {
     content: match[1],
     fileName,
     lineNum,
-    id: `${fileName}:${lineNum}`,
+    id: getCLineId(fileName, lineNum),
   };
 }
 

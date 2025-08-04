@@ -1,13 +1,18 @@
 import React from "react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { CSourceMap, VerifierLogState, processRawLines } from "./analyzer";
+import {
+  VerifierLogState,
+  processRawLines,
+  getEmptyVerifierState,
+} from "./analyzer";
 
 import {
   fetchLogFromUrl,
   getVisibleIdxRange,
-  normalIdx,
-  scrollToLine,
+  scrollToLogLine,
+  scrollToCLine,
+  siblingInsLine,
 } from "./utils";
 
 import {
@@ -19,37 +24,46 @@ import {
   SelectedLineHint,
   ToolTip,
 } from "./components";
-import { ParsedLineType } from "./parser";
+import { ParsedLine, ParsedLineType } from "./parser";
 
 const ContentRaw = ({
   loadError,
   verifierLogState,
+  logLines,
   selectedLine,
   selectedMemSlotId,
+  selectedCLine,
   handlePaste,
   handleMainContentClick,
+  handleCLinesClick,
   handleLogLinesClick,
   handleLogLinesOver,
   handleLogLinesOut,
 }: {
   loadError: string | null;
   verifierLogState: VerifierLogState;
+  logLines: ParsedLine[];
   selectedLine: number;
   selectedMemSlotId: string;
+  selectedCLine: number;
   handlePaste: (event: React.ClipboardEvent) => void;
   handleMainContentClick: (event: React.MouseEvent<HTMLDivElement>) => void;
+  handleCLinesClick: (event: React.MouseEvent<HTMLDivElement>) => void;
   handleLogLinesClick: (event: React.MouseEvent<HTMLDivElement>) => void;
   handleLogLinesOver: (event: React.MouseEvent<HTMLDivElement>) => void;
   handleLogLinesOut: (event: React.MouseEvent<HTMLDivElement>) => void;
 }) => {
   if (loadError) {
     return <div>{loadError}</div>;
-  } else if (verifierLogState.lines.length > 0) {
+  } else if (logLines.length > 0) {
     return (
       <MainContent
         verifierLogState={verifierLogState}
+        logLines={logLines}
         selectedLine={selectedLine}
         selectedMemSlotId={selectedMemSlotId}
+        selectedCLine={selectedCLine}
+        handleCLinesClick={handleCLinesClick}
         handleMainContentClick={handleMainContentClick}
         handleLogLinesClick={handleLogLinesClick}
         handleLogLinesOver={handleLogLinesOver}
@@ -70,96 +84,147 @@ const ContentRaw = ({
 const Content = React.memo(ContentRaw);
 
 function App() {
-  // 'r1', 'fp-244' etc.
-  const [verifierLogState, setVerifierLogState] = useState<VerifierLogState>({
-    lines: [],
-    bpfStates: [],
-    cSourceMap: new CSourceMap(),
-  });
+  const [verifierLogState, setVerifierLogState] = useState<VerifierLogState>(
+    getEmptyVerifierState(),
+  );
   const [hoveredState, setHoveredState] = useState<LogLineState>({
     memSlotId: "",
     line: -1,
+    cLine: "", // unused
   });
   const [selectedState, setSelectedState] = useState<LogLineState>({
     memSlotId: "",
     line: 0,
+    cLine: "",
   });
   const [loadError, setLoadError] = useState<string | null>(null);
-  const { line: selectedLine, memSlotId: selectedMemSlotId } = selectedState;
+  const [fullLogView, setfullLogView] = useState<boolean>(false);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const setSelectedLineScroll = useCallback(
-    (nextSelected: number) => {
-      const lines = verifierLogState.lines;
-      setSelectedState((prevSelected) => {
-        let { min, max } = getVisibleIdxRange(lines.length);
-        if (nextSelected < min + 8 || nextSelected > max - 8) {
-          scrollToLine(nextSelected, lines.length);
-        }
-        if (nextSelected < 0 || nextSelected >= lines.length) {
-          return prevSelected;
-        }
-        return { line: nextSelected, memSlotId: "" };
-      });
+  const { cLines, cLineIdtoIdx } = verifierLogState;
+
+  const [logLines, logLineIdToIdx] = useMemo(() => {
+    const logLines: ParsedLine[] = [];
+    const logLineIdToIdx: Map<number, number> = new Map();
+
+    let idx = 0;
+    verifierLogState.lines.forEach((line) => {
+      if (line.type !== ParsedLineType.C_SOURCE || fullLogView) {
+        logLines.push(line);
+        logLineIdToIdx.set(line.idx, idx++);
+      }
+    });
+
+    return [logLines, logLineIdToIdx];
+  }, [verifierLogState, fullLogView]);
+
+  const { line: selectedLine, memSlotId: selectedMemSlotId } = selectedState;
+  const selectedLineIdx = logLineIdToIdx.get(selectedLine) || 0;
+  const hoveredLineIdx = logLineIdToIdx.get(hoveredState.line) || 0;
+  const selectedCLine = useMemo(() => {
+    let clineId = "";
+    if (selectedState.cLine) {
+      clineId = selectedState.cLine;
+    } else {
+      const parsedLine = verifierLogState.lines[selectedState.line];
+      if (!parsedLine) {
+        return 0;
+      }
+      if (parsedLine.type === ParsedLineType.C_SOURCE) {
+        clineId = parsedLine.id;
+      } else {
+        clineId =
+          verifierLogState.cSourceMap.logLineToCLine.get(selectedState.line) ||
+          "";
+      }
+    }
+    return verifierLogState.cSourceMap.cSourceLines.get(clineId)?.lineNum || 0;
+  }, [verifierLogState, selectedState]);
+
+  const setSelectedAndScroll = useCallback(
+    (
+      nextInsLineId: number,
+      nextCLineId: string,
+      nextInsLineIdx: number,
+      nextCLineIdx: number,
+      memSlotId: string = "",
+    ) => {
+      const logRange = getVisibleIdxRange(logLines.length);
+      if (
+        (nextInsLineIdx < logRange.min + 8 ||
+          nextInsLineIdx > logRange.max - 8) &&
+        !(nextInsLineIdx < 0 || nextInsLineIdx >= logLines.length)
+      ) {
+        scrollToLogLine(nextInsLineIdx, logLines.length);
+      }
+      const cLinesRange = getVisibleIdxRange(cLines.length);
+      if (
+        (nextCLineIdx < cLinesRange.min + 8 ||
+          nextCLineIdx > cLinesRange.max - 8) &&
+        !(nextCLineIdx < 0 || nextCLineIdx >= cLines.length)
+      ) {
+        scrollToCLine(nextCLineIdx, cLines.length);
+      }
+      setSelectedState({ line: nextInsLineId, memSlotId, cLine: nextCLineId });
     },
-    [verifierLogState],
+    [logLines, cLines],
   );
 
   const onGotoStart = useCallback(() => {
-    setSelectedLineScroll(0);
-  }, [setSelectedLineScroll]);
+    if (logLines.length === 0) {
+      return;
+    }
+    const lineId = logLines[0].idx;
+    const clineId =
+      verifierLogState.cSourceMap.logLineToCLine.get(lineId) || "";
+    setSelectedAndScroll(lineId, "", 0, cLineIdtoIdx.get(clineId) || 0);
+  }, [logLines, verifierLogState]);
 
-  const onGotoEnd = useCallback(() => {
-    setSelectedLineScroll(verifierLogState.lines.length - 1);
-  }, [setSelectedLineScroll, verifierLogState]);
+  function onGotoEnd() {
+    if (logLines.length === 0) {
+      return;
+    }
+    const lineId = logLines[logLines.length - 1].idx;
+    const clineId =
+      verifierLogState.cSourceMap.logLineToCLine.get(lineId) || "";
+    setSelectedAndScroll(
+      lineId,
+      "",
+      logLines.length - 1,
+      cLineIdtoIdx.get(clineId) || 0,
+    );
+  }
 
   const onClear = useCallback(() => {
-    setVerifierLogState({
-      lines: [],
-      bpfStates: [],
-      cSourceMap: new CSourceMap(),
-    });
-    setSelectedState({ line: 0, memSlotId: "" });
+    setVerifierLogState(getEmptyVerifierState());
+    setSelectedState({ line: 0, memSlotId: "", cLine: "" });
     const fiCurrent = fileInputRef.current;
     if (fiCurrent) {
       fiCurrent.value = "";
     }
   }, []);
 
-  function siblingInstructionLine(idx: number, delta: number = 1): number {
-    // if delta is 1 we are looking for the next instruction
-    // if delta is -1 we are looking for the previous instruction
-    const n = verifierLogState.lines.length;
-    for (let i = normalIdx(idx + delta, n); 0 <= i && i < n; i += delta) {
-      const line = verifierLogState.lines[i];
-      if (line.type === ParsedLineType.INSTRUCTION) {
-        return i;
-      }
-    }
-    return normalIdx(idx, n);
-  }
-
-  function nextInstructionLine(idx: number): number {
-    return siblingInstructionLine(idx, 1);
-  }
-
-  function prevInstructionLine(idx: number): number {
-    return siblingInstructionLine(idx, -1);
-  }
+  const onLogToggle = useCallback(() => {
+    setfullLogView((prev) => !prev);
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       let delta = 0;
-      let { min, max } = getVisibleIdxRange(verifierLogState.lines.length);
+      let areCLinesInFocus = selectedState.cLine !== "";
+      let { min, max } = getVisibleIdxRange(
+        areCLinesInFocus ? cLines.length : logLines.length,
+      );
       let page = max - min + 1;
       switch (e.key) {
         case "ArrowDown":
         case "j":
-          delta = nextInstructionLine(selectedLine) - selectedLine;
+          delta = 1;
           break;
         case "ArrowUp":
         case "k":
-          delta = prevInstructionLine(selectedLine) - selectedLine;
+          delta = -1;
           break;
         case "PageDown":
           delta = page;
@@ -174,15 +239,44 @@ function App() {
           onGotoEnd();
           return;
         case "Escape":
-          setSelectedState((prevSelected) => {
-            return { ...prevSelected, memSlotId: "" };
-          });
+          setSelectedState({ line: 0, memSlotId: "", cLine: "" });
           break;
         default:
           return;
       }
       e.preventDefault();
-      setSelectedLineScroll(selectedLine + delta);
+      if (areCLinesInFocus) {
+        const currentIdx = cLineIdtoIdx.get(selectedState.cLine) || 0;
+        let nextIdx = currentIdx + delta;
+        if (cLines[nextIdx] === "") {
+          nextIdx += delta;
+        }
+        const logLines = verifierLogState.cSourceMap.cLineToLogLines.get(
+          selectedState.cLine,
+        );
+        let logLineId = 0;
+        if (logLines && logLines.size > 0) {
+          [logLineId] = logLines;
+        }
+        setSelectedAndScroll(
+          logLineId,
+          cLines[nextIdx],
+          logLineIdToIdx.get(logLineId) || -1,
+          nextIdx,
+        );
+      } else {
+        const currInsIdx = logLineIdToIdx.get(selectedState.line) || 0;
+        let nextInsIdx = siblingInsLine(logLines, currInsIdx, delta);
+        const logLineId = logLines[nextInsIdx].idx;
+        const cLineId =
+          verifierLogState.cSourceMap.logLineToCLine.get(logLineId) || "";
+        setSelectedAndScroll(
+          logLineId,
+          "",
+          nextInsIdx,
+          cLineIdtoIdx.get(cLineId) || -1,
+        );
+      }
     };
 
     document.addEventListener("keydown", handleKeyDown);
@@ -191,16 +285,19 @@ function App() {
       document.removeEventListener("keydown", handleKeyDown);
     };
   }, [
+    logLines,
+    cLines,
+    cLineIdtoIdx,
+    selectedState,
     verifierLogState,
-    selectedLine,
-    setSelectedLineScroll,
+    logLineIdToIdx,
     onGotoStart,
     onGotoEnd,
   ]);
 
   useEffect(() => {
     onGotoEnd();
-  }, [verifierLogState, onGotoEnd]);
+  }, [verifierLogState]);
 
   const loadInputText = useCallback((text: string) => {
     setVerifierLogState(processRawLines(text.split("\n")));
@@ -228,11 +325,79 @@ function App() {
     }
   }, [loadInputText]);
 
+  useEffect(() => {
+    let logLines: Set<number> = new Set();
+    let cLine: string;
+    let cLineEl: HTMLElement | null;
+    if (selectedState.cLine) {
+      cLineEl = document.getElementById(`line-${selectedState.cLine}`);
+      if (cLineEl) {
+        cLineEl.classList.add("selected-line");
+      }
+      logLines =
+        verifierLogState.cSourceMap.cLineToLogLines.get(selectedState.cLine) ||
+        new Set();
+      for (let logLine of logLines) {
+        const logLineEl = document.getElementById(`line-${logLine}`);
+        if (logLineEl) {
+          logLineEl.classList.add("selected-line");
+        }
+      }
+    } else if (selectedState.line) {
+      const parsedLine = verifierLogState.lines[selectedState.line];
+      cLine =
+        parsedLine.type === ParsedLineType.C_SOURCE
+          ? parsedLine.id
+          : verifierLogState.cSourceMap.logLineToCLine.get(
+              selectedState.line,
+            ) || "";
+      cLineEl = document.getElementById(`line-${cLine}`);
+      if (cLineEl) {
+        cLineEl.classList.add("selected-line");
+      }
+    }
+    return () => {
+      if (cLineEl) {
+        cLineEl.classList.remove("selected-line");
+      }
+      for (let logLine of logLines) {
+        const logLineEl = document.getElementById(`line-${logLine}`);
+        if (logLineEl) {
+          logLineEl.classList.remove("selected-line");
+        }
+      }
+    };
+  }, [verifierLogState, selectedState]);
+
   const handleMainContentClick = useCallback(() => {
     setSelectedState((prevSelected) => {
       return { ...prevSelected, memSlotId: "" };
     });
   }, []);
+
+  const handleCLinesClick = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      const target = e.target as HTMLElement;
+      const cline = target.closest(".c-source-line");
+      let clineId = "";
+      if (cline) {
+        clineId = cline.getAttribute("data-id") || "";
+      }
+      const logLines = verifierLogState.cSourceMap.cLineToLogLines.get(clineId);
+      if (logLines && logLines.size > 0) {
+        const [firstItem] = logLines;
+        setSelectedAndScroll(
+          firstItem,
+          clineId,
+          logLineIdToIdx.get(firstItem) || 0,
+          -1,
+        );
+      } else {
+        setSelectedState({ line: 0, memSlotId: "", cLine: clineId });
+      }
+    },
+    [verifierLogState, logLineIdToIdx, cLineIdtoIdx],
+  );
 
   const handleLogLinesClick = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
@@ -247,17 +412,25 @@ function App() {
 
       const clickedLine = target.closest(".log-line");
       if (clickedLine) {
-        const lineIndex = parseInt(
+        const lineId = parseInt(
           clickedLine.getAttribute("line-index") || "0",
           10,
         );
-        setSelectedState({
-          line: normalIdx(lineIndex, verifierLogState.lines.length),
+        const parsedLine = verifierLogState.lines[lineId];
+        const clineId =
+          parsedLine.type == ParsedLineType.C_SOURCE
+            ? parsedLine.id
+            : verifierLogState.cSourceMap.logLineToCLine.get(lineId) || "";
+        setSelectedAndScroll(
+          lineId,
+          "",
+          -1,
+          cLineIdtoIdx.get(clineId) || -1,
           memSlotId,
-        });
+        );
       }
     },
-    [verifierLogState],
+    [logLines, verifierLogState, cLineIdtoIdx],
   );
 
   const handleLogLinesOver = useCallback(
@@ -271,35 +444,21 @@ function App() {
       }
       const memSlot = hoveredElement.closest(".mem-slot") as HTMLElement;
       if (memSlot) {
-        setHoveredState({ memSlotId: memSlot.id, line: hoveredLine });
+        setHoveredState({
+          memSlotId: memSlot.id,
+          line: hoveredLine,
+          cLine: "",
+        });
       } else {
-        setHoveredState({ memSlotId: "", line: hoveredLine });
+        setHoveredState({ memSlotId: "", line: hoveredLine, cLine: "" });
       }
     },
     [],
   );
 
   const handleLogLinesOut = useCallback(() => {
-    setHoveredState({ memSlotId: "", line: -1 });
+    setHoveredState({ memSlotId: "", line: -1, cLine: "" });
   }, []);
-
-  const onLineInputChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const lines = verifierLogState.lines;
-      const newValue = parseInt(e.target.value, 10);
-      if (Number.isNaN(newValue)) {
-        return;
-      }
-      if (newValue <= 0) {
-        setSelectedLineScroll(0);
-      } else if (newValue > lines.length) {
-        setSelectedLineScroll(lines.length - 1);
-      } else {
-        setSelectedLineScroll(newValue - 1);
-      }
-    },
-    [verifierLogState, setSelectedLineScroll],
-  );
 
   const onFileInputChange = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -338,19 +497,7 @@ function App() {
       <div className="container">
         <div className="navigation-panel">
           <h1>BPF Verifier Visualizer</h1>
-          <label id="goto-line" className="line-nav-item">
-            Go to:
-          </label>
-          <input
-            type="number"
-            onChange={onLineInputChange}
-            id="goto-line-input"
-            placeholder="line number"
-            className="line-nav-item"
-            min="0"
-            max={verifierLogState.lines.length}
-            value={selectedLine + 1}
-          />
+          <LoadStatus lineCount={verifierLogState.lines.length} />
           <button
             id="goto-start"
             className="line-nav-item"
@@ -364,7 +511,15 @@ function App() {
           <button id="clear" className="line-nav-item" onClick={onClear}>
             Clear
           </button>
-          <LoadStatus lines={verifierLogState.lines} />
+          <label>
+            <input
+              type="checkbox"
+              checked={fullLogView}
+              onChange={onLogToggle}
+              id="show-full-log"
+            />
+            Show Full Log
+          </label>
           <div className="file-input-container">
             <input
               type="file"
@@ -386,10 +541,13 @@ function App() {
         <Content
           loadError={loadError}
           verifierLogState={verifierLogState}
+          logLines={logLines}
           selectedLine={selectedLine}
           selectedMemSlotId={selectedMemSlotId}
+          selectedCLine={selectedCLine}
           handlePaste={handlePaste}
           handleMainContentClick={handleMainContentClick}
+          handleCLinesClick={handleCLinesClick}
           handleLogLinesClick={handleLogLinesClick}
           handleLogLinesOver={handleLogLinesOver}
           handleLogLinesOut={handleLogLinesOut}
@@ -397,10 +555,12 @@ function App() {
         <div id="hint">
           <SelectedLineHint
             selectedLine={selectedLine}
+            selectedLineIdx={selectedLineIdx}
             lines={verifierLogState.lines}
           />
           <HoveredLineHint
             hoveredLine={hoveredState.line}
+            hoveredLineIdx={hoveredLineIdx}
             lines={verifierLogState.lines}
           />
         </div>
