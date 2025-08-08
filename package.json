@@ -12,7 +12,7 @@
     "serve": "vite preview",
     "test": "jest",
     "format": "prettier src/* --write",
-    "lint": "eslint src/*",
+    "lint": "eslint",
     "typecheck": "tsc --noEmit"
   },
   "eslintConfig": {
