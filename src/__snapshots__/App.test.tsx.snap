@@ -1,0 +1,508 @@
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
+
+exports[`App renders the correct starting elements 1`] = `
+<div>
+  <div
+    class="App"
+  >
+    <div
+      class="container"
+    >
+      <div
+        class="navigation-panel"
+      >
+        <h1>
+          BPF Verifier Visualizer
+        </h1>
+        <div
+          class="line-nav-item"
+          id="load-status"
+        >
+          (
+          0
+           lines)
+        </div>
+        <button
+          class="line-nav-item"
+          id="goto-start"
+        >
+          Start
+        </button>
+        <button
+          class="line-nav-item"
+          id="goto-end"
+        >
+          End
+        </button>
+        <button
+          class="line-nav-item"
+          id="clear"
+        >
+          Clear
+        </button>
+        <label>
+          <input
+            id="show-full-log"
+            type="checkbox"
+          />
+          Show Full Log
+        </label>
+        <div
+          class="file-input-container"
+        >
+          <input
+            id="file-input"
+            type="file"
+          />
+        </div>
+        <a
+          href="/?url=https://gist.githubusercontent.com/theihor/e0002c119414e6b40e2192bd7ced01b1/raw/866bcc155c2ce848dcd4bc7fd043a97f39a2d370/gistfile1.txt"
+          id="example-link"
+        >
+          Load an example log
+        </a>
+        <a
+          class="howto-link"
+          href="https://github.com/theihor/bpfvv/blob/master/HOWTO.md"
+          rel="noreferrer"
+          target="_blank"
+        >
+          How To Use
+        </a>
+      </div>
+      <textarea
+        id="input-text"
+        placeholder="Paste a verifier log here or choose a file"
+      />
+      <div
+        id="hint"
+      >
+        <div
+          class="hint-line"
+          id="hint-hovered-line"
+        >
+          <br />
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+`;
+
+exports[`App renders the log visualizer when text is pasted 1`] = `
+<div>
+  <div
+    class="App"
+  >
+    <div
+      class="container"
+    >
+      <div
+        class="navigation-panel"
+      >
+        <h1>
+          BPF Verifier Visualizer
+        </h1>
+        <div
+          class="line-nav-item"
+          id="load-status"
+        >
+          (
+          1
+           lines)
+        </div>
+        <button
+          class="line-nav-item"
+          id="goto-start"
+        >
+          Start
+        </button>
+        <button
+          class="line-nav-item"
+          id="goto-end"
+        >
+          End
+        </button>
+        <button
+          class="line-nav-item"
+          id="clear"
+        >
+          Clear
+        </button>
+        <label>
+          <input
+            id="show-full-log"
+            type="checkbox"
+          />
+          Show Full Log
+        </label>
+        <div
+          class="file-input-container"
+        >
+          <input
+            id="file-input"
+            type="file"
+          />
+        </div>
+        <a
+          href="/?url=https://gist.githubusercontent.com/theihor/e0002c119414e6b40e2192bd7ced01b1/raw/866bcc155c2ce848dcd4bc7fd043a97f39a2d370/gistfile1.txt"
+          id="example-link"
+        >
+          Load an example log
+        </a>
+        <a
+          class="howto-link"
+          href="https://github.com/theihor/bpfvv/blob/master/HOWTO.md"
+          rel="noreferrer"
+          target="_blank"
+        >
+          How To Use
+        </a>
+      </div>
+      <div
+        class="main-content"
+        id="main-content"
+      >
+        <div
+          class="c-source-panel"
+          id="c-source-container"
+        >
+          <div
+            class="hide-show-button left"
+          >
+            ⇐
+            <div
+              class="hide-show-tooltip"
+            >
+              Hide
+               
+              C source lines
+            </div>
+          </div>
+        </div>
+        <div
+          class=""
+          id="log-container"
+        >
+          <div
+            class="line-numbers"
+            id="line-numbers-pc"
+          >
+            <div
+              class="line-numbers-line"
+            >
+              314:
+            </div>
+          </div>
+          <div
+            id="dependency-arrows"
+          >
+            <div
+              class="dep-arrow"
+              id="dep-arrow-line-0"
+              line-index="0"
+            />
+          </div>
+          <div
+            id="formatted-log-lines"
+          >
+            <div
+              class="log-line normal-line selected-line"
+              id="line-0"
+              line-index="0"
+            >
+              *(u8 *)(
+              <span
+                class="mem-slot r7"
+                data-id="r7"
+                id="mem-slot-r7-line-0"
+              >
+                r7
+              </span>
+               +1303)
+               
+              =
+               
+              <span
+                class="mem-slot r1"
+                data-id="r1"
+                id="mem-slot-r1-line-0"
+              >
+                r1
+              </span>
+            </div>
+          </div>
+        </div>
+        <div
+          class="state-panel"
+          id="state-panel"
+        >
+          <div
+            id="state-panel-header"
+          >
+            <div>
+              Log Line: 
+              1
+            </div>
+            <div>
+              C Line: 
+              0
+            </div>
+            <div>
+              PC: 
+              314
+            </div>
+            <div>
+              Frame: 
+              0
+            </div>
+          </div>
+          <div
+            class="hide-show-button right"
+          >
+            ⇒
+            <div
+              class="hide-show-tooltip"
+            >
+              Hide
+               
+              state panel
+            </div>
+          </div>
+          <table>
+            <tbody>
+              <tr
+                class=""
+              >
+                <td>
+                  r0
+                </td>
+                <td>
+                  <span />
+                </td>
+              </tr>
+              <tr
+                class="effect-read"
+              >
+                <td>
+                  r1
+                </td>
+                <td>
+                  <span>
+                    0
+                  </span>
+                </td>
+              </tr>
+              <tr
+                class=""
+              >
+                <td>
+                  r2
+                </td>
+                <td>
+                  <span />
+                </td>
+              </tr>
+              <tr
+                class=""
+              >
+                <td>
+                  r3
+                </td>
+                <td>
+                  <span />
+                </td>
+              </tr>
+              <tr
+                class=""
+              >
+                <td>
+                  r4
+                </td>
+                <td>
+                  <span />
+                </td>
+              </tr>
+              <tr
+                class=""
+              >
+                <td>
+                  r5
+                </td>
+                <td>
+                  <span />
+                </td>
+              </tr>
+              <tr
+                class=""
+              >
+                <td>
+                  r6
+                </td>
+                <td>
+                  <span />
+                </td>
+              </tr>
+              <tr
+                class="effect-read"
+              >
+                <td>
+                  r7
+                </td>
+                <td>
+                  <span>
+                    map_value(off=0,ks=4,vs=2808,imm=0)
+                  </span>
+                </td>
+              </tr>
+              <tr
+                class=""
+              >
+                <td>
+                  r8
+                </td>
+                <td>
+                  <span />
+                </td>
+              </tr>
+              <tr
+                class=""
+              >
+                <td>
+                  r9
+                </td>
+                <td>
+                  <span />
+                </td>
+              </tr>
+              <tr
+                class=""
+              >
+                <td>
+                  r10
+                </td>
+                <td>
+                  <span>
+                    fp-0
+                  </span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div
+        id="hint"
+      >
+        <div
+          class="hint-line"
+          id="hint-selected-line"
+        >
+          <span>
+            [selected raw line] 
+            1
+            :
+          </span>
+           
+          314: (73) *(u8 *)(r7 +1303) = r1      ; frame1: R1_w=0 R7=map_value(off=0,ks=4,vs=2808,imm=0)
+        </div>
+        <div
+          class="hint-line"
+          id="hint-hovered-line"
+        >
+          <br />
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+`;
+
+exports[`App renders the log visualizer when text is pasted 2`] = `
+<div>
+  <div
+    class="App"
+  >
+    <div
+      class="container"
+    >
+      <div
+        class="navigation-panel"
+      >
+        <h1>
+          BPF Verifier Visualizer
+        </h1>
+        <div
+          class="line-nav-item"
+          id="load-status"
+        >
+          (
+          0
+           lines)
+        </div>
+        <button
+          class="line-nav-item"
+          id="goto-start"
+        >
+          Start
+        </button>
+        <button
+          class="line-nav-item"
+          id="goto-end"
+        >
+          End
+        </button>
+        <button
+          class="line-nav-item"
+          id="clear"
+        >
+          Clear
+        </button>
+        <label>
+          <input
+            id="show-full-log"
+            type="checkbox"
+          />
+          Show Full Log
+        </label>
+        <div
+          class="file-input-container"
+        >
+          <input
+            id="file-input"
+            type="file"
+          />
+        </div>
+        <a
+          href="/?url=https://gist.githubusercontent.com/theihor/e0002c119414e6b40e2192bd7ced01b1/raw/866bcc155c2ce848dcd4bc7fd043a97f39a2d370/gistfile1.txt"
+          id="example-link"
+        >
+          Load an example log
+        </a>
+        <a
+          class="howto-link"
+          href="https://github.com/theihor/bpfvv/blob/master/HOWTO.md"
+          rel="noreferrer"
+          target="_blank"
+        >
+          How To Use
+        </a>
+      </div>
+      <textarea
+        id="input-text"
+        placeholder="Paste a verifier log here or choose a file"
+      />
+      <div
+        id="hint"
+      >
+        <div
+          class="hint-line"
+          id="hint-hovered-line"
+        >
+          <br />
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+`;

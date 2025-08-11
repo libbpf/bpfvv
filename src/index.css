@@ -24,7 +24,6 @@ h1 {
 .main-content {
   display: flex;
   flex: 1;
-  gap: 10px;
   min-height: 0; /* Important for flex child to respect parent height */
   font-family: monospace;
   font-size: 14px;
@@ -82,6 +81,47 @@ h1 {
   text-decoration: underline;
 }
 
+/* C Source Lines */
+
+#c-source-container {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  gap: 0;
+  overflow: auto;
+}
+
+.c-source-panel {
+  position: relative;
+  border-right: 2px solid #ccc;
+}
+
+.c-source-file {
+  width: 100%;
+}
+
+.filename-header {
+  background-color: #d4d4d4;
+  height: 20px;
+  font-weight: bold;
+  width: 100%;
+  padding: 10px 0px 10px 10px;
+}
+
+.file-lines {
+  display: flex;
+  flex-direction: row;
+  flex: 1;
+  min-width: 0;
+  gap: 0;
+  overflow: auto;
+}
+
+.source-lines {
+  color: #0f04c6;
+}
+
 /* Log Lines */
 
 #log-container {
@@ -110,7 +150,8 @@ h1 {
   color: #444444;
 }
 
-#formatted-log-lines {
+#formatted-log-lines,
+.source-lines {
   background: white;
   padding: 10px;
   line-height: 1.4;
@@ -124,7 +165,7 @@ h1 {
 }
 
 .mem-slot:hover {
-  background-color: #ccccff;
+  background-color: #d4d4d4;
 }
 
 .register-panel {
@@ -148,7 +189,8 @@ h1 {
 }
 
 .selected-line,
-.ignorable-line.selected-line {
+.ignorable-line.selected-line,
+.dependency-line.selected-line {
   background-color: #ccccff;
   color: #000;
 }
@@ -170,7 +212,8 @@ h1 {
 
 .line-numbers-line,
 .dep-arrow,
-.log-line {
+.log-line,
+.c-source-line {
   height: 20px;
 }
 
@@ -186,8 +229,12 @@ h1 {
 }
 
 .log-line:hover {
-  background-color: #eeeeff;
+  background-color: #eeeeee;
   color: #000;
+}
+
+.log-line.selected-line:hover {
+  background-color: #ccccff;
 }
 
 .dependency-line {
@@ -289,17 +336,17 @@ h1 {
 
 .state-panel {
   background-color: #f8f8f8;
-  border-left: 1px solid #ccc;
+  border-left: 2px solid #ccc;
   position: relative;
 }
 
-#state-panel-shown {
+#state-panel {
   flex: 1;
   padding: 10px;
   overflow: auto;
 }
 
-#state-panel-collapsed {
+.panel-hidden {
   flex: none;
   width: 30px;
   padding: 10px;
@@ -353,9 +400,9 @@ h1 {
   font-size: 30px;
   font-weight: normal;
   top: 0px;
-  right: 15px;
   text-align: center;
   cursor: pointer;
+  right: 15px;
 }
 
 .hide-show-button:hover {
@@ -373,7 +420,6 @@ h1 {
 .hide-show-tooltip {
   position: absolute;
   top: 6px;
-  right: 30px;
   width: 160px;
   font-size: 12px;
   background-color: #f8f8f8;
@@ -381,6 +427,12 @@ h1 {
   border: 1px solid #ccc;
   color: #000;
   box-shadow: rgba(0, 0, 0, 0.24) 0px 3px 8px;
+  right: 30px;
+}
+
+.hide-show-button.hidden.left .hide-show-tooltip {
+  right: auto;
+  left: 30px;
 }
 
 /* Footer */
