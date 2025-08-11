@@ -24,6 +24,8 @@ const AddrSpaceCastSample2 = "75: (bf) r1 = addr_space_cast(r2, 0, 64)";
 const ConditionalPseudoMayGotoSample = "2984: (e5) may_goto pc+3";
 const ConditionalPseudoGotoOrNopSample = "2984: (e5) goto_or_nop pc+3";
 const CSourceLineSample = "; n->key = 3; @ rbtree.c:201";
+const CSourceLineEmptySample1 = "; @ foo.h:42";
+const CSourceLineEmptySample2 = "; int i = 0; @ foo.h:0";
 
 function expectBpfIns(line: ParsedLine): BpfInstruction {
   expect(line.type).toBe(ParsedLineType.INSTRUCTION);
@@ -152,6 +154,19 @@ describe("parser", () => {
       fileName: "rbtree.c",
       lineNum: 201,
       id: "rbtree.c:201",
+    });
+  });
+
+  it("ignores empty source lines", () => {
+    expect(parseLine(CSourceLineEmptySample1, 13)).toEqual({
+      type: ParsedLineType.UNRECOGNIZED,
+      idx: 13,
+      raw: CSourceLineEmptySample1,
+    });
+    expect(parseLine(CSourceLineEmptySample2, 31)).toEqual({
+      type: ParsedLineType.UNRECOGNIZED,
+      idx: 31,
+      raw: CSourceLineEmptySample2,
     });
   });
 });

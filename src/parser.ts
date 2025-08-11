@@ -772,13 +772,17 @@ export function getCLineId(fileName: string, lineNum: number): string {
 function parseCSourceLine(str: string, idx: number): CSourceLine | null {
   const { match } = consumeRegex(RE_C_SOURCE_LINE, str);
   if (!match) return null;
+  const content = match[1];
   const fileName = match[2];
   const lineNum = parseInt(match[3], 10);
+  if (!content || lineNum === 0) {
+    return null;
+  }
   return {
     type: ParsedLineType.C_SOURCE,
     idx,
     raw: str,
-    content: match[1],
+    content,
     fileName,
     lineNum,
     id: getCLineId(fileName, lineNum),
