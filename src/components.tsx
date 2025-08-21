@@ -52,8 +52,6 @@ for (const helper of BPF_HELPERS_JSON.helpers) {
   bpfHelpersMap.set(helper.name, args);
 }
 
-const EXAMPLE_LOG_URL =
-  "https://gist.githubusercontent.com/theihor/e0002c119414e6b40e2192bd7ced01b1/raw/866bcc155c2ce848dcd4bc7fd043a97f39a2d370/gistfile1.txt";
 const RIGHT_ARROW = "->";
 
 function CallHtml({
@@ -153,14 +151,18 @@ function CallHtml({
 }
 
 export function Example() {
-  return (
-    <a
-      id="example-link"
-      href={`${window.location.pathname}?url=${EXAMPLE_LOG_URL}`}
-    >
-      Load an example log
-    </a>
-  );
+  const url = document
+    .querySelector('meta[name="app-example-input"]')
+    ?.getAttribute("link");
+  if (url) {
+    return (
+      <a id="example-link" href={`${window.location.pathname}?url=${url}`}>
+        Load an example log
+      </a>
+    );
+  } else {
+    return <></>;
+  }
 }
 
 function ExitInstruction({ frame }: { frame: number }) {
