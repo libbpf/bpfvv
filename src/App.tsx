@@ -311,9 +311,19 @@ function App() {
     [loadInputText],
   );
 
+  function getServerInjectedInputLink(): string | null {
+    const appInput = document.querySelector('meta[name="app-input"]');
+    return appInput?.getAttribute("link") || null;
+  }
+
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const url = params.get("url");
+    // first, check for server injected link
+    // then for a query param
+    let url: string | null = getServerInjectedInputLink();
+    if (!url) {
+      const params = new URLSearchParams(window.location.search);
+      url = params.get("url");
+    }
     if (url) {
       fetchLogFromUrl(url).then((text) => {
         if (text) {

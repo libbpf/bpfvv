@@ -56,12 +56,6 @@ exports[`App renders the correct starting elements 1`] = `
           />
         </div>
         <a
-          href="/?url=https://gist.githubusercontent.com/theihor/e0002c119414e6b40e2192bd7ced01b1/raw/866bcc155c2ce848dcd4bc7fd043a97f39a2d370/gistfile1.txt"
-          id="example-link"
-        >
-          Load an example log
-        </a>
-        <a
           class="howto-link"
           href="https://github.com/theihor/bpfvv/blob/master/HOWTO.md"
           rel="noreferrer"
@@ -144,12 +138,6 @@ exports[`App renders the log visualizer when text is pasted 1`] = `
             type="file"
           />
         </div>
-        <a
-          href="/?url=https://gist.githubusercontent.com/theihor/e0002c119414e6b40e2192bd7ced01b1/raw/866bcc155c2ce848dcd4bc7fd043a97f39a2d370/gistfile1.txt"
-          id="example-link"
-        >
-          Load an example log
-        </a>
         <a
           class="howto-link"
           href="https://github.com/theihor/bpfvv/blob/master/HOWTO.md"
@@ -473,12 +461,6 @@ exports[`App renders the log visualizer when text is pasted 2`] = `
             type="file"
           />
         </div>
-        <a
-          href="/?url=https://gist.githubusercontent.com/theihor/e0002c119414e6b40e2192bd7ced01b1/raw/866bcc155c2ce848dcd4bc7fd043a97f39a2d370/gistfile1.txt"
-          id="example-link"
-        >
-          Load an example log
-        </a>
         <a
           class="howto-link"
           href="https://github.com/theihor/bpfvv/blob/master/HOWTO.md"
