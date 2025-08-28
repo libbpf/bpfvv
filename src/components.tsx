@@ -320,7 +320,7 @@ const LogLineRaw = ({
   const lineId = "line-" + idx;
   const indentSpans: ReactElement[] = [];
 
-  for (let i = 1; i < indentLevel; ++i) {
+  for (let i = 0; i < indentLevel; ++i) {
     indentSpans.push(
       <span key={`indent-line${i}`} className="line-indent"></span>,
     );
