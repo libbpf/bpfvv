@@ -12,6 +12,7 @@ import {
   BpfTargetJmpInstruction,
   BpfAddressSpaceCastInstruction,
   InstructionLine,
+  KnownMessageInfoType,
 } from "./parser";
 
 const AluInstructionSample = "0: (b7) r2 = 1                        ; R2_w=1";
@@ -167,6 +168,31 @@ describe("parser", () => {
       type: ParsedLineType.UNRECOGNIZED,
       idx: 31,
       raw: CSourceLineEmptySample2,
+    });
+  });
+
+  describe("Known message parsing", () => {
+    const GlobalFuncValidSample =
+      "Func#123 ('my_func') is global and assumed valid.";
+    const NotAKnownMessage = "Some other verifier message that doesn't match";
+
+    it("parses global function valid messages", () => {
+      const parsed = parseLine(GlobalFuncValidSample, 10);
+      expect(parsed).toMatchObject({
+        type: ParsedLineType.KNOWN_MESSAGE,
+        idx: 10,
+        raw: GlobalFuncValidSample,
+        info: {
+          type: KnownMessageInfoType.GLOBAL_FUNC_VALID,
+          funcId: 123,
+          funcName: "my_func",
+        },
+      });
+    });
+
+    it("does not parse non-matching lines as known messages", () => {
+      const parsed = parseLine(NotAKnownMessage, 5);
+      expect(parsed.type).toBe(ParsedLineType.UNRECOGNIZED);
     });
   });
 });

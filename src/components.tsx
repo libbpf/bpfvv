@@ -67,8 +67,6 @@ function CallHtml({
   if (!location) {
     return <></>;
   }
-  const start = line.raw.length + location.offset;
-  const end = start + location.size;
   const target = ins.target || "";
   const helperName = target.substring(0, target.indexOf("#"));
 
@@ -123,11 +121,7 @@ function CallHtml({
     }
 
     let contents: ReactElement[] = [];
-    contents.push(
-      <React.Fragment key="line-start">
-        {line.raw.slice(start, end)}
-      </React.Fragment>,
-    );
+    contents.push(<React.Fragment key="line-start">{target}</React.Fragment>);
 
     contents.push(<React.Fragment key="paren-open">(</React.Fragment>);
     for (let i = 1; i <= numArgs; i++) {

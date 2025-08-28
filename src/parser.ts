@@ -192,6 +192,7 @@ export enum ParsedLineType {
   UNRECOGNIZED = "UNRECOGNIZED",
   INSTRUCTION = "INSTRUCTION",
   C_SOURCE = "C_SOURCE",
+  KNOWN_MESSAGE = "KNOWN_MESSAGE",
 }
 
 type GenericParsedLine = {
@@ -217,7 +218,28 @@ export type CSourceLine = {
   id: string;
 } & GenericParsedLine;
 
-export type ParsedLine = UnrecognizedLine | InstructionLine | CSourceLine;
+export enum KnownMessageInfoType {
+  GLOBAL_FUNC_VALID = "GLOBAL_FUNC_VALID",
+}
+
+export type GlobalFuncValidInfo = {
+  type: KnownMessageInfoType.GLOBAL_FUNC_VALID;
+  funcId: number;
+  funcName: string;
+};
+
+export type KnownMessageInfo = GlobalFuncValidInfo;
+
+export type KnownMessageLine = {
+  type: ParsedLineType.KNOWN_MESSAGE;
+  info: KnownMessageInfo;
+} & GenericParsedLine;
+
+export type ParsedLine =
+  | UnrecognizedLine
+  | InstructionLine
+  | CSourceLine
+  | KnownMessageLine;
 
 type BpfStateExpr = {
   id: string;
@@ -815,11 +837,35 @@ function parseBpfInstruction(
   };
 }
 
+const RE_MSG_GLOBAL_FUNC_VALID =
+  /^Func#([-0-9]+) \('(.+)'\) is global and assumed valid\./;
+
+function parseKnownMessage(
+  rawLine: string,
+  idx: number,
+): KnownMessageLine | null {
+  let { match } = consumeRegex(RE_MSG_GLOBAL_FUNC_VALID, rawLine);
+  if (!match) return null;
+  return {
+    type: ParsedLineType.KNOWN_MESSAGE,
+    idx,
+    raw: rawLine,
+    info: {
+      type: KnownMessageInfoType.GLOBAL_FUNC_VALID,
+      funcId: parseInt(match[1], 10),
+      funcName: match[2],
+    },
+  };
+}
+
 export function parseLine(rawLine: string, idx: number): ParsedLine {
   let parsed: ParsedLine | null = parseCSourceLine(rawLine, idx);
   if (parsed) return parsed;
 
   parsed = parseBpfInstruction(rawLine, idx);
+  if (parsed) return parsed;
+
+  parsed = parseKnownMessage(rawLine, idx);
   if (parsed) return parsed;
 
   return {

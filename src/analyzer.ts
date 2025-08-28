@@ -9,6 +9,8 @@ import {
   ParsedLineType,
   parseLine,
   getCLineId,
+  KnownMessageInfoType,
+  GlobalFuncValidInfo,
 } from "./parser";
 
 export type BpfValue = {
@@ -267,6 +269,22 @@ export function getEmptyVerifierState(): VerifierLogState {
   };
 }
 
+function updateGlobalFuncCall(callLine: ParsedLine, info: GlobalFuncValidInfo) {
+  // "assumed valid" message indicates that previous instructions was a call to a global function which verifier recognizes as valid.
+  // So we change the call ParsedLine to a HELPER_CALL, so that it is processed accordingly.
+  if (callLine.type !== ParsedLineType.INSTRUCTION) return;
+  const ins = callLine.bpfIns;
+  if (
+    ins.kind !== BpfInstructionKind.JMP ||
+    ins.jmpKind !== BpfJmpKind.SUBPROGRAM_CALL
+  )
+    return;
+  ins.jmpKind = BpfJmpKind.HELPER_CALL;
+  ins.target = info.funcName;
+  ins.reads = BPF_SCRATCH_REGS;
+  ins.writes = ["r0", ...BPF_SCRATCH_REGS];
+}
+
 export function processRawLines(rawLines: string[]): VerifierLogState {
   let bpfStates: BpfState[] = [];
   let lines: ParsedLine[] = [];
@@ -274,9 +292,31 @@ export function processRawLines(rawLines: string[]): VerifierLogState {
   let idxsForCLine: number[] = [];
   let currentCSourceLine: CSourceLine | undefined;
   const cSourceMap = new CSourceMap();
+  const knownMessageIdxs: number[] = [];
 
-  rawLines.forEach((rawLine, idx) => {
+  // First pass: parse individual lines
+  lines = rawLines.map((rawLine, idx) => {
     const parsedLine = parseLine(rawLine, idx);
+    if (parsedLine.type === ParsedLineType.KNOWN_MESSAGE) {
+      knownMessageIdxs.push(idx);
+    }
+    return parsedLine;
+  });
+
+  // Process known messages and fixup parsed lines
+  knownMessageIdxs.forEach((idx) => {
+    const parsedLine = lines[idx];
+    if (
+      idx > 0 &&
+      parsedLine.type === ParsedLineType.KNOWN_MESSAGE &&
+      parsedLine.info.type == KnownMessageInfoType.GLOBAL_FUNC_VALID
+    ) {
+      updateGlobalFuncCall(lines[idx - 1], parsedLine.info);
+    }
+  });
+
+  // Second pass: build CSourceMap and BpfState[]
+  lines.forEach((parsedLine, idx) => {
     switch (parsedLine.type) {
       case ParsedLineType.C_SOURCE: {
         if (currentCSourceLine) {
@@ -297,7 +337,6 @@ export function processRawLines(rawLines: string[]): VerifierLogState {
       savedBpfStates,
     );
     bpfStates.push(bpfState);
-    lines.push(parsedLine);
   });
   if (currentCSourceLine) {
     cSourceMap.addCSourceLine(currentCSourceLine, idxsForCLine);
