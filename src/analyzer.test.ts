@@ -6,7 +6,14 @@ import {
   VerifierLogState,
 } from "./analyzer";
 
-import { BPF_CALLEE_SAVED_REGS, BPF_SCRATCH_REGS, Effect } from "./parser";
+import {
+  BPF_CALLEE_SAVED_REGS,
+  BPF_SCRATCH_REGS,
+  Effect,
+  ParsedLineType,
+  BpfInstructionKind,
+  BpfJmpKind,
+} from "./parser";
 
 function expectInitialBpfState(s: BpfState) {
   expect(s.frame).toBe(0);
@@ -445,6 +452,51 @@ to caller at 705:
       it("tracks file range correctly", () => {
         const rbtreeRange = cSourceMap.fileRange.get("pyperf.h");
         expect(rbtreeRange).toEqual([313, 313]);
+      });
+    });
+  });
+
+  describe("processes known messages", () => {
+    const verifierLogWithGlobalFuncCall = `
+0: (b7) r2 = 1                        ; R2_w=1
+1: (85) call pc+10
+Func#123 ('my_global_func') is global and assumed valid.
+2: (bf) r0 = r1                       ; R0_w=ctx() R1=ctx()
+`;
+
+    describe("global func call", () => {
+      const strings = verifierLogWithGlobalFuncCall.split("\n");
+      strings.shift(); // remove the first \n
+      const logState: VerifierLogState = processRawLines(strings);
+      const { lines, bpfStates } = logState;
+
+      it("transforms global function call correctly", () => {
+        // Check that line 1 is transformed from SUBPROGRAM_CALL to HELPER_CALL
+        expect(lines[1]).toMatchObject({
+          type: ParsedLineType.INSTRUCTION,
+          bpfIns: {
+            kind: BpfInstructionKind.JMP,
+            jmpKind: BpfJmpKind.HELPER_CALL,
+            target: "my_global_func",
+            reads: BPF_SCRATCH_REGS,
+            writes: ["r0", ...BPF_SCRATCH_REGS],
+          },
+        });
+      });
+
+      it("processes BPF states correctly after transformation", () => {
+        // Check that the transformed call is processed as a helper call
+        const callState = bpfStates[1];
+        expect(callState.frame).toBe(0);
+        expect(callState.pc).toBe(1);
+        for (const reg of BPF_SCRATCH_REGS) {
+          expect(callState.values.get(reg)).toMatchObject({
+            effect: Effect.UPDATE,
+          });
+        }
+        expect(callState.values.get("r0")).toMatchObject({
+          effect: Effect.WRITE,
+        });
       });
     });
   });

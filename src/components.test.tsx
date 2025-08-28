@@ -295,15 +295,11 @@ describe("JmpInstruction", () => {
     );
   });
 
-  describe("CallHtml argument counting", () => {
-    function setCallArgValue(
-      state: BpfState,
-      arg: string,
-      preCallValue: string,
-    ) {
-      state.values.set(arg, makeValue("", Effect.UPDATE, preCallValue));
-    }
+  function setCallArgValue(state: BpfState, arg: string, preCallValue: string) {
+    state.values.set(arg, makeValue("", Effect.UPDATE, preCallValue));
+  }
 
+  describe("CallHtml argument counting", () => {
     it("shows 3 arguments when r4 and r5 are scratched", () => {
       const ins = createTargetJmpIns(
         BpfJmpCode.JA,
@@ -358,6 +354,32 @@ describe("JmpInstruction", () => {
       expect(innerHTML).toContain("r3");
       expect(innerHTML).toContain("r4");
       expect(innerHTML).not.toMatch(/r5.*,/);
+    });
+  });
+
+  describe("global function call rendering", () => {
+    it("renders global function name", () => {
+      // After analyzer transformation, a global function call becomes a HELPER_CALL
+      // with the function name as the target (e.g., "my_global_func" instead of "pc+10")
+      const ins = createTargetJmpIns(
+        BpfJmpCode.CALL,
+        BpfJmpKind.HELPER_CALL,
+        "my_global_func",
+      );
+      const line = createLine(ins);
+      const state = initialBpfState();
+      setCallArgValue(state, "r1", "ctx()");
+      setCallArgValue(state, "r2", "buffer_ptr");
+      setCallArgValue(state, "r3", "");
+
+      render(<JmpInstruction ins={ins} line={line} state={state} />);
+      const divs = document.getElementsByTagName("div");
+      expect(divs.length).toBe(1);
+
+      const innerHTML = divs[0].innerHTML;
+      expect(innerHTML).toContain("my_global_func");
+      expect(innerHTML).toContain("r1");
+      expect(innerHTML).toContain("r2");
     });
   });
 });
