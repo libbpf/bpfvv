@@ -220,6 +220,7 @@ export type CSourceLine = {
 
 export enum KnownMessageInfoType {
   GLOBAL_FUNC_VALID = "GLOBAL_FUNC_VALID",
+  BPF_STATE_EXPRS = "BPF_STATE_EXPRS",
 }
 
 export type GlobalFuncValidInfo = {
@@ -228,7 +229,13 @@ export type GlobalFuncValidInfo = {
   funcName: string;
 };
 
-export type KnownMessageInfo = GlobalFuncValidInfo;
+export type BpfStateExprsInfo = {
+  type: KnownMessageInfoType.BPF_STATE_EXPRS;
+  pc: number;
+  bpfStateExprs: BpfStateExpr[];
+};
+
+export type KnownMessageInfo = BpfStateExprsInfo | GlobalFuncValidInfo;
 
 export type KnownMessageLine = {
   type: ParsedLineType.KNOWN_MESSAGE;
@@ -275,20 +282,16 @@ const parseBpfStateExpr = (
     }
     i++;
   }
-  const expr = {
-    id,
-    value: str.substring(equalsIndex + 1, i),
-    rawKey: key,
-  };
+  let value = str.substring(equalsIndex + 1, i);
+  if (value === "fp0") value = "fp-0"; // normalize fp0 to fp-0
+  const expr = { id, value, rawKey: key };
   return { expr, rest: str.substring(i) };
 };
 
 export const parseBpfStateExprs = (
   str: string,
 ): { exprs: BpfStateExpr[]; rest: string } => {
-  let { match, rest } = consumeString("; ", str);
-  if (!match) return { exprs: [], rest: str };
-
+  let rest = str;
   let frame = consumeRegex(RE_FRAME_ID, rest);
   let frameId = 0;
   if (frame.match) {
@@ -645,6 +648,14 @@ function parseConditionalJmp(
   const target = jmpTarget.match[2];
   rest = consumeSpaces(jmpTarget.rest);
 
+  const reads = [];
+  if (leftOp.op.type !== OperandType.IMM) {
+    reads.push(leftOp.op.id);
+  }
+  if (rightOp.op.type !== OperandType.IMM) {
+    reads.push(rightOp.op.id);
+  }
+
   const ins: BpfConditionalJmpInstruction = {
     kind: BpfInstructionKind.JMP,
     jmpKind: BpfJmpKind.CONDITIONAL_GOTO,
@@ -655,7 +666,7 @@ function parseConditionalJmp(
       op: operator,
       right: rightOp.op,
     },
-    reads: [leftOp.op.id, rightOp.op.id],
+    reads,
     writes: [], // technically goto writes pc, but we don't care about it (?)
   };
   return { ins, rest };
@@ -811,22 +822,33 @@ function parseCSourceLine(str: string, idx: number): CSourceLine | null {
   };
 }
 
+function parseProgramCounter(str: string): { pc: number | null; rest: string } {
+  const { match, rest } = consumeRegex(RE_PROGRAM_COUNTER, str);
+  if (match)
+    return {
+      pc: parseInt(match[1], 10),
+      rest,
+    };
+  else
+    return {
+      pc: null,
+      rest: str,
+    };
+}
+
 function parseBpfInstruction(
   rawLine: string,
   idx: number,
 ): InstructionLine | null {
-  let { match, rest } = consumeRegex(
-    RE_PROGRAM_COUNTER,
-    consumeSpaces(rawLine),
-  );
-  if (!match) return null;
+  let { pc, rest } = parseProgramCounter(consumeSpaces(rawLine));
+  if (pc === null) return null;
 
-  const pc = parseInt(match[1], 10);
   const parsedIns = parseOpcodeIns(consumeSpaces(rest), pc);
   if (!parsedIns.ins) return null;
 
   const ins = parsedIns.ins;
   rest = consumeSpaces(parsedIns.rest);
+  rest = consumeString("; ", rest).rest;
   const { exprs } = parseBpfStateExprs(rest);
   return {
     type: ParsedLineType.INSTRUCTION,
@@ -840,21 +862,41 @@ function parseBpfInstruction(
 const RE_MSG_GLOBAL_FUNC_VALID =
   /^Func#([-0-9]+) \('(.+)'\) is global and assumed valid\./;
 
+function parseGlobalFuncValidMessage(str: string): GlobalFuncValidInfo | null {
+  let { match } = consumeRegex(RE_MSG_GLOBAL_FUNC_VALID, str);
+  if (!match) return null;
+  return {
+    type: KnownMessageInfoType.GLOBAL_FUNC_VALID,
+    funcId: parseInt(match[1], 10),
+    funcName: match[2],
+  };
+}
+
+function parseExprsOnly(str: string): BpfStateExprsInfo | null {
+  let { pc, rest } = parseProgramCounter(consumeSpaces(str));
+  if (pc === null) return null;
+  rest = consumeSpaces(rest);
+  const { exprs } = parseBpfStateExprs(rest);
+  return {
+    type: KnownMessageInfoType.BPF_STATE_EXPRS,
+    bpfStateExprs: exprs,
+    pc,
+  };
+}
+
 function parseKnownMessage(
   rawLine: string,
   idx: number,
 ): KnownMessageLine | null {
-  let { match } = consumeRegex(RE_MSG_GLOBAL_FUNC_VALID, rawLine);
-  if (!match) return null;
+  let info: KnownMessageInfo | null;
+  info = parseGlobalFuncValidMessage(rawLine);
+  if (!info) info = parseExprsOnly(rawLine);
+  if (!info) return null;
   return {
     type: ParsedLineType.KNOWN_MESSAGE,
     idx,
     raw: rawLine,
-    info: {
-      type: KnownMessageInfoType.GLOBAL_FUNC_VALID,
-      funcId: parseInt(match[1], 10),
-      funcName: match[2],
-    },
+    info,
   };
 }
 

@@ -185,6 +185,41 @@ ERROR: Loading BPF object(s) failed.
     });
   });
 
+  describe("processes indirect stack access correctly", () => {
+    const sampleLog = `
+525: (bf) r1 = r10                    ; R1_w=fp0 R10=fp0
+526: (07) r1 += -24                   ; R1_w=fp-24
+527: (79) r2 = *(u64 *)(r10 -56)      ; R2_w=0 R10=fp0 fp-56=0
+528: (0f) r1 += r2
+529: (7b) *(u64 *)(r1 +0) = r8        ; R1_w=fp-24 R8=scalar(id=102) fp-24_w=scalar(id=102)
+900: (bf) r2 = r10                    ; R2_w=fp0 R10=fp0
+901: (07) r2 += -24                   ; R2_w=fp-24
+902: (79) r6 = *(u64 *)(r2 +0)        ; R2=fp-24 R6_w=scalar(id=102) fp-24=scalar(id=102)
+`;
+    const bpfStates = bpfStatesFromLog(sampleLog);
+    it("*(u64 *)(r1 +0) = r8", () => {
+      const s = bpfStates[4];
+      expect(s.frame).toBe(0);
+      expect(s.idx).toBe(4);
+      expect(s.pc).toBe(529);
+      expect(s.values.get("fp-24")).toMatchObject({
+        value: "scalar(id=102)",
+        effect: Effect.WRITE,
+      });
+    });
+
+    it("r6 = *(u64 *)(r2 +0)", () => {
+      const s = bpfStates[7];
+      expect(s.frame).toBe(0);
+      expect(s.idx).toBe(7);
+      expect(s.pc).toBe(902);
+      expect(s.values.get("fp-24")).toMatchObject({
+        value: "scalar(id=102)",
+      });
+      expect(s.lastKnownWrites.get("fp-24")).toBe(4);
+    });
+  });
+
   const verifierLogFragmentWithASubprogramCall = `
 702: (bf) r1 = r7                     ; frame0: R1_w=map_value(off=0,ks=4,vs=2808,imm=0) R7=map_value(off=0,ks=4,vs=2808,imm=0)
 703: (bf) r2 = r6                     ; frame0: R2_w=rcu_ptr_task_struct(off=0,imm=0) R6=rcu_ptr_task_struct(off=0,imm=0)
@@ -215,10 +250,7 @@ to caller at 705:
       expect(s.frame).toBe(0);
       expect(s.idx).toBe(0);
       expect(s.pc).toBe(702);
-      expect(s.values.get("r7")).toMatchObject({
-        value: r1Value,
-        effect: Effect.READ,
-      });
+      expect(s.values.get("r7")?.value).toBe(r1Value);
       expect(s.values.get("r1")).toMatchObject({
         value: r1Value,
         effect: Effect.WRITE,
@@ -230,10 +262,7 @@ to caller at 705:
       expect(s.frame).toBe(0);
       expect(s.idx).toBe(1);
       expect(s.pc).toBe(703);
-      expect(s.values.get("r6")).toMatchObject({
-        value: r2Value,
-        effect: Effect.READ,
-      });
+      expect(s.values.get("r6")?.value).toBe(r2Value);
       expect(s.values.get("r2")).toMatchObject({
         value: r2Value,
         effect: Effect.WRITE,

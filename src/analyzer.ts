@@ -11,7 +11,10 @@ import {
   getCLineId,
   KnownMessageInfoType,
   GlobalFuncValidInfo,
+  InstructionLine,
+  BpfStateExprsInfo,
 } from "./parser";
+import { siblingInsLine } from "./utils";
 
 export type BpfValue = {
   value: string;
@@ -85,8 +88,6 @@ export function makeValue(
   prevValue: string = "",
 ): BpfValue {
   const ret: BpfValue = { value, effect };
-  // @Hack display fp0 as fp-0
-  if (ret.value === "fp0") ret.value = "fp-0";
   if (prevValue) ret.prevValue = prevValue;
   return ret;
 }
@@ -97,7 +98,7 @@ export function initialBpfState(): BpfState {
     values.set(`r${i}`, { value: "", effect: Effect.NONE });
   }
   values.set("r1", makeValue("ctx()"));
-  values.set("r10", makeValue("fp0"));
+  values.set("r10", makeValue("fp-0"));
   let lastKnownWrites = new Map<string, number>();
   lastKnownWrites.set("r1", 0);
   lastKnownWrites.set("r10", 0);
@@ -156,7 +157,7 @@ function pushStackFrame(
   for (const r of ["r0", ...BPF_CALLEE_SAVED_REGS]) {
     values.set(r, { value: "", effect: Effect.WRITE });
   }
-  values.set("r10", makeValue("fp0"));
+  values.set("r10", makeValue("fp-0"));
 
   let lastKnownWrites = new Map<string, number>();
   for (const r of BPF_SCRATCH_REGS) {
@@ -245,10 +246,18 @@ function nextBpfState(
     newState.lastKnownWrites.set(id, line.idx);
   }
 
-  // verifier reported values
+  // If verifier reported a particular expr, it overrides any values we may have computed so far
+  // This means, for example, that conditions can be UPDATEs
   for (const expr of line.bpfStateExprs) {
-    const effect = effects.get(expr.id) || Effect.NONE;
     const val: BpfValue | undefined = newState.values.get(expr.id);
+    let effect = effects.get(expr.id) || Effect.NONE;
+    if (!val) {
+      effect = Effect.WRITE;
+      newState.lastKnownWrites.set(expr.id, line.idx);
+    } else if (expr.value !== val.value && effect !== Effect.WRITE) {
+      effect = Effect.UPDATE;
+      newState.lastKnownWrites.set(expr.id, line.idx);
+    }
     newState.values.set(
       expr.id,
       makeValue(expr.value, effect, val?.prevValue || ""),
@@ -285,6 +294,26 @@ function updateGlobalFuncCall(callLine: ParsedLine, info: GlobalFuncValidInfo) {
   ins.writes = ["r0", ...BPF_SCRATCH_REGS];
 }
 
+function updateBpfStateExprs(
+  lines: ParsedLine[],
+  info: BpfStateExprsInfo,
+  idx: number,
+) {
+  // the heuristic to incorporate BPF_STATE_EXPRS messages is
+  // to check previous and next instruction line, and compare the PC
+  // if no match found, the message is ignored
+  const prevIdx = siblingInsLine(lines, idx, -1);
+  const prevLine = <InstructionLine>lines[prevIdx];
+  if (prevIdx < idx && prevLine.bpfIns.pc === info.pc) {
+    prevLine.bpfStateExprs.push(...info.bpfStateExprs);
+  }
+  const nextIdx = siblingInsLine(lines, idx, +1);
+  const nextLine = <InstructionLine>lines[nextIdx];
+  if (nextIdx > idx && nextLine.bpfIns.pc === info.pc) {
+    nextLine.bpfStateExprs.push(...info.bpfStateExprs);
+  }
+}
+
 export function processRawLines(rawLines: string[]): VerifierLogState {
   let bpfStates: BpfState[] = [];
   let lines: ParsedLine[] = [];
@@ -306,12 +335,12 @@ export function processRawLines(rawLines: string[]): VerifierLogState {
   // Process known messages and fixup parsed lines
   knownMessageIdxs.forEach((idx) => {
     const parsedLine = lines[idx];
-    if (
-      idx > 0 &&
-      parsedLine.type === ParsedLineType.KNOWN_MESSAGE &&
-      parsedLine.info.type == KnownMessageInfoType.GLOBAL_FUNC_VALID
-    ) {
-      updateGlobalFuncCall(lines[idx - 1], parsedLine.info);
+    if (parsedLine.type !== ParsedLineType.KNOWN_MESSAGE) return;
+    const info = parsedLine.info;
+    if (info.type === KnownMessageInfoType.GLOBAL_FUNC_VALID && idx > 0) {
+      updateGlobalFuncCall(lines[idx - 1], info);
+    } else if (info.type === KnownMessageInfoType.BPF_STATE_EXPRS) {
+      updateBpfStateExprs(lines, info, idx);
     }
   });
 
@@ -409,7 +438,7 @@ export function getMemSlotDependencies(
 
       deps = getMemSlotDependencies(verifierLogState, prevDepIdx, memSlotId);
     }
-  } else if (nReads === 1) {
+  } else if (nReads === 1 && depIdx !== bpfState.idx) {
     deps = getMemSlotDependencies(verifierLogState, depIdx, depIns.reads[0]);
   }
 
