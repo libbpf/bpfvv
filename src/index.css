@@ -89,7 +89,12 @@ h1 {
   flex: 1;
   min-width: 0;
   gap: 0;
-  overflow: auto;
+  overflow: hidden;
+}
+
+#c-source-content {
+  overflow-y: scroll;
+  height: 100%;
 }
 
 .c-source-panel {
@@ -102,10 +107,9 @@ h1 {
 }
 
 .filename-header {
-  background-color: #d4d4d4;
+  background-color: #f8f8f8;
   height: 20px;
   font-weight: bold;
-  width: 100%;
   padding: 10px 0px 10px 10px;
 }
 
@@ -343,13 +347,17 @@ h1 {
 #state-panel {
   flex: 1;
   padding: 10px;
-  overflow: auto;
+  position: relative;
+}
+
+#state-panel-content {
+  overflow-y: scroll;
+  height: 100%;
 }
 
 .panel-hidden {
   flex: none;
-  width: 30px;
-  padding: 10px;
+  width: 40px;
   text-align: center;
 }
 
@@ -402,11 +410,15 @@ h1 {
   top: 0px;
   text-align: center;
   cursor: pointer;
-  right: 15px;
+  right: 0px;
+  width: 40px;
+  height: 40px;
+  background-color: rgba(248, 248, 248, 0.8);
 }
 
 .hide-show-button:hover {
   color: blue;
+  background-color: rgba(248, 248, 248, 1);
 }
 
 .hide-show-button .hide-show-tooltip {
