@@ -275,11 +275,9 @@ const parseBpfStateExpr = (
     }
     i++;
   }
-  const expr = {
-    id,
-    value: str.substring(equalsIndex + 1, i),
-    rawKey: key,
-  };
+  let value = str.substring(equalsIndex + 1, i);
+  if (value === "fp0") value = "fp-0"; // normalize fp0 to fp-0
+  const expr = { id, value, rawKey: key };
   return { expr, rest: str.substring(i) };
 };
 
@@ -645,6 +643,14 @@ function parseConditionalJmp(
   const target = jmpTarget.match[2];
   rest = consumeSpaces(jmpTarget.rest);
 
+  const reads = [];
+  if (leftOp.op.type !== OperandType.IMM) {
+    reads.push(leftOp.op.id);
+  }
+  if (rightOp.op.type !== OperandType.IMM) {
+    reads.push(rightOp.op.id);
+  }
+
   const ins: BpfConditionalJmpInstruction = {
     kind: BpfInstructionKind.JMP,
     jmpKind: BpfJmpKind.CONDITIONAL_GOTO,
@@ -655,7 +661,7 @@ function parseConditionalJmp(
       op: operator,
       right: rightOp.op,
     },
-    reads: [leftOp.op.id, rightOp.op.id],
+    reads,
     writes: [], // technically goto writes pc, but we don't care about it (?)
   };
   return { ins, rest };

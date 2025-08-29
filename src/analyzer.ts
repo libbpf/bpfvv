@@ -85,8 +85,6 @@ export function makeValue(
   prevValue: string = "",
 ): BpfValue {
   const ret: BpfValue = { value, effect };
-  // @Hack display fp0 as fp-0
-  if (ret.value === "fp0") ret.value = "fp-0";
   if (prevValue) ret.prevValue = prevValue;
   return ret;
 }
@@ -97,7 +95,7 @@ export function initialBpfState(): BpfState {
     values.set(`r${i}`, { value: "", effect: Effect.NONE });
   }
   values.set("r1", makeValue("ctx()"));
-  values.set("r10", makeValue("fp0"));
+  values.set("r10", makeValue("fp-0"));
   let lastKnownWrites = new Map<string, number>();
   lastKnownWrites.set("r1", 0);
   lastKnownWrites.set("r10", 0);
@@ -156,7 +154,7 @@ function pushStackFrame(
   for (const r of ["r0", ...BPF_CALLEE_SAVED_REGS]) {
     values.set(r, { value: "", effect: Effect.WRITE });
   }
-  values.set("r10", makeValue("fp0"));
+  values.set("r10", makeValue("fp-0"));
 
   let lastKnownWrites = new Map<string, number>();
   for (const r of BPF_SCRATCH_REGS) {
@@ -245,10 +243,18 @@ function nextBpfState(
     newState.lastKnownWrites.set(id, line.idx);
   }
 
-  // verifier reported values
+  // If verifier reported a particular expr, it overrides any values we may have computed so far
+  // This means, for example, that conditions can be UPDATEs
   for (const expr of line.bpfStateExprs) {
-    const effect = effects.get(expr.id) || Effect.NONE;
     const val: BpfValue | undefined = newState.values.get(expr.id);
+    let effect = effects.get(expr.id) || Effect.NONE;
+    if (!val) {
+      effect = Effect.WRITE;
+      newState.lastKnownWrites.set(expr.id, line.idx);
+    } else if (expr.value !== val.value && effect !== Effect.WRITE) {
+      effect = Effect.UPDATE;
+      newState.lastKnownWrites.set(expr.id, line.idx);
+    }
     newState.values.set(
       expr.id,
       makeValue(expr.value, effect, val?.prevValue || ""),
@@ -409,7 +415,7 @@ export function getMemSlotDependencies(
 
       deps = getMemSlotDependencies(verifierLogState, prevDepIdx, memSlotId);
     }
-  } else if (nReads === 1) {
+  } else if (nReads === 1 && depIdx !== bpfState.idx) {
     deps = getMemSlotDependencies(verifierLogState, depIdx, depIns.reads[0]);
   }
 
