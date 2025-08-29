@@ -563,4 +563,42 @@ Func#123 ('my_global_func') is global and assumed valid.
       });
     });
   });
+
+  describe("takes into accout BPF_STATE_EXPRS messages", () => {
+    const rawLog = `
+96: (18) r1 = 0xffff888370cf0a00      ; frame1: R1_w=map_ptr(map=bpfj_log_map,ks=0,vs=0)
+98: (b7) r2 = 196                     ; frame1: R2_w=196
+99: (b7) r3 = 0                       ; frame1: R3_w=0
+100: (85) call bpf_ringbuf_reserve#131
+101: frame1: R0=ringbuf_mem_or_null(id=5,ref_obj_id=5,sz=196) refs=5
+101: (bf) r7 = r0                     ; frame1: R0=ringbuf_mem_or_null(id=5,ref_obj_id=5,sz=196) R7_w=ringbuf_mem_or_null(id=5,ref_obj_id=5,sz=196) refs=5
+`;
+    const { bpfStates } = getVerifierLogState(rawLog);
+    const val = "ringbuf_mem_or_null(id=5,ref_obj_id=5,sz=196)";
+    it("call bpf_ringbuf_reserve#131 contains state from the next log line", () => {
+      const s = bpfStates[3];
+      expect(s.idx).toBe(3);
+      expect(s.pc).toBe(100);
+      expect(s.values.get("r0")).toMatchObject({
+        value: val,
+        effect: Effect.WRITE,
+      });
+    });
+
+    it("101: (bf) r7 = r0 depends on the call", () => {
+      const s = bpfStates[5];
+      expect(s.idx).toBe(5);
+      expect(s.pc).toBe(101);
+      expect(s.values.get("r0")).toMatchObject({
+        value: val,
+        effect: Effect.READ,
+      });
+      expect(s.values.get("r7")).toMatchObject({
+        value: val,
+        effect: Effect.WRITE,
+      });
+      expect(s.lastKnownWrites.get("r0")).toBe(3);
+      expect(s.lastKnownWrites.get("r7")).toBe(5);
+    });
+  });
 });

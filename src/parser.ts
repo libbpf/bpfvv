@@ -221,6 +221,7 @@ export type CSourceLine = {
 
 export enum KnownMessageInfoType {
   GLOBAL_FUNC_VALID = "GLOBAL_FUNC_VALID",
+  BPF_STATE_EXPRS = "BPF_STATE_EXPRS",
 }
 
 export type GlobalFuncValidInfo = {
@@ -229,7 +230,13 @@ export type GlobalFuncValidInfo = {
   funcName: string;
 };
 
-export type KnownMessageInfo = GlobalFuncValidInfo;
+export type BpfStateExprsInfo = {
+  type: KnownMessageInfoType.BPF_STATE_EXPRS;
+  pc: number;
+  bpfStateExprs: BpfStateExpr[];
+};
+
+export type KnownMessageInfo = BpfStateExprsInfo | GlobalFuncValidInfo;
 
 export type KnownMessageLine = {
   type: ParsedLineType.KNOWN_MESSAGE;
@@ -247,64 +254,11 @@ type BpfStateExpr = {
   value: string;
   rawKey: string;
   frame?: number;
+  pc?: number;
 };
 
 export const BPF_SCRATCH_REGS = ["r1", "r2", "r3", "r4", "r5"];
 export const BPF_CALLEE_SAVED_REGS = ["r6", "r7", "r8", "r9"];
-
-const parseBpfStateExpr = (
-  str: string,
-): { expr: BpfStateExpr; rest: string } | undefined => {
-  const equalsIndex = str.indexOf("=");
-  if (equalsIndex === -1) return undefined;
-  const key = str.substring(0, equalsIndex);
-  let id = key;
-  if (key.endsWith("_w")) id = key.substring(0, key.length - 2);
-  id = id.toLowerCase();
-
-  // the next value starts after a space outside of any parentheses
-  let i = equalsIndex + 1;
-  let stack = [];
-  while (i < str.length) {
-    if (str[i] === "(") {
-      stack.push(str[i]);
-    }
-    if (str[i] === ")" && stack.length > 0) {
-      stack.pop();
-    } else if (str[i] === " " && stack.length === 0) {
-      break;
-    }
-    i++;
-  }
-  let value = str.substring(equalsIndex + 1, i);
-  if (value === "fp0") value = "fp-0"; // normalize fp0 to fp-0
-  const expr = { id, value, rawKey: key };
-  return { expr, rest: str.substring(i) };
-};
-
-export const parseBpfStateExprs = (
-  str: string,
-): { exprs: BpfStateExpr[]; rest: string } => {
-  let { match, rest } = consumeString("; ", str);
-  if (!match) return { exprs: [], rest: str };
-
-  let frame = consumeRegex(RE_FRAME_ID, rest);
-  let frameId = 0;
-  if (frame.match) {
-    frameId = parseInt(frame.match[1], 10);
-    rest = frame.rest;
-  }
-
-  let exprs = [];
-  while (rest.length > 0) {
-    const parsed = parseBpfStateExpr(rest);
-    if (!parsed) break;
-    rest = consumeSpaces(parsed.rest);
-    parsed.expr.frame = frameId;
-    exprs.push(parsed.expr);
-  }
-  return { exprs, rest };
-};
 
 const RE_WHITESPACE = /^\s+/;
 const RE_PROGRAM_COUNTER = /^([0-9]+):/;
@@ -346,6 +300,74 @@ const BPF_COND_OPERATORS = [
   "<",
   ">",
 ];
+
+function parseProgramCounter(str: string): { pc: number | null; rest: string } {
+  const { match, rest } = consumeRegex(RE_PROGRAM_COUNTER, str);
+  if (match)
+    return {
+      pc: parseInt(match[1], 10),
+      rest,
+    };
+  else
+    return {
+      pc: null,
+      rest: str,
+    };
+}
+
+const parseBpfStateExpr = (
+  str: string,
+): { expr: BpfStateExpr; rest: string } | undefined => {
+  const equalsIndex = str.indexOf("=");
+  if (equalsIndex === -1) return undefined;
+  const key = str.substring(0, equalsIndex);
+  let id = key;
+  if (key.endsWith("_w")) id = key.substring(0, key.length - 2);
+  id = id.toLowerCase();
+
+  // the next value starts after a space outside of any parentheses
+  let i = equalsIndex + 1;
+  let stack = [];
+  while (i < str.length) {
+    if (str[i] === "(") {
+      stack.push(str[i]);
+    }
+    if (str[i] === ")" && stack.length > 0) {
+      stack.pop();
+    } else if (str[i] === " " && stack.length === 0) {
+      break;
+    }
+    i++;
+  }
+  let value = str.substring(equalsIndex + 1, i);
+  if (value === "fp0") value = "fp-0"; // normalize fp0 to fp-0
+  const expr = { id, value, rawKey: key };
+  return { expr, rest: str.substring(i) };
+};
+
+export const parseBpfStateExprs = (
+  str: string,
+): { exprs: BpfStateExpr[]; rest: string } => {
+  let { pc, rest } = parseProgramCounter(str);
+
+  let frame = consumeRegex(RE_FRAME_ID, consumeSpaces(rest));
+  let frameId = 0;
+  if (frame.match) {
+    frameId = parseInt(frame.match[1], 10);
+    rest = frame.rest;
+  }
+
+  let exprs = [];
+  while (rest.length > 0) {
+    const parsed = parseBpfStateExpr(rest);
+    if (!parsed) break;
+    rest = consumeSpaces(parsed.rest);
+    parsed.expr.frame = frameId;
+    if (pc) parsed.expr.pc = pc;
+    exprs.push(parsed.expr);
+  }
+  return { exprs, rest };
+};
 
 function consumeRegex(
   regex: RegExp,
@@ -820,18 +842,15 @@ function parseBpfInstruction(
   rawLine: string,
   idx: number,
 ): InstructionLine | null {
-  let { match, rest } = consumeRegex(
-    RE_PROGRAM_COUNTER,
-    consumeSpaces(rawLine),
-  );
-  if (!match) return null;
+  let { pc, rest } = parseProgramCounter(consumeSpaces(rawLine));
+  if (pc === null) return null;
 
-  const pc = parseInt(match[1], 10);
   const parsedIns = parseOpcodeIns(consumeSpaces(rest), pc);
   if (!parsedIns.ins) return null;
 
   const ins = parsedIns.ins;
   rest = consumeSpaces(parsedIns.rest);
+  rest = consumeString("; ", rest).rest;
   const { exprs } = parseBpfStateExprs(rest);
   return {
     type: ParsedLineType.INSTRUCTION,
@@ -845,21 +864,41 @@ function parseBpfInstruction(
 const RE_MSG_GLOBAL_FUNC_VALID =
   /^Func#([-0-9]+) \('(.+)'\) is global and assumed valid\./;
 
+function parseGlobalFuncValidMessage(str: string): GlobalFuncValidInfo | null {
+  let { match } = consumeRegex(RE_MSG_GLOBAL_FUNC_VALID, str);
+  if (!match) return null;
+  return {
+    type: KnownMessageInfoType.GLOBAL_FUNC_VALID,
+    funcId: parseInt(match[1], 10),
+    funcName: match[2],
+  };
+}
+
+function parseExprsOnly(str: string): BpfStateExprsInfo | null {
+  let { pc, rest } = parseProgramCounter(consumeSpaces(str));
+  if (pc === null) return null;
+  rest = consumeSpaces(rest);
+  const { exprs } = parseBpfStateExprs(rest);
+  return {
+    type: KnownMessageInfoType.BPF_STATE_EXPRS,
+    bpfStateExprs: exprs,
+    pc,
+  };
+}
+
 function parseKnownMessage(
   rawLine: string,
   idx: number,
 ): KnownMessageLine | null {
-  let { match } = consumeRegex(RE_MSG_GLOBAL_FUNC_VALID, rawLine);
-  if (!match) return null;
+  let info: KnownMessageInfo | null;
+  info = parseGlobalFuncValidMessage(rawLine);
+  if (!info) info = parseExprsOnly(rawLine);
+  if (!info) return null;
   return {
     type: ParsedLineType.KNOWN_MESSAGE,
     idx,
     raw: rawLine,
-    info: {
-      type: KnownMessageInfoType.GLOBAL_FUNC_VALID,
-      funcId: parseInt(match[1], 10),
-      funcName: match[2],
-    },
+    info,
   };
 }
 
