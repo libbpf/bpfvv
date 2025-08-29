@@ -11,7 +11,10 @@ import {
   getCLineId,
   KnownMessageInfoType,
   GlobalFuncValidInfo,
+  InstructionLine,
+  BpfStateExprsInfo,
 } from "./parser";
+import { siblingInsLine } from "./utils";
 
 export type BpfValue = {
   value: string;
@@ -293,6 +296,20 @@ function updateGlobalFuncCall(callLine: ParsedLine, info: GlobalFuncValidInfo) {
   ins.writes = ["r0", ...BPF_SCRATCH_REGS];
 }
 
+function updatePrevInsBpfState(
+  lines: ParsedLine[],
+  info: BpfStateExprsInfo,
+  idx: number,
+) {
+  // the heuristic for BPF_STATE_EXPRS messages is to append
+  // the exprs to the state of the _previous_ instruction
+  const prevIdx = siblingInsLine(lines, idx, -1);
+  if (prevIdx < idx) {
+    const prevLine = <InstructionLine>lines[prevIdx];
+    prevLine.bpfStateExprs.push(...info.bpfStateExprs);
+  }
+}
+
 export function processRawLines(rawLines: string[]): VerifierLogState {
   let bpfStates: BpfState[] = [];
   let lines: ParsedLine[] = [];
@@ -322,12 +339,12 @@ export function processRawLines(rawLines: string[]): VerifierLogState {
   // Process known messages and fixup parsed lines
   knownMessageIdxs.forEach((idx) => {
     const parsedLine = lines[idx];
-    if (
-      idx > 0 &&
-      parsedLine.type === ParsedLineType.KNOWN_MESSAGE &&
-      parsedLine.info.type == KnownMessageInfoType.GLOBAL_FUNC_VALID
-    ) {
-      updateGlobalFuncCall(lines[idx - 1], parsedLine.info);
+    if (parsedLine.type !== ParsedLineType.KNOWN_MESSAGE) return;
+    const info = parsedLine.info;
+    if (info.type === KnownMessageInfoType.GLOBAL_FUNC_VALID && idx > 0) {
+      updateGlobalFuncCall(lines[idx - 1], info);
+    } else if (info.type === KnownMessageInfoType.BPF_STATE_EXPRS) {
+      updatePrevInsBpfState(lines, info, idx);
     }
   });
 
