@@ -580,21 +580,23 @@ function StatePanelRaw({
 
   return (
     <div id="state-panel" className="state-panel">
-      <div id="state-panel-header">
-        <div>Log Line: {selectedLine + 1}</div>
-        <div>C Line: {selectedCLine}</div>
-        <div>PC: {bpfState.pc}</div>
-        <div>Frame: {bpfState.frame}</div>
-      </div>
       <HideShowButton
         isVisible={isVisible}
         rightOpen={true}
         name="state panel"
         handleHideShowClick={handleHideShowClick}
       />
-      <table>
-        <tbody>{rows}</tbody>
-      </table>
+      <div id="state-panel-content">
+        <div id="state-panel-header">
+          <div>Log Line: {selectedLine + 1}</div>
+          <div>C Line: {selectedCLine}</div>
+          <div>PC: {bpfState.pc}</div>
+          <div>Frame: {bpfState.frame}</div>
+        </div>
+        <table>
+          <tbody>{rows}</tbody>
+        </table>
+      </div>
     </div>
   );
 }
@@ -887,13 +889,13 @@ function CSourceLinesRaw({
       className="c-source-panel"
       onClick={handleCLinesClick}
     >
-      {files}
       <HideShowButton
         isVisible={isVisible}
         rightOpen={false}
         name="C source lines"
         handleHideShowClick={handleHideShowClick}
       />
+      <div id="c-source-content">{files}</div>
     </div>
   );
 }

@@ -167,6 +167,9 @@ exports[`App renders the log visualizer when text is pasted 1`] = `
               C source lines
             </div>
           </div>
+          <div
+            id="c-source-content"
+          />
         </div>
         <div
           class=""
@@ -226,26 +229,6 @@ exports[`App renders the log visualizer when text is pasted 1`] = `
           id="state-panel"
         >
           <div
-            id="state-panel-header"
-          >
-            <div>
-              Log Line: 
-              1
-            </div>
-            <div>
-              C Line: 
-              0
-            </div>
-            <div>
-              PC: 
-              314
-            </div>
-            <div>
-              Frame: 
-              0
-            </div>
-          </div>
-          <div
             class="hide-show-button right"
           >
             ⇒
@@ -257,126 +240,150 @@ exports[`App renders the log visualizer when text is pasted 1`] = `
               state panel
             </div>
           </div>
-          <table>
-            <tbody>
-              <tr
-                class=""
-              >
-                <td>
-                  r0
-                </td>
-                <td>
-                  <span />
-                </td>
-              </tr>
-              <tr
-                class="effect-read"
-              >
-                <td>
-                  r1
-                </td>
-                <td>
-                  <span>
-                    0
-                  </span>
-                </td>
-              </tr>
-              <tr
-                class=""
-              >
-                <td>
-                  r2
-                </td>
-                <td>
-                  <span />
-                </td>
-              </tr>
-              <tr
-                class=""
-              >
-                <td>
-                  r3
-                </td>
-                <td>
-                  <span />
-                </td>
-              </tr>
-              <tr
-                class=""
-              >
-                <td>
-                  r4
-                </td>
-                <td>
-                  <span />
-                </td>
-              </tr>
-              <tr
-                class=""
-              >
-                <td>
-                  r5
-                </td>
-                <td>
-                  <span />
-                </td>
-              </tr>
-              <tr
-                class=""
-              >
-                <td>
-                  r6
-                </td>
-                <td>
-                  <span />
-                </td>
-              </tr>
-              <tr
-                class="effect-read"
-              >
-                <td>
-                  r7
-                </td>
-                <td>
-                  <span>
-                    map_value(off=0,ks=4,vs=2808,imm=0)
-                  </span>
-                </td>
-              </tr>
-              <tr
-                class=""
-              >
-                <td>
-                  r8
-                </td>
-                <td>
-                  <span />
-                </td>
-              </tr>
-              <tr
-                class=""
-              >
-                <td>
-                  r9
-                </td>
-                <td>
-                  <span />
-                </td>
-              </tr>
-              <tr
-                class=""
-              >
-                <td>
-                  r10
-                </td>
-                <td>
-                  <span>
-                    fp-0
-                  </span>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+          <div
+            id="state-panel-content"
+          >
+            <div
+              id="state-panel-header"
+            >
+              <div>
+                Log Line: 
+                1
+              </div>
+              <div>
+                C Line: 
+                0
+              </div>
+              <div>
+                PC: 
+                314
+              </div>
+              <div>
+                Frame: 
+                0
+              </div>
+            </div>
+            <table>
+              <tbody>
+                <tr
+                  class=""
+                >
+                  <td>
+                    r0
+                  </td>
+                  <td>
+                    <span />
+                  </td>
+                </tr>
+                <tr
+                  class="effect-read"
+                >
+                  <td>
+                    r1
+                  </td>
+                  <td>
+                    <span>
+                      0
+                    </span>
+                  </td>
+                </tr>
+                <tr
+                  class=""
+                >
+                  <td>
+                    r2
+                  </td>
+                  <td>
+                    <span />
+                  </td>
+                </tr>
+                <tr
+                  class=""
+                >
+                  <td>
+                    r3
+                  </td>
+                  <td>
+                    <span />
+                  </td>
+                </tr>
+                <tr
+                  class=""
+                >
+                  <td>
+                    r4
+                  </td>
+                  <td>
+                    <span />
+                  </td>
+                </tr>
+                <tr
+                  class=""
+                >
+                  <td>
+                    r5
+                  </td>
+                  <td>
+                    <span />
+                  </td>
+                </tr>
+                <tr
+                  class=""
+                >
+                  <td>
+                    r6
+                  </td>
+                  <td>
+                    <span />
+                  </td>
+                </tr>
+                <tr
+                  class="effect-read"
+                >
+                  <td>
+                    r7
+                  </td>
+                  <td>
+                    <span>
+                      map_value(off=0,ks=4,vs=2808,imm=0)
+                    </span>
+                  </td>
+                </tr>
+                <tr
+                  class=""
+                >
+                  <td>
+                    r8
+                  </td>
+                  <td>
+                    <span />
+                  </td>
+                </tr>
+                <tr
+                  class=""
+                >
+                  <td>
+                    r9
+                  </td>
+                  <td>
+                    <span />
+                  </td>
+                </tr>
+                <tr
+                  class=""
+                >
+                  <td>
+                    r10
+                  </td>
+                  <td>
+                    <span>
+                      fp-0
+                    </span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
       <div
