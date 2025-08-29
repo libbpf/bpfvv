@@ -11,7 +11,10 @@ import {
   getCLineId,
   KnownMessageInfoType,
   GlobalFuncValidInfo,
+  InstructionLine,
+  BpfStateExprsInfo,
 } from "./parser";
+import { siblingInsLine } from "./utils";
 
 export type BpfValue = {
   value: string;
@@ -291,6 +294,26 @@ function updateGlobalFuncCall(callLine: ParsedLine, info: GlobalFuncValidInfo) {
   ins.writes = ["r0", ...BPF_SCRATCH_REGS];
 }
 
+function updateBpfStateExprs(
+  lines: ParsedLine[],
+  info: BpfStateExprsInfo,
+  idx: number,
+) {
+  // the heuristic to incorporate BPF_STATE_EXPRS messages is
+  // to check previous and next instruction line, and compare the PC
+  // if no match found, the message is ignored
+  const prevIdx = siblingInsLine(lines, idx, -1);
+  const prevLine = <InstructionLine>lines[prevIdx];
+  if (prevIdx < idx && prevLine.bpfIns.pc === info.pc) {
+    prevLine.bpfStateExprs.push(...info.bpfStateExprs);
+  }
+  const nextIdx = siblingInsLine(lines, idx, +1);
+  const nextLine = <InstructionLine>lines[nextIdx];
+  if (nextIdx > idx && nextLine.bpfIns.pc === info.pc) {
+    nextLine.bpfStateExprs.push(...info.bpfStateExprs);
+  }
+}
+
 export function processRawLines(rawLines: string[]): VerifierLogState {
   let bpfStates: BpfState[] = [];
   let lines: ParsedLine[] = [];
@@ -312,12 +335,12 @@ export function processRawLines(rawLines: string[]): VerifierLogState {
   // Process known messages and fixup parsed lines
   knownMessageIdxs.forEach((idx) => {
     const parsedLine = lines[idx];
-    if (
-      idx > 0 &&
-      parsedLine.type === ParsedLineType.KNOWN_MESSAGE &&
-      parsedLine.info.type == KnownMessageInfoType.GLOBAL_FUNC_VALID
-    ) {
-      updateGlobalFuncCall(lines[idx - 1], parsedLine.info);
+    if (parsedLine.type !== ParsedLineType.KNOWN_MESSAGE) return;
+    const info = parsedLine.info;
+    if (info.type === KnownMessageInfoType.GLOBAL_FUNC_VALID && idx > 0) {
+      updateGlobalFuncCall(lines[idx - 1], info);
+    } else if (info.type === KnownMessageInfoType.BPF_STATE_EXPRS) {
+      updateBpfStateExprs(lines, info, idx);
     }
   });
 

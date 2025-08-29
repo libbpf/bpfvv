@@ -16,7 +16,7 @@ import {
 } from "./parser";
 
 const AluInstructionSample = "0: (b7) r2 = 1                        ; R2_w=1";
-const BPFStateExprSample = "; R2_w=1 R10=fp0 fp-24_w=1";
+const BPFStateExprSample = "R2_w=1 R10=fp0 fp-24_w=1";
 const MemoryWriteSample = "1: (7b) *(u64 *)(r10 -24) = r2" + BPFStateExprSample;
 const CallInstructionSample = "7: (85) call bpf_probe_read_user#112";
 const AddrSpaceCastSample1 =
