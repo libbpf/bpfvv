@@ -220,6 +220,7 @@ export type CSourceLine = {
 
 export enum KnownMessageInfoType {
   GLOBAL_FUNC_VALID = "GLOBAL_FUNC_VALID",
+  ERROR_MESSAGE = "ERROR_MESSAGE",
 }
 
 export type GlobalFuncValidInfo = {
@@ -228,7 +229,12 @@ export type GlobalFuncValidInfo = {
   funcName: string;
 };
 
-export type KnownMessageInfo = GlobalFuncValidInfo;
+export type ErrorMessageInfo = {
+  type: KnownMessageInfoType.ERROR_MESSAGE;
+  msg: string;
+};
+
+export type KnownMessageInfo = GlobalFuncValidInfo | ErrorMessageInfo;
 
 export type KnownMessageLine = {
   type: ParsedLineType.KNOWN_MESSAGE;

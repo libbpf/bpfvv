@@ -12,6 +12,7 @@ import {
   BpfConditionalJmpInstruction,
   BpfTargetJmpInstruction,
   InstructionLine,
+  KnownMessageInfoType,
 } from "./parser";
 import { CSourceMap, getMemSlotDependencies } from "./analyzer";
 
@@ -311,6 +312,14 @@ const LogLineRaw = ({
       topClasses.push("inline-c-source-line");
       content = <>{line.raw}</>;
       break;
+    // @ts-expect-error expected fall through
+    case ParsedLineType.KNOWN_MESSAGE:
+      if (line.info.type == KnownMessageInfoType.ERROR_MESSAGE) {
+        topClasses.push("error-message");
+        content = <>{line.raw}</>;
+        break;
+      }
+    // falls through
     default:
       topClasses.push("ignorable-line");
       content = <>{line.raw}</>;

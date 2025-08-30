@@ -13,6 +13,7 @@ import {
   ParsedLineType,
   BpfInstructionKind,
   BpfJmpKind,
+  KnownMessageInfoType,
 } from "./parser";
 
 function expectInitialBpfState(s: BpfState) {
@@ -34,12 +35,10 @@ function expectInitialBpfState(s: BpfState) {
   }
 }
 
-function bpfStatesFromLog(logString: string): BpfState[] {
+function verifierStateFromLog(logString: string): VerifierLogState {
   const strings = logString.split("\n");
   strings.shift(); // remove the first \n
-  const logState: VerifierLogState = processRawLines(strings);
-  const { bpfStates } = logState;
-  return bpfStates;
+  return processRawLines(strings);
 }
 
 describe("analyzer", () => {
@@ -66,7 +65,8 @@ processed 8 insns (limit 1000000) max_states_per_insn 0 total_states 0 peak_stat
 ERROR: Loading BPF object(s) failed.
 `;
   describe("processes basicVerifierLog end to end normally", () => {
-    const bpfStates = bpfStatesFromLog(basicVerifierLog);
+    const logState = verifierStateFromLog(basicVerifierLog);
+    const { bpfStates } = logState;
     for (let i = 0; i <= 4; i++) {
       expectInitialBpfState(bpfStates[i]);
     }
@@ -183,6 +183,17 @@ ERROR: Loading BPF object(s) failed.
       expect(s.values.get("r4")?.prevValue).toBeUndefined();
       expect(s.values.get("r5")?.prevValue).toBeUndefined();
     });
+
+    it("invalid indirect access to stack R1 off=-8 size=16", () => {
+      const parsedLine = logState.lines[13];
+      expect(parsedLine.raw).toBe(
+        "invalid indirect access to stack R1 off=-8 size=16",
+      );
+      expect(parsedLine.type).toBe(ParsedLineType.KNOWN_MESSAGE);
+      if (parsedLine.type == ParsedLineType.KNOWN_MESSAGE) {
+        expect(parsedLine.info.type).toBe(KnownMessageInfoType.ERROR_MESSAGE);
+      }
+    });
   });
 
   const verifierLogFragmentWithASubprogramCall = `
@@ -205,7 +216,10 @@ to caller at 705:
 705: (bf) r9 = r0                       ; R0=rcu_ptr_task_struct(off=0,imm=0) R9_w=rcu_ptr_task_struct(off=0,imm=0)
 `;
   describe("processes verifierLogFragmentWithASubprogramCall end to end normally", () => {
-    const bpfStates = bpfStatesFromLog(verifierLogFragmentWithASubprogramCall);
+    const logState = verifierStateFromLog(
+      verifierLogFragmentWithASubprogramCall,
+    );
+    const { bpfStates } = logState;
 
     const r1Value = "map_value(off=0,ks=4,vs=2808,imm=0)";
     const r2Value = "rcu_ptr_task_struct(off=0,imm=0)";

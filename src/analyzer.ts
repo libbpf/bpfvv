@@ -303,6 +303,28 @@ export function processRawLines(rawLines: string[]): VerifierLogState {
     return parsedLine;
   });
 
+  // Find the error message at the end
+  for (let i = lines.length - 1; i >= 0; --i) {
+    if (lines[i].type == ParsedLineType.INSTRUCTION) {
+      if (i + 1 <= lines.length - 1) {
+        const parsedLine = lines[i + 1];
+        if (parsedLine.type === ParsedLineType.UNRECOGNIZED) {
+          const errMsgLine: ParsedLine = {
+            type: ParsedLineType.KNOWN_MESSAGE,
+            info: {
+              type: KnownMessageInfoType.ERROR_MESSAGE,
+              msg: parsedLine.raw,
+            },
+            raw: parsedLine.raw,
+            idx: parsedLine.idx,
+          };
+          lines[i + 1] = errMsgLine;
+        }
+      }
+      break;
+    }
+  }
+
   // Process known messages and fixup parsed lines
   knownMessageIdxs.forEach((idx) => {
     const parsedLine = lines[idx];
