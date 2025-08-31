@@ -53,7 +53,13 @@ export function scrollToLogLine(idx: number, linesLen: number) {
   if (!logContainer) {
     throw new Error("Log line container is not in the DOM");
   }
-  scrollToLine(logContainer, idx, linesLen);
+  const logRange = getVisibleIdxRange(linesLen);
+  if (
+    (idx < logRange.min + 8 || idx > logRange.max - 8) &&
+    !(idx < 0 || idx >= linesLen)
+  ) {
+    scrollToLine(logContainer, idx, linesLen);
+  }
 }
 
 export function scrollToCLine(idx: number, linesLen: number) {
