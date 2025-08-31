@@ -30,6 +30,7 @@ const ContentRaw = ({
   loadError,
   verifierLogState,
   logLines,
+  logLineIdToIdx,
   selectedLine,
   selectedMemSlotId,
   selectedCLine,
@@ -39,10 +40,12 @@ const ContentRaw = ({
   handleLogLinesClick,
   handleLogLinesOver,
   handleLogLinesOut,
+  handleStateRowClick,
 }: {
   loadError: string | null;
   verifierLogState: VerifierLogState;
   logLines: ParsedLine[];
+  logLineIdToIdx: Map<number, number>;
   selectedLine: number;
   selectedMemSlotId: string;
   selectedCLine: number;
@@ -52,6 +55,7 @@ const ContentRaw = ({
   handleLogLinesClick: (event: React.MouseEvent<HTMLDivElement>) => void;
   handleLogLinesOver: (event: React.MouseEvent<HTMLDivElement>) => void;
   handleLogLinesOut: (event: React.MouseEvent<HTMLDivElement>) => void;
+  handleStateRowClick: (event: React.MouseEvent<HTMLDivElement>) => void;
 }) => {
   if (loadError) {
     return <div>{loadError}</div>;
@@ -60,6 +64,7 @@ const ContentRaw = ({
       <MainContent
         verifierLogState={verifierLogState}
         logLines={logLines}
+        logLineIdToIdx={logLineIdToIdx}
         selectedLine={selectedLine}
         selectedMemSlotId={selectedMemSlotId}
         selectedCLine={selectedCLine}
@@ -68,6 +73,7 @@ const ContentRaw = ({
         handleLogLinesClick={handleLogLinesClick}
         handleLogLinesOver={handleLogLinesOver}
         handleLogLinesOut={handleLogLinesOut}
+        handleStateRowClick={handleStateRowClick}
       />
     );
   } else {
@@ -150,14 +156,7 @@ function App() {
       nextCLineIdx: number,
       memSlotId: string = "",
     ) => {
-      const logRange = getVisibleIdxRange(logLines.length);
-      if (
-        (nextInsLineIdx < logRange.min + 8 ||
-          nextInsLineIdx > logRange.max - 8) &&
-        !(nextInsLineIdx < 0 || nextInsLineIdx >= logLines.length)
-      ) {
-        scrollToLogLine(nextInsLineIdx, logLines.length);
-      }
+      scrollToLogLine(nextInsLineIdx, logLines.length);
       const cLinesRange = getVisibleIdxRange(cLines.length);
       if (
         (nextCLineIdx < cLinesRange.min + 8 ||
@@ -409,6 +408,26 @@ function App() {
     [verifierLogState, logLineIdToIdx, cLineIdtoIdx],
   );
 
+  const handleStateRowClick = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      const target = e.target as HTMLElement;
+      const memSlot = target.closest(".state-row");
+      if (!memSlot) {
+        return;
+      }
+      let memSlotId = memSlot.getAttribute("data-id") || "";
+      e.stopPropagation();
+
+      setSelectedState((prevSelectedState) => {
+        return {
+          ...prevSelectedState,
+          memSlotId,
+        };
+      });
+    },
+    [],
+  );
+
   const handleLogLinesClick = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
       const target = e.target as HTMLElement;
@@ -552,6 +571,7 @@ function App() {
           loadError={loadError}
           verifierLogState={verifierLogState}
           logLines={logLines}
+          logLineIdToIdx={logLineIdToIdx}
           selectedLine={selectedLine}
           selectedMemSlotId={selectedMemSlotId}
           selectedCLine={selectedCLine}
@@ -561,6 +581,7 @@ function App() {
           handleLogLinesClick={handleLogLinesClick}
           handleLogLinesOver={handleLogLinesOver}
           handleLogLinesOut={handleLogLinesOut}
+          handleStateRowClick={handleStateRowClick}
         />
         <div id="hint">
           <SelectedLineHint

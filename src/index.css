@@ -262,7 +262,7 @@ h1 {
   font-weight: bold;
 }
 
-.selected-mem-slot {
+#log-container .selected-mem-slot {
   border: 1px solid black;
 }
 
@@ -391,11 +391,19 @@ h1 {
   border-bottom: 1px solid #ddd;
 }
 
-.state-panel tr:hover {
-  background-color: #f5f5f5;
+.state-panel tr {
+  cursor: pointer;
 }
 
-.state-panel td:first-child {
+.state-panel tr:hover {
+  background-color: #dad9d9;
+}
+
+.state-panel tr.row-empty:hover {
+  background-color: transparent;
+}
+
+.mem-slot-label {
   font-weight: bold;
   color: #555;
   width: 7ch;
@@ -404,6 +412,13 @@ h1 {
 .state-panel td:last-child {
   font-family: monospace;
   word-break: break-all;
+}
+
+#state-panel-content .selected-mem-slot,
+.state-panel .selected-mem-slot .mem-slot-label {
+  font-weight: bold;
+  color: #000;
+  background-color: #eeeeee;
 }
 
 /* Panel Hide/Show Button */
