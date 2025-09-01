@@ -17,7 +17,7 @@ import { CSourceMap, getMemSlotDependencies } from "./analyzer";
 
 import { BpfState, getBpfState, VerifierLogState } from "./analyzer";
 
-import { getVisibleIdxRange, scrollToLogLine } from "./utils";
+import { getVisibleLogLineRange, scrollToLogLine } from "./utils";
 
 import BPF_HELPERS_JSON from "./bpf-helpers.json";
 
@@ -790,7 +790,7 @@ const DependencyArrowsRaw = ({ logLines }: { logLines: ParsedLine[] }) => {
         return (
           <div
             className="dep-arrow"
-            line-index={line.idx}
+            line-id={line.idx}
             id={getDepArrowDomId(line.idx)}
             key={`dependency-arrow-${line.idx}`}
           ></div>
@@ -1184,27 +1184,27 @@ export function MainContent({
       if (!depArrow) {
         return;
       }
-      const idx = parseInt(depArrow.getAttribute("line-index") || "0", 10);
-      const idxs = [...memSlotDependencies, selectedLine];
+      const id = parseInt(depArrow.getAttribute("line-id") || "0", 10);
+      const ids = [...memSlotDependencies, selectedLine];
 
-      let prev = idxs[0];
-      let next = idxs[idxs.length - 1];
-      for (let i = 1; i < idxs.length; i++) {
-        if (idxs[i] > idx) {
-          next = idxs[i];
+      let prev = ids[0];
+      let next = ids[ids.length - 1];
+      for (let i = 1; i < ids.length; i++) {
+        if (ids[i] > id) {
+          next = ids[i];
           break;
         } else {
-          prev = idxs[i];
+          prev = ids[i];
         }
       }
 
       if (depArrow.classList.contains("active-down")) {
-        scrollToLogLine(next, verifierLogState.lines.length);
+        scrollToLogLine(logLineIdToIdx.get(next) || 0, logLines.length);
       } else if (depArrow.classList.contains("active-up")) {
-        scrollToLogLine(prev, verifierLogState.lines.length);
+        scrollToLogLine(logLineIdToIdx.get(prev) || 0, logLines.length);
       }
     },
-    [verifierLogState, memSlotDependencies, selectedLine],
+    [logLines, logLineIdToIdx, memSlotDependencies, selectedLine],
   );
 
   const handleArrowsOver = useCallback(
@@ -1214,22 +1214,23 @@ export function MainContent({
       if (!depArrow) {
         return;
       }
-      const idx = parseInt(depArrow.getAttribute("line-index") || "0", 10);
-      const idxs = [...memSlotDependencies, selectedLine];
+      const id = parseInt(depArrow.getAttribute("line-id") || "0", 10);
+      const ids = [...memSlotDependencies, selectedLine];
 
-      let prev = idxs[0];
-      let next = idxs[idxs.length - 1];
-      for (let i = 1; i < idxs.length; i++) {
-        if (idxs[i] > idx) {
-          next = idxs[i];
+      let prev = ids[0];
+      let next = ids[ids.length - 1];
+      for (let i = 1; i < ids.length; i++) {
+        if (ids[i] > id) {
+          next = ids[i];
           break;
         } else {
-          prev = idxs[i];
+          prev = ids[i];
         }
       }
 
-      let { min, max } = getVisibleIdxRange(verifierLogState.lines.length);
-      const isVisible = (idx: number) => {
+      let { min, max } = getVisibleLogLineRange(logLines.length);
+      const isVisible = (id: number) => {
+        const idx = logLineIdToIdx.get(id) || 0;
         return min < idx && idx < max;
       };
       const setTargetToPrev = () => {
@@ -1249,14 +1250,14 @@ export function MainContent({
         setTargetToPrev();
       } else {
         const mid = (min + max) / 2;
-        if (idx < mid) {
+        if ((logLineIdToIdx.get(id) || 0) < mid) {
           setTargetToPrev();
         } else {
           setTargetToNext();
         }
       }
     },
-    [verifierLogState, memSlotDependencies, selectedLine],
+    [logLines, logLineIdToIdx, memSlotDependencies, selectedLine],
   );
 
   return (
