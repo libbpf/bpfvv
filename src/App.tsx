@@ -9,7 +9,7 @@ import {
 
 import {
   fetchLogFromUrl,
-  getVisibleIdxRange,
+  getVisibleLogLineRange,
   scrollToLogLine,
   scrollToCLine,
   siblingInsLine,
@@ -157,17 +157,10 @@ function App() {
       memSlotId: string = "",
     ) => {
       scrollToLogLine(nextInsLineIdx, logLines.length);
-      const cLinesRange = getVisibleIdxRange(cLines.length);
-      if (
-        (nextCLineIdx < cLinesRange.min + 8 ||
-          nextCLineIdx > cLinesRange.max - 8) &&
-        !(nextCLineIdx < 0 || nextCLineIdx >= cLines.length)
-      ) {
-        scrollToCLine(nextCLineIdx, cLines.length);
-      }
+      scrollToCLine(nextCLineIdx, cLines.length);
       setSelectedState({ line: nextInsLineId, memSlotId, cLine: nextCLineId });
     },
-    [logLines, cLines],
+    [logLines, cLineIdtoIdx],
   );
 
   const onGotoStart = useCallback(() => {
@@ -212,7 +205,7 @@ function App() {
     const handleKeyDown = (e: KeyboardEvent) => {
       let delta = 0;
       let areCLinesInFocus = selectedState.cLine !== "";
-      let { min, max } = getVisibleIdxRange(
+      let { min, max } = getVisibleLogLineRange(
         areCLinesInFocus ? cLines.length : logLines.length,
       );
       let page = max - min + 1;

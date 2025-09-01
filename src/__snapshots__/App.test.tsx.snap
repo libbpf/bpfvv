@@ -191,7 +191,7 @@ exports[`App renders the log visualizer when text is pasted 1`] = `
             <div
               class="dep-arrow"
               id="dep-arrow-line-0"
-              line-index="0"
+              line-id="0"
             />
           </div>
           <div
