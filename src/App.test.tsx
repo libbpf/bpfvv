@@ -222,4 +222,30 @@ describe("App", () => {
       expect(el.classList).toContain("selected-line");
     });
   });
+
+  it("labels the final error message", async () => {
+    render(<App />);
+
+    const inputEl = document.getElementById("input-text");
+    if (!inputEl) {
+      throw new Error(DOM_EL_FAIL);
+    }
+
+    fireEvent(
+      inputEl,
+      createEvent.paste(inputEl, {
+        clipboardData: {
+          getData: () => SAMPLE_LOG_DATA_2,
+        },
+      }),
+    );
+
+    const line117El = document.getElementById("line-117");
+    if (!line117El) {
+      throw new Error(DOM_EL_FAIL);
+    }
+
+    expect(line117El.classList).toContain("error-message");
+    expect(line117El.innerHTML).toBe("R6 invalid mem access 'scalar'");
+  });
 });
