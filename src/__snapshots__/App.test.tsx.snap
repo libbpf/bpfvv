@@ -276,13 +276,17 @@ exports[`App renders the log visualizer when text is pasted 1`] = `
                   </td>
                 </tr>
                 <tr
-                  class="effect-read"
+                  class="effect-write"
                 >
                   <td>
                     r1
                   </td>
                   <td>
                     <span>
+                      ctx()
+                       
+                      -&gt;
+                       
                       0
                     </span>
                   </td>
@@ -338,13 +342,16 @@ exports[`App renders the log visualizer when text is pasted 1`] = `
                   </td>
                 </tr>
                 <tr
-                  class="effect-read"
+                  class="effect-write"
                 >
                   <td>
                     r7
                   </td>
                   <td>
                     <span>
+                       
+                      -&gt;
+                       
                       map_value(off=0,ks=4,vs=2808,imm=0)
                     </span>
                   </td>
