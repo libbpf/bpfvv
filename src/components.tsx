@@ -792,7 +792,10 @@ function CSourceFile({
   for (let i = range[0]; i < range[1]; ++i) {
     const sourceId = `${file}:${i}`;
     const sourceLine = cSourceMap.cSourceLines.get(sourceId);
-    if (!sourceLine) {
+    if (sourceLine?.lineNum === 0) {
+      continue;
+    }
+    if (!sourceLine || sourceLine.ignore) {
       if (!unknownStart) {
         unknownStart = i;
       }

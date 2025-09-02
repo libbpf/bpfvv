@@ -155,19 +155,30 @@ describe("parser", () => {
       fileName: "rbtree.c",
       lineNum: 201,
       id: "rbtree.c:201",
+      ignore: false,
     });
   });
 
-  it("ignores empty source lines", () => {
+  it("marks empty source lines", () => {
     expect(parseLine(CSourceLineEmptySample1, 13)).toEqual({
-      type: ParsedLineType.UNRECOGNIZED,
+      type: ParsedLineType.C_SOURCE,
       idx: 13,
       raw: CSourceLineEmptySample1,
+      content: "",
+      fileName: "foo.h",
+      lineNum: 42,
+      id: "foo.h:42",
+      ignore: true,
     });
     expect(parseLine(CSourceLineEmptySample2, 31)).toEqual({
-      type: ParsedLineType.UNRECOGNIZED,
+      type: ParsedLineType.C_SOURCE,
       idx: 31,
       raw: CSourceLineEmptySample2,
+      content: "int i = 0;",
+      fileName: "foo.h",
+      lineNum: 0,
+      id: "foo.h:0",
+      ignore: true,
     });
   });
 
