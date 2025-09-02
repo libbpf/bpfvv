@@ -77,6 +77,7 @@ export type VerifierLogState = {
   cLineIdtoIdx: Map<string, number>;
   bpfStates: BpfState[];
   cSourceMap: CSourceMap;
+  lastInsIdx: number;
 };
 
 export function makeValue(
@@ -272,6 +273,7 @@ export function getEmptyVerifierState(): VerifierLogState {
     cLineIdtoIdx: new Map(),
     bpfStates: [],
     cSourceMap: new CSourceMap(),
+    lastInsIdx: 0,
   };
 }
 
@@ -299,6 +301,7 @@ export function processRawLines(rawLines: string[]): VerifierLogState {
   let currentCSourceLine: CSourceLine | undefined;
   const cSourceMap = new CSourceMap();
   const knownMessageIdxs: number[] = [];
+  let lastInsIdx: number = 0;
 
   // First pass: parse individual lines
   lines = rawLines.map((rawLine, idx) => {
@@ -308,6 +311,13 @@ export function processRawLines(rawLines: string[]): VerifierLogState {
     }
     return parsedLine;
   });
+
+  for (let i = lines.length - 1; i >= 0; --i) {
+    if (lines[i].type == ParsedLineType.INSTRUCTION) {
+      lastInsIdx = lines[i].idx;
+      break;
+    }
+  }
 
   // Process known messages and fixup parsed lines
   knownMessageIdxs.forEach((idx) => {
@@ -378,6 +388,7 @@ export function processRawLines(rawLines: string[]): VerifierLogState {
     cSourceMap,
     cLines,
     cLineIdtoIdx,
+    lastInsIdx,
   };
 }
 

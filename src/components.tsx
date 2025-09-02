@@ -293,11 +293,13 @@ const LogLineRaw = ({
   state,
   indentLevel,
   idx,
+  lastInsIdx,
 }: {
   line: ParsedLine;
   state: BpfState;
   indentLevel: number;
   idx: number;
+  lastInsIdx: number;
 }) => {
   let content;
   const topClasses = ["log-line"];
@@ -312,7 +314,11 @@ const LogLineRaw = ({
       content = <>{line.raw}</>;
       break;
     default:
-      topClasses.push("ignorable-line");
+      if (lastInsIdx + 1 === idx) {
+        topClasses.push("error-message");
+      } else {
+        topClasses.push("ignorable-line");
+      }
       content = <>{line.raw}</>;
       break;
   }
@@ -703,7 +709,7 @@ const LogLinesRaw = ({
   handleLogLinesOver: (event: React.MouseEvent<HTMLDivElement>) => void;
   handleLogLinesOut: (event: React.MouseEvent<HTMLDivElement>) => void;
 }) => {
-  const { bpfStates } = verifierLogState;
+  const { bpfStates, lastInsIdx } = verifierLogState;
   let indentLevel = 0;
   return (
     <div
@@ -730,6 +736,7 @@ const LogLinesRaw = ({
             line={line}
             idx={line.idx}
             key={`log_line_${line.idx}`}
+            lastInsIdx={lastInsIdx}
           />
         );
       })}
