@@ -415,7 +415,10 @@ export function getMemSlotDependencies(
 
       deps = getMemSlotDependencies(verifierLogState, prevDepIdx, memSlotId);
     }
-  } else if (nReads === 1 && depIdx !== bpfState.idx) {
+  } else if (
+    nReads === 1 &&
+    (depIdx !== bpfState.idx || depIns.reads[0] !== memSlotId)
+  ) {
     deps = getMemSlotDependencies(verifierLogState, depIdx, depIns.reads[0]);
   }
 
