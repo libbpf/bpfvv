@@ -38,6 +38,9 @@ The user can load a text file, and the app will attempt to parse it as a verifie
 - Format your code:
 	- `npm run format`
 
+- To run lint, typecheck, and tests:
+	- `npm run check`
+
 - If everything is OK, push your branch, create a PR.
 
 ---

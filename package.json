@@ -13,7 +13,8 @@
     "test": "jest",
     "format": "prettier src/* --write",
     "lint": "eslint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "check": "npm run lint && npm run typecheck && npm run test"
   },
   "eslintConfig": {
     "extends": [
