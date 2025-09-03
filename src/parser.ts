@@ -175,7 +175,7 @@ export type BpfOperand = {
   id: string; // r0-r10 for regs, 'fp-off' for stack
   size: number;
   memref?: {
-    address_reg: string;
+    reg: string;
     offset: number;
   };
   location?: RawLineLocation;
@@ -424,17 +424,17 @@ function parseMemoryRef(str: string): BpfOperandPair {
   const { match, rest } = consumeRegex(RE_MEMORY_REF, str);
   if (!match) return [undefined, rest];
   const size = CAST_TO_SIZE.get(match[1]) || 0;
-  const address_reg = match[2];
+  const reg = match[2];
   const offset = parseInt(match[3], 10);
   // We do not currently use memory ids, and they blow up the lastKnownWrites map in the app
   // So let's use a dummy id for now, like for immediates
   let id = "MEM";
   let type = OperandType.MEM;
-  if (address_reg === "r10") {
+  if (reg === "r10") {
     id = "fp" + offset;
     type = OperandType.FP;
   }
-  const op = { id, type, size, memref: { address_reg, offset } };
+  const op = { id, type, size, memref: { reg, offset } };
   return [op, rest];
 }
 
@@ -465,10 +465,8 @@ function collectReads(
 ): string[] {
   const reads = [];
   if (operator !== "=") reads.push(dst.id);
-  if (src.type === OperandType.MEM && src.memref)
-    reads.push(src.memref.address_reg);
-  if (dst.type === OperandType.MEM && dst.memref)
-    reads.push(dst.memref.address_reg);
+  if (src.type === OperandType.MEM && src.memref) reads.push(src.memref.reg);
+  if (dst.type === OperandType.MEM && dst.memref) reads.push(dst.memref.reg);
   // do not add src to reads if it's a store from immediate value
   if (src.type !== OperandType.IMM) reads.push(src.id);
   return reads;

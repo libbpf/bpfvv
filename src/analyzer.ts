@@ -13,6 +13,9 @@ import {
   GlobalFuncValidInfo,
   InstructionLine,
   BpfStateExprsInfo,
+  OperandType,
+  BpfOperand,
+  BpfInstruction,
 } from "./parser";
 import { siblingInsLine } from "./utils";
 
@@ -200,6 +203,16 @@ function popStackFrame(
   return state;
 }
 
+const RE_STACK_SLOT_ID = /fp([+-]?[0-9]+)/;
+
+function srcValue(ins: BpfInstruction, state: BpfState): string {
+  if (ins.kind === BpfInstructionKind.ALU) {
+    return state.values.get(ins.src.id)?.value || "";
+  } else {
+    return "";
+  }
+}
+
 function nextBpfState(
   bpfState: BpfState,
   line: ParsedLine,
@@ -233,22 +246,24 @@ function nextBpfState(
   }
 
   newState = copyBpfState(bpfState);
+
   let effects = new Map<string, Effect>();
   for (const id of line.bpfIns?.reads || []) {
     effects.set(id, Effect.READ);
   }
+
   for (const id of line.bpfIns?.writes || []) {
     if (effects.has(id)) effects.set(id, Effect.UPDATE);
     else effects.set(id, Effect.WRITE);
-    const val = makeValue("", effects.get(id));
+
+    const val = makeValue(srcValue(ins, newState), effects.get(id));
     if (val.effect === Effect.UPDATE)
       val.prevValue = newState.values.get(id)?.value;
     newState.values.set(id, val);
     newState.lastKnownWrites.set(id, line.idx);
   }
 
-  // If verifier reported a particular expr, it overrides any values we may have computed so far
-  // This means, for example, that conditions can be UPDATEs
+  const verifierReportedValues = new Map<string, string>();
   for (const expr of line.bpfStateExprs) {
     const val: BpfValue | undefined = newState.values.get(expr.id);
     let effect = effects.get(expr.id) || Effect.NONE;
@@ -263,6 +278,51 @@ function nextBpfState(
       expr.id,
       makeValue(expr.value, effect, val?.prevValue || ""),
     );
+    verifierReportedValues.set(expr.id, expr.value);
+  }
+
+  // Evaluate indirect stack load/store
+  // For any memory access, check the current value of the register.
+  // If it is a pointer to stack (e.g. fp-16),
+  // then evaluate the offsets to get the referenced stack slot id
+  // and update the values map accordingly.
+  // For example:
+  //     r6 = *(u64 *)(r1 -8) ; R1=fp-16
+  // We know that r1=fp-16, and the load is from r1-8, so
+  // we calculate: -8 + -16 = -24 and know that the value at
+  // fp-24 was loaded into r6.
+  function fpIdFromMemref(op: BpfOperand): string | null {
+    if (!op.memref) return null;
+    const { reg, offset } = op.memref;
+    const val = newState.values.get(reg)?.value;
+    const match = val?.match(RE_STACK_SLOT_ID);
+    if (match) {
+      const off = offset + parseInt(match[1]);
+      return `fp${off}`;
+    } else {
+      return null;
+    }
+  }
+
+  if (ins.kind === BpfInstructionKind.ALU && ins.operator === "=") {
+    if (ins.dst.type === OperandType.MEM) {
+      const id = fpIdFromMemref(ins.dst);
+      if (id) {
+        const value = verifierReportedValues.get(id) || srcValue(ins, newState);
+        newState.values.set(id, makeValue(value, Effect.WRITE));
+      }
+    }
+    if (ins.src.type === OperandType.MEM) {
+      const id = fpIdFromMemref(ins.src);
+      if (id) {
+        const value =
+          verifierReportedValues.get(id) ||
+          newState.values.get(id)?.value ||
+          "";
+        newState.values.set(id, makeValue(value, Effect.READ));
+        newState.values.set(ins.dst.id, makeValue(value, Effect.WRITE));
+      }
+    }
   }
 
   setIdxAndPc(newState);

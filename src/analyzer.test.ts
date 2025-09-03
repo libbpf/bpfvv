@@ -601,4 +601,62 @@ Func#123 ('my_global_func') is global and assumed valid.
       expect(s.lastKnownWrites.get("r7")).toBe(5);
     });
   });
+
+  // The following two tests aim to verify that the analyzer correctly
+  // identifies an indirect access to a stack slot
+  // note that typically verifier would print an appropriate expression after ;
+  // but analyzer must be able to infer the access independently
+  describe("evaluates indirect stack store", () => {
+    const rawLog = `
+525: (bf) r1 = r10                    ; R1_w=fp0 R10=fp0
+526: (07) r1 += -24                   ; R1_w=fp-24
+527: (79) r2 = *(u64 *)(r10 -56)      ; R2_w=0 R10=fp0 fp-56=0
+528: (0f) r1 += r2
+529: R1_w=fp-24 R2_w=0
+529: (7b) *(u64 *)(r1 +0) = r8        ; R1_w=fp-24 R8=scalar(id=102)
+530: (79) r6 = *(u64 *)(r10 -24)
+`;
+    const { bpfStates } = getVerifierLogState(rawLog);
+    const val = "scalar(id=102)";
+    it("*(u64 *)(r1 +0) = r8", () => {
+      const s = bpfStates[5];
+      expect(s.idx).toBe(5);
+      expect(s.pc).toBe(529);
+      expect(s.values.get("r8")?.value).toBe(val);
+      expect(s.values.get("fp-24")?.value).toBe(val);
+    });
+    it("r6 = *(u64 *)(r10 -24)", () => {
+      const s = bpfStates[6];
+      expect(s.idx).toBe(6);
+      expect(s.pc).toBe(530);
+      expect(s.values.get("fp-24")?.value).toBe(val);
+      expect(s.values.get("r6")?.value).toBe(val);
+    });
+  });
+
+  describe("evaluates indirect stack load", () => {
+    const rawLog = `
+524: (7b) *(u64 *)(r10 -24) = r9      ; fp-24_w=42 R9=42
+525: (bf) r1 = r10                    ; R1_w=fp0 R10=fp0
+526: (07) r1 += -16                   ; R1_w=fp-16
+527: (18) r2 = 0                      ; R2_w=0 R10=fp0
+528: (0f) r1 += r2                    ; R1_w=fp-16 R2_w=0
+530: (79) r6 = *(u64 *)(r1 -8)
+`;
+    const { bpfStates } = getVerifierLogState(rawLog);
+    it("*(u64 *)(r10 -24) = r9", () => {
+      const s = bpfStates[0];
+      expect(s.idx).toBe(0);
+      expect(s.pc).toBe(524);
+      expect(s.values.get("r9")?.value).toBe("42");
+      expect(s.values.get("fp-24")?.value).toBe("42");
+    });
+    it("r6 = *(u64 *)(r1 -8)", () => {
+      const s = bpfStates[5];
+      expect(s.idx).toBe(5);
+      expect(s.pc).toBe(530);
+      expect(s.values.get("fp-24")?.value).toBe("42");
+      expect(s.values.get("r6")?.value).toBe("42");
+    });
+  });
 });
