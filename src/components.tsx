@@ -17,7 +17,11 @@ import { CSourceMap, getMemSlotDependencies } from "./analyzer";
 
 import { BpfState, getBpfState, VerifierLogState } from "./analyzer";
 
-import { getVisibleLogLineRange, scrollToLogLine } from "./utils";
+import {
+  getVisibleLogLineRange,
+  scrollToCLine,
+  scrollToLogLine,
+} from "./utils";
 
 import BPF_HELPERS_JSON from "./bpf-helpers.json";
 
@@ -503,12 +507,16 @@ function StatePanelRaw({
   selectedMemSlotId,
   verifierLogState,
   handleStateRowClick,
+  handleStateLogLineClick,
+  handleStateCLineClick,
 }: {
   selectedLine: number;
   selectedCLine: number;
   selectedMemSlotId: string;
   verifierLogState: VerifierLogState;
   handleStateRowClick: (event: React.MouseEvent<HTMLDivElement>) => void;
+  handleStateLogLineClick: (event: React.MouseEvent<HTMLDivElement>) => void;
+  handleStateCLineClick: (event: React.MouseEvent<HTMLDivElement>) => void;
 }) {
   const { lines, bpfStates } = verifierLogState;
   let rows: ReactElement[] = [];
@@ -551,9 +559,8 @@ function StatePanelRaw({
 
     if (content === "") {
       data_id = "0";
-      classes.push("row-empty")
+      classes.push("row-empty");
     }
-
 
     rows.push(
       <tr className={classes.join(" ")} key={rowCounter} data-id={data_id}>
@@ -613,8 +620,15 @@ function StatePanelRaw({
       />
       <div id="state-panel-content">
         <div id="state-panel-header">
-          <div>Log Line: {selectedLine + 1}</div>
-          <div>C Line: {selectedCLine}</div>
+          <div
+            className="panel-header-active"
+            onClick={handleStateLogLineClick}
+          >
+            Log Line: {selectedLine + 1}
+          </div>
+          <div className="panel-header-active" onClick={handleStateCLineClick}>
+            C Line: {selectedCLine}
+          </div>
           <div>PC: {bpfState.pc}</div>
           <div>Frame: {bpfState.frame}</div>
         </div>
@@ -1176,6 +1190,32 @@ export function MainContent({
     logLines,
   ]);
 
+  const handleStateLogLineClick = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      const logLineIdx = logLineIdToIdx.get(selectedLine);
+      if (logLineIdx) {
+        scrollToLogLine(logLineIdx, logLines.length);
+      }
+      e.stopPropagation();
+    },
+    [logLines, selectedLine],
+  );
+
+  const handleStateCLineClick = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      const cLineId =
+        verifierLogState.cSourceMap.logLineToCLine.get(selectedLine);
+      if (cLineId) {
+        const cLineIdx = verifierLogState.cLineIdtoIdx.get(cLineId);
+        if (cLineIdx) {
+          scrollToCLine(cLineIdx, verifierLogState.cLines.length);
+        }
+      }
+      e.stopPropagation();
+    },
+    [verifierLogState, selectedCLine],
+  );
+
   const handleArrowsClick = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
       const hoveredElement = e.target as HTMLElement;
@@ -1295,6 +1335,8 @@ export function MainContent({
         selectedCLine={selectedCLine}
         selectedMemSlotId={selectedMemSlotId}
         verifierLogState={verifierLogState}
+        handleStateLogLineClick={handleStateLogLineClick}
+        handleStateCLineClick={handleStateCLineClick}
         handleStateRowClick={handleStateRowClick}
       />
     </div>

@@ -379,6 +379,14 @@ h1 {
   margin-right: 32px;
 }
 
+.panel-header-active {
+  cursor: pointer;
+}
+
+.panel-header-active:hover {
+  text-decoration: underline;
+}
+
 .state-panel table {
   width: 100%;
   border-collapse: collapse;
