@@ -34,12 +34,10 @@ function expectInitialBpfState(s: BpfState) {
   }
 }
 
-function bpfStatesFromLog(logString: string): BpfState[] {
+function getVerifierLogState(logString: string): VerifierLogState {
   const strings = logString.split("\n");
   strings.shift(); // remove the first \n
-  const logState: VerifierLogState = processRawLines(strings);
-  const { bpfStates } = logState;
-  return bpfStates;
+  return processRawLines(strings);
 }
 
 describe("analyzer", () => {
@@ -66,7 +64,7 @@ processed 8 insns (limit 1000000) max_states_per_insn 0 total_states 0 peak_stat
 ERROR: Loading BPF object(s) failed.
 `;
   describe("processes basicVerifierLog end to end normally", () => {
-    const bpfStates = bpfStatesFromLog(basicVerifierLog);
+    const { bpfStates } = getVerifierLogState(basicVerifierLog);
     for (let i = 0; i <= 4; i++) {
       expectInitialBpfState(bpfStates[i]);
     }
@@ -80,6 +78,7 @@ ERROR: Loading BPF object(s) failed.
         value: "1",
         effect: Effect.WRITE,
       });
+      expect(s.lastKnownWrites.get("r2")).toBe(5);
     });
 
     it("*(u64 *)(r10 -24) = r2", () => {
@@ -95,6 +94,8 @@ ERROR: Loading BPF object(s) failed.
         value: "1",
         effect: Effect.WRITE,
       });
+      expect(s.lastKnownWrites.get("r2")).toBe(5);
+      expect(s.lastKnownWrites.get("fp-24")).toBe(6);
     });
 
     it("r3 = *(u64 *)(r1 +32)", () => {
@@ -110,6 +111,9 @@ ERROR: Loading BPF object(s) failed.
         value: "scalar()",
         effect: Effect.WRITE,
       });
+      expect(s.lastKnownWrites.get("r2")).toBe(5);
+      expect(s.lastKnownWrites.get("fp-24")).toBe(6);
+      expect(s.lastKnownWrites.get("r3")).toBe(7);
     });
 
     it("r3 += -16", () => {
@@ -122,6 +126,9 @@ ERROR: Loading BPF object(s) failed.
         effect: Effect.UPDATE,
         prevValue: "scalar()",
       });
+      expect(s.lastKnownWrites.get("r2")).toBe(5);
+      expect(s.lastKnownWrites.get("fp-24")).toBe(6);
+      expect(s.lastKnownWrites.get("r3")).toBe(8);
     });
 
     it("r1 = r10", () => {
@@ -137,6 +144,10 @@ ERROR: Loading BPF object(s) failed.
         value: "fp-0",
         effect: Effect.WRITE,
       });
+      expect(s.lastKnownWrites.get("r2")).toBe(5);
+      expect(s.lastKnownWrites.get("fp-24")).toBe(6);
+      expect(s.lastKnownWrites.get("r3")).toBe(8);
+      expect(s.lastKnownWrites.get("r1")).toBe(9);
     });
 
     it("r1 += -8", () => {
@@ -149,6 +160,10 @@ ERROR: Loading BPF object(s) failed.
         effect: Effect.UPDATE,
         prevValue: "fp-0",
       });
+      expect(s.lastKnownWrites.get("r2")).toBe(5);
+      expect(s.lastKnownWrites.get("fp-24")).toBe(6);
+      expect(s.lastKnownWrites.get("r3")).toBe(8);
+      expect(s.lastKnownWrites.get("r1")).toBe(10);
     });
 
     it("r2 = 16", () => {
@@ -160,6 +175,10 @@ ERROR: Loading BPF object(s) failed.
         value: "16",
         effect: Effect.WRITE,
       });
+      expect(s.lastKnownWrites.get("r2")).toBe(11);
+      expect(s.lastKnownWrites.get("fp-24")).toBe(6);
+      expect(s.lastKnownWrites.get("r3")).toBe(8);
+      expect(s.lastKnownWrites.get("r1")).toBe(10);
     });
 
     it("call bpf_probe_read_user#112", () => {
@@ -182,6 +201,11 @@ ERROR: Loading BPF object(s) failed.
       expect(s.values.get("r3")?.prevValue).toBe("scalar()");
       expect(s.values.get("r4")?.prevValue).toBeUndefined();
       expect(s.values.get("r5")?.prevValue).toBeUndefined();
+
+      expect(s.lastKnownWrites.get("fp-24")).toBe(6);
+      for (const id of ["r0", "r1", "r2", "r3", "r4", "r5"]) {
+        expect(s.lastKnownWrites.get(id)).toBe(12);
+      }
     });
   });
 
@@ -196,7 +220,7 @@ ERROR: Loading BPF object(s) failed.
 901: (07) r2 += -24                   ; R2_w=fp-24
 902: (79) r6 = *(u64 *)(r2 +0)        ; R2=fp-24 R6_w=scalar(id=102) fp-24=scalar(id=102)
 `;
-    const bpfStates = bpfStatesFromLog(sampleLog);
+    const { bpfStates } = getVerifierLogState(sampleLog);
     it("*(u64 *)(r1 +0) = r8", () => {
       const s = bpfStates[4];
       expect(s.frame).toBe(0);
@@ -240,7 +264,9 @@ to caller at 705:
 705: (bf) r9 = r0                       ; R0=rcu_ptr_task_struct(off=0,imm=0) R9_w=rcu_ptr_task_struct(off=0,imm=0)
 `;
   describe("processes verifierLogFragmentWithASubprogramCall end to end normally", () => {
-    const bpfStates = bpfStatesFromLog(verifierLogFragmentWithASubprogramCall);
+    const { bpfStates } = getVerifierLogState(
+      verifierLogFragmentWithASubprogramCall,
+    );
 
     const r1Value = "map_value(off=0,ks=4,vs=2808,imm=0)";
     const r2Value = "rcu_ptr_task_struct(off=0,imm=0)";
@@ -255,6 +281,7 @@ to caller at 705:
         value: r1Value,
         effect: Effect.WRITE,
       });
+      expect(s.lastKnownWrites.get("r1")).toBe(0);
     });
 
     it("r2 = r6", () => {
@@ -267,6 +294,8 @@ to caller at 705:
         value: r2Value,
         effect: Effect.WRITE,
       });
+      expect(s.lastKnownWrites.get("r1")).toBe(0);
+      expect(s.lastKnownWrites.get("r2")).toBe(1);
     });
 
     // compute savedRegValues for the exit test
@@ -306,6 +335,8 @@ to caller at 705:
           effect: Effect.WRITE,
         });
       }
+      expect(s.lastKnownWrites.get("r1")).toBe(0);
+      expect(s.lastKnownWrites.get("r2")).toBe(1);
     });
 
     it("; call comments", () => {
@@ -327,6 +358,9 @@ to caller at 705:
         value: r2Value,
         effect: Effect.WRITE,
       });
+      expect(s.lastKnownWrites.get("r1")).toBe(0);
+      expect(s.lastKnownWrites.get("r2")).toBe(1);
+      expect(s.lastKnownWrites.get("r0")).toBe(10);
     });
 
     it("exit", () => {
@@ -343,6 +377,7 @@ to caller at 705:
       for (const reg of BPF_CALLEE_SAVED_REGS) {
         expect(s.values.get(reg)).toEqual(savedRegValues.get(reg));
       }
+      expect(s.lastKnownWrites.get("r0")).toBe(10);
     });
 
     it("; exit comments", () => {
@@ -364,6 +399,8 @@ to caller at 705:
         value: r2Value,
         effect: Effect.WRITE,
       });
+      expect(s.lastKnownWrites.get("r0")).toBe(10);
+      expect(s.lastKnownWrites.get("r9")).toBe(16);
     });
   });
 
@@ -380,10 +417,9 @@ to caller at 705:
 `;
 
     describe("for verifierLogFragmentWithSimpleCSource", () => {
-      const strings = verifierLogFragmentWithSimpleCSource.split("\n");
-      strings.shift(); // remove the first \n
-      const logState: VerifierLogState = processRawLines(strings);
-      const { cSourceMap } = logState;
+      const { cSourceMap } = getVerifierLogState(
+        verifierLogFragmentWithSimpleCSource,
+      );
 
       it("creates correct C source line entries", () => {
         expect(cSourceMap.cSourceLines.size).toBe(3);
@@ -449,10 +485,9 @@ to caller at 705:
 `;
 
     describe("processes verifierLogFragmentWithAPieceOfLoop correctly", () => {
-      const strings = verifierLogFragmentWithAPieceOfLoop.split("\n");
-      strings.shift(); // remove the first \n
-      const logState: VerifierLogState = processRawLines(strings);
-      const { cSourceMap } = logState;
+      const { cSourceMap } = getVerifierLogState(
+        verifierLogFragmentWithAPieceOfLoop,
+      );
 
       it("creates correct C source line entries", () => {
         expect(cSourceMap.cSourceLines.size).toBe(1);
@@ -494,10 +529,9 @@ Func#123 ('my_global_func') is global and assumed valid.
 `;
 
     describe("global func call", () => {
-      const strings = verifierLogWithGlobalFuncCall.split("\n");
-      strings.shift(); // remove the first \n
-      const logState: VerifierLogState = processRawLines(strings);
-      const { lines, bpfStates } = logState;
+      const { lines, bpfStates } = getVerifierLogState(
+        verifierLogWithGlobalFuncCall,
+      );
 
       it("transforms global function call correctly", () => {
         // Check that line 1 is transformed from SUBPROGRAM_CALL to HELPER_CALL
