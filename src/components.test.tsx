@@ -104,7 +104,7 @@ describe("MemSlot", () => {
     );
     const op = createOp(OperandType.MEM, 15, -38, "MEM");
     op.memref = {
-      address_reg: "r2",
+      reg: "r2",
       offset: 0,
     };
     render(<MemSlot line={line} op={op} />);
