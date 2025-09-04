@@ -354,8 +354,8 @@ export const parseBpfStateExprs = (
   let frameId = 0;
   if (frame.match) {
     frameId = parseInt(frame.match[1], 10);
-    rest = frame.rest;
   }
+  rest = frame.rest;
 
   let exprs = [];
   while (rest.length > 0) {
