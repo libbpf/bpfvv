@@ -13,6 +13,8 @@ import {
   BpfAddressSpaceCastInstruction,
   InstructionLine,
   KnownMessageInfoType,
+  BpfInstructionClass,
+  OpcodeSource,
 } from "./parser";
 
 const AluInstructionSample = "0: (b7) r2 = 1                        ; R2_w=1";
@@ -204,6 +206,52 @@ describe("parser", () => {
     it("does not parse non-matching lines as known messages", () => {
       const parsed = parseLine(NotAKnownMessage, 5);
       expect(parsed.type).toBe(ParsedLineType.UNRECOGNIZED);
+    });
+  });
+
+  describe("parses exprs with pc", () => {
+    const str =
+      "64: (55) if r0 != 0x0 goto pc+6 71: R0=ptr_node_data(non_own_ref,off=16) R7=2 R10=fp0";
+    it("parses global function valid messages", () => {
+      const parsed = parseLine(str, 10);
+      expect(parsed).toMatchObject({
+        type: ParsedLineType.INSTRUCTION,
+        idx: 10,
+        raw: str,
+        bpfIns: {
+          pc: 64,
+          opcode: {
+            code: BpfJmpCode.JSET,
+            iclass: BpfInstructionClass.JMP,
+            source: OpcodeSource.K,
+          },
+          cond: { left: { id: "r0" }, right: { id: "IMM" } },
+        },
+      });
+      const insLine = <InstructionLine>parsed;
+
+      expect(insLine.bpfStateExprs.length).toBe(3);
+      expect(insLine.bpfStateExprs[0]).toEqual({
+        id: "r0",
+        value: "ptr_node_data(non_own_ref,off=16)",
+        rawKey: "R0",
+        frame: 0,
+        pc: 71,
+      });
+      expect(insLine.bpfStateExprs[1]).toEqual({
+        id: "r7",
+        value: "2",
+        rawKey: "R7",
+        frame: 0,
+        pc: 71,
+      });
+      expect(insLine.bpfStateExprs[2]).toEqual({
+        id: "r10",
+        value: "fp-0",
+        rawKey: "R10",
+        frame: 0,
+        pc: 71,
+      });
     });
   });
 });
