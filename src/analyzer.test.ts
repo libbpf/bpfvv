@@ -1,6 +1,7 @@
 import {
   BpfState,
   BpfValue,
+  getMemSlotDependencies,
   initialBpfState,
   processRawLines,
   VerifierLogState,
@@ -657,6 +658,28 @@ Func#123 ('my_global_func') is global and assumed valid.
       expect(s.pc).toBe(530);
       expect(s.values.get("fp-24")?.value).toBe("42");
       expect(s.values.get("r6")?.value).toBe("42");
+    });
+  });
+
+  describe("tracks side effect dependencies", () => {
+    const rawLog = `
+3: (85) call bpf_obj_new_impl#54651 ; R0_w=ptr_or_null_node_data(id=2,ref_obj_id=2) refs=2
+4: (bf) r6 = r0 ; R0_w=ptr_or_null_node_data(id=2,ref_obj_id=2) R6_w=ptr_or_null_node_data(id=2,ref_obj_id=2) refs=2
+6: (15) if r6 == 0x0 goto pc+104 ; R6_w=ptr_node_data(ref_obj_id=2) refs=2
+42: (85) call bpf_rbtree_add_impl#54894 ; R0_w=scalar() R6=ptr_node_data(non_own_ref) R7=2 R8=ptr_node_data(ref_obj_id=4) R9=ptr_node_data(ref_obj_id=6) R10=fp0 refs=4,6
+99: (55) if r0 != 0x0 goto pc+13 113: R0_w=ptr_node_data(non_own_ref,off=16) R6=scalar() R7=5 R8=scalar() R9=scalar() R10=fp0
+117: (18) r1 = 0xff434b28008e3de8     ; R1_w=map_value(map=.data.A,ks=4,vs=72,off=16)
+119: (85) call bpf_spin_unlock#94     ;
+120: (79) r7 = *(u64 *)(r6 +8)
+`;
+    const logState = getVerifierLogState(rawLog);
+    it("120: (79) r7 = *(u64 *)(r6 +8)", () => {
+      const idx = 7;
+      const s = logState.bpfStates[idx];
+      expect(s.idx).toBe(7);
+      expect(s.pc).toBe(120);
+      const r6Deps = getMemSlotDependencies(logState, idx, "r6");
+      expect(r6Deps).toEqual(new Set<number>([4, 3, 2, 1, 0]));
     });
   });
 });

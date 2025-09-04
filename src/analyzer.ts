@@ -485,7 +485,8 @@ export function getMemSlotDependencies(
   if (!effect) return deps;
 
   const depIdx = bpfState.lastKnownWrites.get(memSlotId);
-  if (!depIdx || lines[depIdx].type !== ParsedLineType.INSTRUCTION) return deps;
+  if (depIdx === undefined || lines[depIdx].type !== ParsedLineType.INSTRUCTION)
+    return deps;
 
   const depIns = lines[depIdx].bpfIns;
   const nReads = depIns?.reads?.length;
@@ -503,11 +504,12 @@ export function getMemSlotDependencies(
 
       deps = getMemSlotDependencies(verifierLogState, prevDepIdx, memSlotId);
     }
-  } else if (
-    nReads === 1 &&
-    (depIdx !== bpfState.idx || depIns.reads[0] !== memSlotId)
-  ) {
+  } else if (nReads === 1 && depIns.writes?.includes(memSlotId)) {
+    // following a direct write from a singular source
     deps = getMemSlotDependencies(verifierLogState, depIdx, depIns.reads[0]);
+  } else if (depIdx !== selectedLine) {
+    // following a side effect
+    deps = getMemSlotDependencies(verifierLogState, depIdx, memSlotId);
   }
 
   deps.add(depIdx);
