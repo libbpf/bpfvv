@@ -28,9 +28,9 @@ import BPF_HELPERS_JSON from "./bpf-helpers.json";
 export type VisualLogState = {
   verifierLogState: VerifierLogState;
   cLines: string[];
-  cLineIdtoIdx: Map<string, number>;
+  cLineIdToVisualIdx: Map<string, number>;
   logLines: ParsedLine[];
-  logLineIdToIdx: Map<number, number>;
+  logLineIdxToVisualIdx: Map<number, number>;
 };
 
 export type LogLineState = {
@@ -181,11 +181,11 @@ function ExitInstruction({ frame }: { frame: number }) {
 
 export function HoveredLineHint({
   hoveredLine,
-  hoveredLineIdx,
+  visibleIdx,
   lines,
 }: {
   hoveredLine: number;
-  hoveredLineIdx: number;
+  visibleIdx: number;
   lines: ParsedLine[];
 }) {
   if (lines.length === 0 || hoveredLine < 0) {
@@ -197,7 +197,7 @@ export function HoveredLineHint({
   }
   return (
     <div id="hint-hovered-line" className="hint-line">
-      <span>[hovered raw line] {hoveredLineIdx + 1}:</span>&nbsp;
+      <span>[hovered raw line] {visibleIdx + 1}:</span>&nbsp;
       {lines[hoveredLine].raw}
     </div>
   );
@@ -459,11 +459,11 @@ const RegSpan = ({
 
 export function SelectedLineHint({
   selectedLine,
-  selectedLineIdx,
+  visualIdx,
   lines,
 }: {
   selectedLine: number;
-  selectedLineIdx: number;
+  visualIdx: number;
   lines: ParsedLine[];
 }) {
   if (lines.length === 0) {
@@ -471,7 +471,7 @@ export function SelectedLineHint({
   }
   return (
     <div id="hint-selected-line" className="hint-line">
-      <span>[selected raw line] {selectedLineIdx + 1}:</span>&nbsp;
+      <span>[selected raw line] {visualIdx + 1}:</span>&nbsp;
       {lines[selectedLine].raw}
     </div>
   );
@@ -976,8 +976,13 @@ export function MainContent({
   handleLogLinesOut: (event: React.MouseEvent<HTMLDivElement>) => void;
   handleStateRowClick: (event: React.MouseEvent<HTMLDivElement>) => void;
 }) {
-  const { verifierLogState, logLines, logLineIdToIdx, cLines, cLineIdtoIdx } =
-    visualLogState;
+  const {
+    verifierLogState,
+    logLines,
+    logLineIdxToVisualIdx,
+    cLines,
+    cLineIdToVisualIdx,
+  } = visualLogState;
   const memSlotDependencies: number[] = useMemo(() => {
     const lines = verifierLogState.lines;
     if (lines.length === 0) {
@@ -1131,9 +1136,9 @@ export function MainContent({
     }
 
     if (shouldScrollLogLines) {
-      const logLineIdx = logLineIdToIdx.get(maxIdx);
-      if (logLineIdx) {
-        scrollToLogLine(logLineIdx, logLines.length);
+      const visualIdx = logLineIdxToVisualIdx.get(maxIdx);
+      if (visualIdx) {
+        scrollToLogLine(visualIdx, logLines.length);
       }
     }
 
@@ -1198,9 +1203,9 @@ export function MainContent({
 
   const handleStateLogLineClick = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
-      const logLineIdx = logLineIdToIdx.get(selectedLine);
-      if (logLineIdx) {
-        scrollToLogLine(logLineIdx, logLines.length);
+      const visualIdx = logLineIdxToVisualIdx.get(selectedLine);
+      if (visualIdx) {
+        scrollToLogLine(visualIdx, logLines.length);
       }
       e.stopPropagation();
     },
@@ -1212,14 +1217,14 @@ export function MainContent({
       const cLineId =
         verifierLogState.cSourceMap.logLineToCLine.get(selectedLine);
       if (cLineId) {
-        const cLineIdx = cLineIdtoIdx.get(cLineId);
+        const cLineIdx = cLineIdToVisualIdx.get(cLineId);
         if (cLineIdx) {
           scrollToCLine(cLineIdx, cLines.length);
         }
       }
       e.stopPropagation();
     },
-    [verifierLogState, cLines, cLineIdtoIdx, selectedCLine],
+    [verifierLogState, cLines, cLineIdToVisualIdx, selectedCLine],
   );
 
   const handleArrowsClick = useCallback(
@@ -1245,12 +1250,12 @@ export function MainContent({
       }
 
       if (depArrow.classList.contains("active-down")) {
-        scrollToLogLine(logLineIdToIdx.get(next) || 0, logLines.length);
+        scrollToLogLine(logLineIdxToVisualIdx.get(next) || 0, logLines.length);
       } else if (depArrow.classList.contains("active-up")) {
-        scrollToLogLine(logLineIdToIdx.get(prev) || 0, logLines.length);
+        scrollToLogLine(logLineIdxToVisualIdx.get(prev) || 0, logLines.length);
       }
     },
-    [logLines, logLineIdToIdx, memSlotDependencies, selectedLine],
+    [logLines, logLineIdxToVisualIdx, memSlotDependencies, selectedLine],
   );
 
   const handleArrowsOver = useCallback(
@@ -1276,8 +1281,8 @@ export function MainContent({
 
       let { min, max } = getVisibleLogLineRange(logLines.length);
       const isVisible = (id: number) => {
-        const idx = logLineIdToIdx.get(id) || 0;
-        return min < idx && idx < max;
+        const visualIdx = logLineIdxToVisualIdx.get(id) || 0;
+        return min < visualIdx && visualIdx < max;
       };
       const setTargetToPrev = () => {
         depArrow.classList.add("active-up");
@@ -1296,14 +1301,14 @@ export function MainContent({
         setTargetToPrev();
       } else {
         const mid = (min + max) / 2;
-        if ((logLineIdToIdx.get(id) || 0) < mid) {
+        if ((logLineIdxToVisualIdx.get(id) || 0) < mid) {
           setTargetToPrev();
         } else {
           setTargetToNext();
         }
       }
     },
-    [logLines, logLineIdToIdx, memSlotDependencies, selectedLine],
+    [logLines, logLineIdxToVisualIdx, memSlotDependencies, selectedLine],
   );
 
   return (
