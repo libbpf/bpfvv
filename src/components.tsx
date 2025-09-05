@@ -25,6 +25,14 @@ import {
 
 import BPF_HELPERS_JSON from "./bpf-helpers.json";
 
+export type VisualLogState = {
+  verifierLogState: VerifierLogState;
+  cLines: string[];
+  cLineIdtoIdx: Map<string, number>;
+  logLines: ParsedLine[];
+  logLineIdToIdx: Map<number, number>;
+};
+
 export type LogLineState = {
   memSlotId: string;
   line: number;
@@ -946,9 +954,7 @@ function CSourceLinesRaw({
 const CSourceLines = React.memo(CSourceLinesRaw);
 
 export function MainContent({
-  verifierLogState,
-  logLines,
-  logLineIdToIdx,
+  visualLogState,
   selectedLine,
   selectedMemSlotId,
   selectedCLine,
@@ -959,9 +965,7 @@ export function MainContent({
   handleLogLinesOut,
   handleStateRowClick,
 }: {
-  verifierLogState: VerifierLogState;
-  logLines: ParsedLine[];
-  logLineIdToIdx: Map<number, number>;
+  visualLogState: VisualLogState;
   selectedLine: number;
   selectedMemSlotId: string;
   selectedCLine: number;
@@ -972,6 +976,8 @@ export function MainContent({
   handleLogLinesOut: (event: React.MouseEvent<HTMLDivElement>) => void;
   handleStateRowClick: (event: React.MouseEvent<HTMLDivElement>) => void;
 }) {
+  const { verifierLogState, logLines, logLineIdToIdx, cLines, cLineIdtoIdx } =
+    visualLogState;
   const memSlotDependencies: number[] = useMemo(() => {
     const lines = verifierLogState.lines;
     if (lines.length === 0) {
@@ -1206,14 +1212,14 @@ export function MainContent({
       const cLineId =
         verifierLogState.cSourceMap.logLineToCLine.get(selectedLine);
       if (cLineId) {
-        const cLineIdx = verifierLogState.cLineIdtoIdx.get(cLineId);
+        const cLineIdx = cLineIdtoIdx.get(cLineId);
         if (cLineIdx) {
-          scrollToCLine(cLineIdx, verifierLogState.cLines.length);
+          scrollToCLine(cLineIdx, cLines.length);
         }
       }
       e.stopPropagation();
     },
-    [verifierLogState, selectedCLine],
+    [verifierLogState, cLines, cLineIdtoIdx, selectedCLine],
   );
 
   const handleArrowsClick = useCallback(
