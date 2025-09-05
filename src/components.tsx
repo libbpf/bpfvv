@@ -1137,7 +1137,7 @@ export function MainContent({
 
     if (shouldScrollLogLines) {
       const visualIdx = logLineIdxToVisualIdx.get(maxIdx);
-      if (visualIdx) {
+      if (visualIdx !== undefined) {
         scrollToLogLine(visualIdx, logLines.length);
       }
     }
@@ -1204,7 +1204,7 @@ export function MainContent({
   const handleStateLogLineClick = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
       const visualIdx = logLineIdxToVisualIdx.get(selectedLine);
-      if (visualIdx) {
+      if (visualIdx !== undefined) {
         scrollToLogLine(visualIdx, logLines.length);
       }
       e.stopPropagation();
@@ -1218,7 +1218,7 @@ export function MainContent({
         verifierLogState.cSourceMap.logLineToCLine.get(selectedLine);
       if (cLineId) {
         const cLineIdx = cLineIdToVisualIdx.get(cLineId);
-        if (cLineIdx) {
+        if (cLineIdx !== undefined) {
           scrollToCLine(cLineIdx, cLines.length);
         }
       }
