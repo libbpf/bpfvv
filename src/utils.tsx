@@ -1,4 +1,5 @@
-import { ParsedLine, ParsedLineType } from "./parser";
+import { VerifierLogState } from "./analyzer";
+import { getCLineId, ParsedLine, ParsedLineType } from "./parser";
 
 export async function fetchLogFromUrl(url: string) {
   try {
@@ -128,4 +129,52 @@ export function siblingInsLine(
     }
   }
   return normalIdx(idx, n);
+}
+
+export function getVisibleLogLines(
+  verifierLogState: VerifierLogState,
+  fullLogView: boolean,
+): [ParsedLine[], Map<number, number>] {
+  const logLines: ParsedLine[] = [];
+  const logLineIdToIdx: Map<number, number> = new Map();
+
+  let idx = 0;
+  verifierLogState.lines.forEach((line) => {
+    if (line.type !== ParsedLineType.C_SOURCE || fullLogView) {
+      logLines.push(line);
+      logLineIdToIdx.set(line.idx, idx++);
+    }
+  });
+
+  return [logLines, logLineIdToIdx];
+}
+
+export function getVisibleCLines(
+  verifierLogState: VerifierLogState,
+): [string[], Map<string, number>] {
+  const cLines = [];
+  const cLineIdtoIdx: Map<string, number> = new Map();
+  let i = 0;
+  const { cSourceMap } = verifierLogState;
+  for (const [file, range] of cSourceMap.fileRange) {
+    let unknownStart = 0;
+    for (let j = range[0]; j < range[1]; ++j) {
+      const cLineId = getCLineId(file, j);
+      const sourceLine = cSourceMap.cSourceLines.get(cLineId);
+      if (!sourceLine) {
+        if (!unknownStart) {
+          unknownStart = i;
+        }
+        continue;
+      }
+      if (unknownStart > 0) {
+        cLines.push("");
+        cLineIdtoIdx.set(cLineId, i++);
+      }
+      unknownStart = 0;
+      cLines.push(cLineId);
+      cLineIdtoIdx.set(cLineId, i++);
+    }
+  }
+  return [cLines, cLineIdtoIdx];
 }

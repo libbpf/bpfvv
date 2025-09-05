@@ -13,9 +13,12 @@ import {
   scrollToLogLine,
   scrollToCLine,
   siblingInsLine,
+  getVisibleLogLines,
+  getVisibleCLines,
 } from "./utils";
 
 import {
+  VisualLogState,
   LogLineState,
   Example,
   HoveredLineHint,
@@ -24,13 +27,39 @@ import {
   SelectedLineHint,
   ToolTip,
 } from "./components";
-import { ParsedLine, ParsedLineType } from "./parser";
+import { ParsedLineType } from "./parser";
+
+function getEmptyVisualLogState(): VisualLogState {
+  return {
+    verifierLogState: getEmptyVerifierState(),
+    logLines: [],
+    logLineIdToIdx: new Map(),
+    cLines: [],
+    cLineIdtoIdx: new Map(),
+  };
+}
+
+function getVisualLogState(
+  verifierLogState: VerifierLogState,
+  fullLogView: boolean,
+): VisualLogState {
+  const [logLines, logLineIdToIdx] = getVisibleLogLines(
+    verifierLogState,
+    fullLogView,
+  );
+  const [cLines, cLineIdtoIdx] = getVisibleCLines(verifierLogState);
+  return {
+    verifierLogState: verifierLogState,
+    logLines,
+    logLineIdToIdx,
+    cLines,
+    cLineIdtoIdx,
+  };
+}
 
 const ContentRaw = ({
   loadError,
-  verifierLogState,
-  logLines,
-  logLineIdToIdx,
+  visualLogState,
   selectedLine,
   selectedMemSlotId,
   selectedCLine,
@@ -43,9 +72,7 @@ const ContentRaw = ({
   handleStateRowClick,
 }: {
   loadError: string | null;
-  verifierLogState: VerifierLogState;
-  logLines: ParsedLine[];
-  logLineIdToIdx: Map<number, number>;
+  visualLogState: VisualLogState;
   selectedLine: number;
   selectedMemSlotId: string;
   selectedCLine: number;
@@ -59,12 +86,10 @@ const ContentRaw = ({
 }) => {
   if (loadError) {
     return <div>{loadError}</div>;
-  } else if (logLines.length > 0) {
+  } else if (visualLogState.logLines.length > 0) {
     return (
       <MainContent
-        verifierLogState={verifierLogState}
-        logLines={logLines}
-        logLineIdToIdx={logLineIdToIdx}
+        visualLogState={visualLogState}
         selectedLine={selectedLine}
         selectedMemSlotId={selectedMemSlotId}
         selectedCLine={selectedCLine}
@@ -90,8 +115,8 @@ const ContentRaw = ({
 const Content = React.memo(ContentRaw);
 
 function App() {
-  const [verifierLogState, setVerifierLogState] = useState<VerifierLogState>(
-    getEmptyVerifierState(),
+  const [visualLogState, setVisualLogState] = useState<VisualLogState>(
+    getEmptyVisualLogState(),
   );
   const [hoveredState, setHoveredState] = useState<LogLineState>({
     memSlotId: "",
@@ -108,22 +133,8 @@ function App() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const { cLines, cLineIdtoIdx } = verifierLogState;
-
-  const [logLines, logLineIdToIdx] = useMemo(() => {
-    const logLines: ParsedLine[] = [];
-    const logLineIdToIdx: Map<number, number> = new Map();
-
-    let idx = 0;
-    verifierLogState.lines.forEach((line) => {
-      if (line.type !== ParsedLineType.C_SOURCE || fullLogView) {
-        logLines.push(line);
-        logLineIdToIdx.set(line.idx, idx++);
-      }
-    });
-
-    return [logLines, logLineIdToIdx];
-  }, [verifierLogState, fullLogView]);
+  const { verifierLogState, cLines, cLineIdtoIdx, logLines, logLineIdToIdx } =
+    visualLogState;
 
   const { line: selectedLine, memSlotId: selectedMemSlotId } = selectedState;
   const selectedLineIdx = logLineIdToIdx.get(selectedLine) || 0;
@@ -189,7 +200,7 @@ function App() {
   }
 
   const onClear = useCallback(() => {
-    setVerifierLogState(getEmptyVerifierState());
+    setVisualLogState(getEmptyVisualLogState());
     setSelectedState({ line: 0, memSlotId: "", cLine: "" });
     const fiCurrent = fileInputRef.current;
     if (fiCurrent) {
@@ -199,7 +210,18 @@ function App() {
 
   const onLogToggle = useCallback(() => {
     setfullLogView((prev) => !prev);
-  }, []);
+    const [newLogLines, newLogLineIdToIdx] = getVisibleLogLines(
+      verifierLogState,
+      !fullLogView,
+    );
+    setVisualLogState((prev) => {
+      return {
+        ...prev,
+        logLines: newLogLines,
+        logLineIdToIdx: newLogLineIdToIdx,
+      };
+    });
+  }, [fullLogView, verifierLogState]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -291,9 +313,13 @@ function App() {
     onGotoEnd();
   }, [verifierLogState]);
 
-  const loadInputText = useCallback((text: string) => {
-    setVerifierLogState(processRawLines(text.split("\n")));
-  }, []);
+  const loadInputText = useCallback(
+    (text: string) => {
+      const newVerifierLogState = processRawLines(text.split("\n"));
+      setVisualLogState(getVisualLogState(newVerifierLogState, fullLogView));
+    },
+    [fullLogView],
+  );
 
   const handlePaste = useCallback(
     (event: React.ClipboardEvent) => {
@@ -508,7 +534,8 @@ function App() {
           }
           rawLines = rawLines.concat(lines);
         }
-        setVerifierLogState(processRawLines(rawLines));
+        const newVerifierLogState = processRawLines(rawLines);
+        setVisualLogState(getVisualLogState(newVerifierLogState, fullLogView));
       }
     },
     [],
@@ -562,9 +589,7 @@ function App() {
         </div>
         <Content
           loadError={loadError}
-          verifierLogState={verifierLogState}
-          logLines={logLines}
-          logLineIdToIdx={logLineIdToIdx}
+          visualLogState={visualLogState}
           selectedLine={selectedLine}
           selectedMemSlotId={selectedMemSlotId}
           selectedCLine={selectedCLine}

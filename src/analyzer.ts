@@ -8,7 +8,6 @@ import {
   ParsedLine,
   ParsedLineType,
   parseLine,
-  getCLineId,
   KnownMessageInfoType,
   GlobalFuncValidInfo,
   InstructionLine,
@@ -79,8 +78,6 @@ export class CSourceMap {
  */
 export type VerifierLogState = {
   lines: ParsedLine[];
-  cLines: string[];
-  cLineIdtoIdx: Map<string, number>;
   bpfStates: BpfState[];
   cSourceMap: CSourceMap;
   lastInsIdx: number;
@@ -332,8 +329,6 @@ function nextBpfState(
 export function getEmptyVerifierState(): VerifierLogState {
   return {
     lines: [],
-    cLines: [],
-    cLineIdtoIdx: new Map(),
     bpfStates: [],
     cSourceMap: new CSourceMap(),
     lastInsIdx: 0,
@@ -435,36 +430,10 @@ export function processRawLines(rawLines: string[]): VerifierLogState {
     cSourceMap.addCSourceLine(currentCSourceLine, idxsForCLine);
   }
 
-  const cLines = [];
-  const cLineIdtoIdx: Map<string, number> = new Map();
-  let i = 0;
-  for (const [file, range] of cSourceMap.fileRange) {
-    let unknownStart = 0;
-    for (let j = range[0]; j < range[1]; ++j) {
-      const cLineId = getCLineId(file, j);
-      const sourceLine = cSourceMap.cSourceLines.get(cLineId);
-      if (!sourceLine) {
-        if (!unknownStart) {
-          unknownStart = i;
-        }
-        continue;
-      }
-      if (unknownStart > 0) {
-        cLines.push("");
-        cLineIdtoIdx.set(cLineId, i++);
-      }
-      unknownStart = 0;
-      cLines.push(cLineId);
-      cLineIdtoIdx.set(cLineId, i++);
-    }
-  }
-
   return {
     lines,
     bpfStates,
     cSourceMap,
-    cLines,
-    cLineIdtoIdx,
     lastInsIdx,
   };
 }
