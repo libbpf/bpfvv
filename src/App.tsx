@@ -279,10 +279,11 @@ function App() {
         if (logLines && logLines.size > 0) {
           [logLineId] = logLines;
         }
+        const visualLogLineIdx = logLineIdxToVisualIdx.get(logLineId);
         setSelectedAndScroll(
           logLineId,
           cLines[nextVisibleIdx],
-          logLineIdxToVisualIdx.get(logLineId) || -1,
+          visualLogLineIdx === undefined ? -1 : visualLogLineIdx,
           nextVisibleIdx,
         );
       } else {
@@ -296,11 +297,12 @@ function App() {
         const logLineId = logLines[nextInsVisualIdx].idx;
         const cLineId =
           verifierLogState.cSourceMap.logLineToCLine.get(logLineId) || "";
+        const visualCLineIdx = cLineIdToVisualIdx.get(cLineId);
         setSelectedAndScroll(
           logLineId,
           "",
           nextInsVisualIdx,
-          cLineIdToVisualIdx.get(cLineId) || -1,
+          visualCLineIdx === undefined ? -1 : visualCLineIdx,
         );
       }
     };
@@ -481,11 +483,12 @@ function App() {
           parsedLine.type == ParsedLineType.C_SOURCE
             ? parsedLine.id
             : verifierLogState.cSourceMap.logLineToCLine.get(lineId) || "";
+        const visualCLineIdx = cLineIdToVisualIdx.get(clineId);
         setSelectedAndScroll(
           lineId,
           "",
           -1,
-          cLineIdToVisualIdx.get(clineId) || -1,
+          visualCLineIdx === undefined ? -1 : visualCLineIdx,
           memSlotId,
         );
       }
