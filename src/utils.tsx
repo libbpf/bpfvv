@@ -69,31 +69,32 @@ export function getVisibleCSourceRange(linesLen: number): {
 
 function scrollToLine(
   el: HTMLElement,
-  idx: number,
+  visualIdx: number,
   max: number,
   min: number,
   linesLen: number,
 ) {
   const page = max - min + 1;
-  const relativePosition = normalIdx(idx - page * 0.618, linesLen) / linesLen;
+  const relativePosition =
+    normalIdx(visualIdx - page * 0.618, linesLen) / linesLen;
   el.scrollTop = relativePosition * el.scrollHeight;
 }
 
-export function scrollToLogLine(idx: number, linesLen: number) {
+export function scrollToLogLine(visualIdx: number, linesLen: number) {
   const logContainer = document.getElementById("log-container");
   if (!logContainer) {
     throw new Error("Log line container is not in the DOM");
   }
   const logRange = getVisibleLogLineRange(linesLen);
   if (
-    (idx < logRange.min + 8 || idx > logRange.max - 8) &&
-    !(idx < 0 || idx >= linesLen)
+    (visualIdx < logRange.min + 8 || visualIdx > logRange.max - 8) &&
+    !(visualIdx < 0 || visualIdx >= linesLen)
   ) {
-    scrollToLine(logContainer, idx, logRange.max, logRange.min, linesLen);
+    scrollToLine(logContainer, visualIdx, logRange.max, logRange.min, linesLen);
   }
 }
 
-export function scrollToCLine(idx: number, linesLen: number) {
+export function scrollToCLine(visualIdx: number, linesLen: number) {
   const cSourceContainer = document.getElementById("c-source-container");
   if (!cSourceContainer) {
     // This won't exist if the container is collapsed
@@ -101,12 +102,12 @@ export function scrollToCLine(idx: number, linesLen: number) {
   }
   const cLinesRange = getVisibleCSourceRange(linesLen);
   if (
-    (idx < cLinesRange.min + 8 || idx > cLinesRange.max - 8) &&
-    !(idx < 0 || idx >= linesLen)
+    (visualIdx < cLinesRange.min + 8 || visualIdx > cLinesRange.max - 8) &&
+    !(visualIdx < 0 || visualIdx >= linesLen)
   ) {
     scrollToLine(
       cSourceContainer,
-      idx,
+      visualIdx,
       cLinesRange.max,
       cLinesRange.min,
       linesLen,
@@ -136,24 +137,24 @@ export function getVisibleLogLines(
   fullLogView: boolean,
 ): [ParsedLine[], Map<number, number>] {
   const logLines: ParsedLine[] = [];
-  const logLineIdToIdx: Map<number, number> = new Map();
+  const logLineIdxToVisualIdx: Map<number, number> = new Map();
 
-  let idx = 0;
+  let visualIdx = 0;
   verifierLogState.lines.forEach((line) => {
     if (line.type !== ParsedLineType.C_SOURCE || fullLogView) {
       logLines.push(line);
-      logLineIdToIdx.set(line.idx, idx++);
+      logLineIdxToVisualIdx.set(line.idx, visualIdx++);
     }
   });
 
-  return [logLines, logLineIdToIdx];
+  return [logLines, logLineIdxToVisualIdx];
 }
 
 export function getVisibleCLines(
   verifierLogState: VerifierLogState,
 ): [string[], Map<string, number>] {
   const cLines = [];
-  const cLineIdtoIdx: Map<string, number> = new Map();
+  const cLineIdToVisualIdx: Map<string, number> = new Map();
   let i = 0;
   const { cSourceMap } = verifierLogState;
   for (const [file, range] of cSourceMap.fileRange) {
@@ -169,12 +170,12 @@ export function getVisibleCLines(
       }
       if (unknownStart > 0) {
         cLines.push("");
-        cLineIdtoIdx.set(cLineId, i++);
+        cLineIdToVisualIdx.set(cLineId, i++);
       }
       unknownStart = 0;
       cLines.push(cLineId);
-      cLineIdtoIdx.set(cLineId, i++);
+      cLineIdToVisualIdx.set(cLineId, i++);
     }
   }
-  return [cLines, cLineIdtoIdx];
+  return [cLines, cLineIdToVisualIdx];
 }

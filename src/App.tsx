@@ -33,9 +33,9 @@ function getEmptyVisualLogState(): VisualLogState {
   return {
     verifierLogState: getEmptyVerifierState(),
     logLines: [],
-    logLineIdToIdx: new Map(),
+    logLineIdxToVisualIdx: new Map(),
     cLines: [],
-    cLineIdtoIdx: new Map(),
+    cLineIdToVisualIdx: new Map(),
   };
 }
 
@@ -43,17 +43,17 @@ function getVisualLogState(
   verifierLogState: VerifierLogState,
   fullLogView: boolean,
 ): VisualLogState {
-  const [logLines, logLineIdToIdx] = getVisibleLogLines(
+  const [logLines, logLineIdxToVisualIdx] = getVisibleLogLines(
     verifierLogState,
     fullLogView,
   );
-  const [cLines, cLineIdtoIdx] = getVisibleCLines(verifierLogState);
+  const [cLines, cLineIdToVisualIdx] = getVisibleCLines(verifierLogState);
   return {
     verifierLogState: verifierLogState,
     logLines,
-    logLineIdToIdx,
+    logLineIdxToVisualIdx,
     cLines,
-    cLineIdtoIdx,
+    cLineIdToVisualIdx,
   };
 }
 
@@ -133,12 +133,18 @@ function App() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const { verifierLogState, cLines, cLineIdtoIdx, logLines, logLineIdToIdx } =
-    visualLogState;
+  const {
+    verifierLogState,
+    cLines,
+    cLineIdToVisualIdx,
+    logLines,
+    logLineIdxToVisualIdx,
+  } = visualLogState;
 
   const { line: selectedLine, memSlotId: selectedMemSlotId } = selectedState;
-  const selectedLineIdx = logLineIdToIdx.get(selectedLine) || 0;
-  const hoveredLineIdx = logLineIdToIdx.get(hoveredState.line) || 0;
+  const selectedLineVisualIdx = logLineIdxToVisualIdx.get(selectedLine) || 0;
+  const hoveredLineVisualIdx =
+    logLineIdxToVisualIdx.get(hoveredState.line) || 0;
   const selectedCLine = useMemo(() => {
     let clineId = "";
     if (selectedState.cLine) {
@@ -163,15 +169,15 @@ function App() {
     (
       nextInsLineId: number,
       nextCLineId: string,
-      nextInsLineIdx: number,
-      nextCLineIdx: number,
+      nextInsLineVisualIdx: number,
+      nextCLineVisualIdx: number,
       memSlotId: string = "",
     ) => {
-      scrollToLogLine(nextInsLineIdx, logLines.length);
-      scrollToCLine(nextCLineIdx, cLines.length);
+      scrollToLogLine(nextInsLineVisualIdx, logLines.length);
+      scrollToCLine(nextCLineVisualIdx, cLines.length);
       setSelectedState({ line: nextInsLineId, memSlotId, cLine: nextCLineId });
     },
-    [logLines, cLineIdtoIdx],
+    [logLines, cLineIdToVisualIdx],
   );
 
   const onGotoStart = useCallback(() => {
@@ -181,7 +187,7 @@ function App() {
     const lineId = logLines[0].idx;
     const clineId =
       verifierLogState.cSourceMap.logLineToCLine.get(lineId) || "";
-    setSelectedAndScroll(lineId, "", 0, cLineIdtoIdx.get(clineId) || 0);
+    setSelectedAndScroll(lineId, "", 0, cLineIdToVisualIdx.get(clineId) || 0);
   }, [logLines, verifierLogState]);
 
   function onGotoEnd() {
@@ -195,7 +201,7 @@ function App() {
       lineId,
       "",
       logLines.length - 1,
-      cLineIdtoIdx.get(clineId) || 0,
+      cLineIdToVisualIdx.get(clineId) || 0,
     );
   }
 
@@ -210,7 +216,7 @@ function App() {
 
   const onLogToggle = useCallback(() => {
     setfullLogView((prev) => !prev);
-    const [newLogLines, newLogLineIdToIdx] = getVisibleLogLines(
+    const [newLogLines, newLogLineIdToVisualIdx] = getVisibleLogLines(
       verifierLogState,
       !fullLogView,
     );
@@ -218,7 +224,7 @@ function App() {
       return {
         ...prev,
         logLines: newLogLines,
-        logLineIdToIdx: newLogLineIdToIdx,
+        logLineIdxToVisualIdx: newLogLineIdToVisualIdx,
       };
     });
   }, [fullLogView, verifierLogState]);
@@ -260,10 +266,11 @@ function App() {
       }
       e.preventDefault();
       if (areCLinesInFocus) {
-        const currentIdx = cLineIdtoIdx.get(selectedState.cLine) || 0;
-        let nextIdx = currentIdx + delta;
-        if (cLines[nextIdx] === "") {
-          nextIdx += delta;
+        const currentVisibleIdx =
+          cLineIdToVisualIdx.get(selectedState.cLine) || 0;
+        let nextVisibleIdx = currentVisibleIdx + delta;
+        if (cLines[nextVisibleIdx] === "") {
+          nextVisibleIdx += delta;
         }
         const logLines = verifierLogState.cSourceMap.cLineToLogLines.get(
           selectedState.cLine,
@@ -274,21 +281,26 @@ function App() {
         }
         setSelectedAndScroll(
           logLineId,
-          cLines[nextIdx],
-          logLineIdToIdx.get(logLineId) || -1,
-          nextIdx,
+          cLines[nextVisibleIdx],
+          logLineIdxToVisualIdx.get(logLineId) || -1,
+          nextVisibleIdx,
         );
       } else {
-        const currInsIdx = logLineIdToIdx.get(selectedState.line) || 0;
-        let nextInsIdx = siblingInsLine(logLines, currInsIdx, delta);
-        const logLineId = logLines[nextInsIdx].idx;
+        const currInsVisualIdx =
+          logLineIdxToVisualIdx.get(selectedState.line) || 0;
+        let nextInsVisualIdx = siblingInsLine(
+          logLines,
+          currInsVisualIdx,
+          delta,
+        );
+        const logLineId = logLines[nextInsVisualIdx].idx;
         const cLineId =
           verifierLogState.cSourceMap.logLineToCLine.get(logLineId) || "";
         setSelectedAndScroll(
           logLineId,
           "",
-          nextInsIdx,
-          cLineIdtoIdx.get(cLineId) || -1,
+          nextInsVisualIdx,
+          cLineIdToVisualIdx.get(cLineId) || -1,
         );
       }
     };
@@ -301,10 +313,10 @@ function App() {
   }, [
     logLines,
     cLines,
-    cLineIdtoIdx,
+    cLineIdToVisualIdx,
     selectedState,
     verifierLogState,
-    logLineIdToIdx,
+    logLineIdxToVisualIdx,
     onGotoStart,
     onGotoEnd,
   ]);
@@ -417,14 +429,14 @@ function App() {
         setSelectedAndScroll(
           firstItem,
           clineId,
-          logLineIdToIdx.get(firstItem) || 0,
+          logLineIdxToVisualIdx.get(firstItem) || 0,
           -1,
         );
       } else {
         setSelectedState({ line: 0, memSlotId: "", cLine: clineId });
       }
     },
-    [verifierLogState, logLineIdToIdx, cLineIdtoIdx],
+    [verifierLogState, logLineIdxToVisualIdx, cLineIdToVisualIdx],
   );
 
   const handleStateRowClick = useCallback(
@@ -473,12 +485,12 @@ function App() {
           lineId,
           "",
           -1,
-          cLineIdtoIdx.get(clineId) || -1,
+          cLineIdToVisualIdx.get(clineId) || -1,
           memSlotId,
         );
       }
     },
-    [logLines, verifierLogState, cLineIdtoIdx],
+    [logLines, verifierLogState, cLineIdToVisualIdx],
   );
 
   const handleLogLinesOver = useCallback(
@@ -604,12 +616,12 @@ function App() {
         <div id="hint">
           <SelectedLineHint
             selectedLine={selectedLine}
-            selectedLineIdx={selectedLineIdx}
+            visualIdx={selectedLineVisualIdx}
             lines={verifierLogState.lines}
           />
           <HoveredLineHint
             hoveredLine={hoveredState.line}
-            hoveredLineIdx={hoveredLineIdx}
+            visibleIdx={hoveredLineVisualIdx}
             lines={verifierLogState.lines}
           />
         </div>
