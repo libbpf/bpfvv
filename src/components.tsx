@@ -1,4 +1,4 @@
-import React, { ReactElement } from "react";
+import React, { ChangeEvent, ReactElement } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   BpfJmpKind,
@@ -156,15 +156,48 @@ function CallHtml({
   }
 }
 
-export function Example() {
-  const url = document
-    .querySelector('meta[name="app-example-input"]')
-    ?.getAttribute("link");
-  if (url) {
+declare global {
+  var exampleLinks: [string, string][];
+}
+
+export function Examples({
+  handleLoadExample,
+}: {
+  handleLoadExample: (exampleLink: string) => Promise<void>;
+}) {
+  const exampleLinks: [string, string][] = globalThis.exampleLinks || [];
+
+  const [selectedOption, setSelectedOption] = useState(exampleLinks.length ? exampleLinks[0][1] : "");
+  const handleChange = useCallback((event: ChangeEvent<HTMLSelectElement>) => {
+    setSelectedOption(event.target.value);
+  }, []);
+
+  const onLoad = useCallback(() => {
+    handleLoadExample(selectedOption);
+  }, [selectedOption]);
+
+  if (exampleLinks) {
     return (
-      <a id="example-link" href={`${window.location.pathname}?url=${url}`}>
-        Load an example log
-      </a>
+      <>
+        <label className="line-nav-item">Examples:</label>
+        <select
+          id="log-example-dropdown"
+          className="line-nav-item"
+          onChange={handleChange}
+          value={selectedOption}
+        >
+          {exampleLinks.map((pair) => {
+            return (
+              <option key={pair[1]} value={pair[1]}>
+                {pair[0]}
+              </option>
+            );
+          })}
+        </select>
+        <button id="load-example" className="line-nav-item" onClick={onLoad}>
+          Load
+        </button>
+      </>
     );
   } else {
     return <></>;

@@ -9,10 +9,14 @@
       content="Visualizing Linux Kernel BPF verifier log to help BPF programmers with debugging verification failures"
     />
     <meta name="app-input" link=""/>
-    <meta
-      name="app-example-input"
-      link="https://gist.githubusercontent.com/theihor/e0002c119414e6b40e2192bd7ced01b1/raw/866bcc155c2ce848dcd4bc7fd043a97f39a2d370/gistfile1.txt"
-    />
+    <script>
+      globalThis.exampleLinks = [
+          ["Simple Program", "https://gist.githubusercontent.com/theihor/e0002c119414e6b40e2192bd7ced01b1/raw/866bcc155c2ce848dcd4bc7fd043a97f39a2d370/gistfile1.txt"],
+          ["Subprogram Calls", "https://gist.githubusercontent.com/jordalgo/f59c216ba91e269632cc9fdc6fc67be3/raw/d058a99a48450131015608195cc5e33364312492/gistfile1.txt"],
+          ["bpf_for_loop", "https://gist.githubusercontent.com/jordalgo/061d908e411e3477848be5c36c99e596/raw/bb2a35f7d5288472801211f73c95ad6e71c6b808/gistfile1.txt"],
+          ["Long Program", "https://gist.githubusercontent.com/theihor/1bea72b50f6834c00b67a3087304260e/raw/9c0cb831a4924e5f0f63cc1e0d9620aec771d31f/pyperf600-v1.log"],
+        ];
+    </script>
     <link rel="manifest" href="manifest.json" />
     <title>BPF Verifier Visualizer</title>
   </head>
