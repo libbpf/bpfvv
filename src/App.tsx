@@ -20,12 +20,12 @@ import {
 import {
   VisualLogState,
   LogLineState,
-  Example,
   HoveredLineHint,
   LoadStatus,
   MainContent,
   SelectedLineHint,
   ToolTip,
+  Examples,
 } from "./components";
 import { ParsedLineType } from "./parser";
 
@@ -323,8 +323,22 @@ function App() {
     onGotoEnd,
   ]);
 
+  // When a new log is loaded go to the last instruction
   useEffect(() => {
-    onGotoEnd();
+    const visualIdx = logLineIdxToVisualIdx.get(verifierLogState.lastInsIdx);
+    if (visualIdx === undefined) {
+      return;
+    }
+    const clineId =
+      verifierLogState.cSourceMap.logLineToCLine.get(
+        verifierLogState.lastInsIdx,
+      ) || "";
+    setSelectedAndScroll(
+      verifierLogState.lastInsIdx,
+      "",
+      visualIdx,
+      cLineIdToVisualIdx.get(clineId) || 0,
+    );
   }, [verifierLogState]);
 
   const loadInputText = useCallback(
@@ -592,7 +606,7 @@ function App() {
               ref={fileInputRef}
             />
           </div>
-          <Example />
+          <Examples />
           <a
             href="https://github.com/theihor/bpfvv/blob/master/HOWTO.md"
             className="howto-link"
