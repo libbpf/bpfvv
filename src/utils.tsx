@@ -46,6 +46,9 @@ export function getVisibleLogLineRange(linesLen: number): {
   min: number;
   max: number;
 } {
+  if (linesLen === 0) {
+    return { min: 0, max: 0 };
+  }
   const formattedLogLines = document.getElementById("formatted-log-lines");
   const logContainer = document.getElementById("log-container");
   if (!formattedLogLines || !logContainer) {

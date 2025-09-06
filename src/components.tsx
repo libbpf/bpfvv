@@ -1,4 +1,4 @@
-import React, { ReactElement } from "react";
+import React, { ChangeEvent, ReactElement } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   BpfJmpKind,
@@ -156,15 +156,32 @@ function CallHtml({
   }
 }
 
-export function Example() {
-  const url = document
-    .querySelector('meta[name="app-example-input"]')
-    ?.getAttribute("link");
-  if (url) {
+declare global {
+  var exampleLinks: string[];
+}
+
+export function Examples() {
+  const exampleLinks: string[] = globalThis.exampleLinks;
+  const handleChange = (event: ChangeEvent<HTMLSelectElement>) => {
+    window.location.replace(
+      `${window.location.pathname}?url=${event.target.value}`,
+    );
+  };
+
+  if (exampleLinks) {
     return (
-      <a id="example-link" href={`${window.location.pathname}?url=${url}`}>
-        Load an example log
-      </a>
+      <>
+        <label className="line-nav-item">Load Example:</label>
+        <select id="log-example-dropdown" onChange={handleChange}>
+          {exampleLinks.map((link, idx) => {
+            return (
+              <option key={link} value={link}>
+                Example {idx + 1}
+              </option>
+            );
+          })}
+        </select>
+      </>
     );
   } else {
     return <></>;

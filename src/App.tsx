@@ -20,12 +20,12 @@ import {
 import {
   VisualLogState,
   LogLineState,
-  Example,
   HoveredLineHint,
   LoadStatus,
   MainContent,
   SelectedLineHint,
   ToolTip,
+  Examples,
 } from "./components";
 import { ParsedLineType } from "./parser";
 
@@ -606,7 +606,7 @@ function App() {
               ref={fileInputRef}
             />
           </div>
-          <Example />
+          <Examples />
           <a
             href="https://github.com/theihor/bpfvv/blob/master/HOWTO.md"
             className="howto-link"
