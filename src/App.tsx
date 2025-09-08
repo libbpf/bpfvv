@@ -323,8 +323,22 @@ function App() {
     onGotoEnd,
   ]);
 
+  // When a new log is loaded go to the last instruction
   useEffect(() => {
-    onGotoEnd();
+    const visualIdx = logLineIdxToVisualIdx.get(verifierLogState.lastInsIdx);
+    if (visualIdx === undefined) {
+      return;
+    }
+    const clineId =
+      verifierLogState.cSourceMap.logLineToCLine.get(
+        verifierLogState.lastInsIdx,
+      ) || "";
+    setSelectedAndScroll(
+      verifierLogState.lastInsIdx,
+      "",
+      visualIdx,
+      cLineIdToVisualIdx.get(clineId) || 0,
+    );
   }, [verifierLogState]);
 
   const loadInputText = useCallback(
