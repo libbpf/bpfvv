@@ -19,7 +19,11 @@ import {
   insEntersNewFrame,
   normalMemSlotId,
 } from "./utils";
-import { CSourceMap, getMemSlotDependencies } from "./analyzer";
+import {
+  CSourceMap,
+  getMemSlotDependencies,
+  uniqueInstructionsMap,
+} from "./analyzer";
 
 import { BpfState, getBpfState, VerifierLogState } from "./analyzer";
 
@@ -1430,6 +1434,155 @@ export function MainContent({
         handleStateCLineClick={handleStateCLineClick}
         handleStateRowClick={handleStateRowClick}
       />
+    </div>
+  );
+}
+
+const InstructionLineForHeatmap = ({
+  line,
+  state,
+  intensity,
+  idx,
+}: {
+  line: InstructionLine;
+  state: BpfState;
+  intensity: number;
+  idx: number;
+}) => {
+  let content;
+  const topClasses = ["log-line"];
+  topClasses.push("normal-line");
+  content = InstructionLineContent({ line, state });
+
+  const lineId = "line-" + idx;
+
+  // Create heatmap style
+  const heatStyle: React.CSSProperties = {};
+  if (intensity > 0) {
+    let r, g, b;
+
+    if (intensity <= 0.5) {
+      // White to yellow: (255,255,255) to (255,255,0)
+      const t = intensity / 0.5;
+      r = 255;
+      g = 255;
+      b = Math.floor(255 * (1 - t));
+    } else {
+      // Yellow to dark orange: (255,255,0) to (204,85,0)
+      const t = (intensity - 0.5) / 0.5;
+      r = Math.floor(255 - 51 * t); // 255 -> 204
+      g = Math.floor(255 - 170 * t); // 255 -> 85
+      b = 0;
+    }
+
+    heatStyle.backgroundColor = `rgb(${r}, ${g}, ${b})`;
+    heatStyle.color = "black";
+  }
+
+  return (
+    <div
+      line-index={idx}
+      id={lineId}
+      className={topClasses.join(" ")}
+      style={heatStyle}
+    >
+      {content}
+    </div>
+  );
+};
+
+const InstructionLinesHeatmap = ({
+  verifierLogState,
+  lines,
+  lineMap,
+  handleLogLinesClick,
+  handleLogLinesOver,
+  handleLogLinesOut,
+}: {
+  verifierLogState: VerifierLogState;
+  lines: InstructionLine[];
+  lineMap: Map<number, InstructionLine[]>;
+  handleLogLinesClick: (event: React.MouseEvent<HTMLDivElement>) => void;
+  handleLogLinesOver: (event: React.MouseEvent<HTMLDivElement>) => void;
+  handleLogLinesOut: (event: React.MouseEvent<HTMLDivElement>) => void;
+}) => {
+  const { bpfStates } = verifierLogState;
+
+  // Calculate maximum heat level for normalization
+  const maxHeatLevel = Math.max(
+    ...Array.from(lineMap.values()).map((lines) => lines.length),
+  );
+
+  return (
+    <div
+      id="formatted-log-lines"
+      onClick={handleLogLinesClick}
+      onMouseOver={handleLogLinesOver}
+      onMouseOut={handleLogLinesOut}
+    >
+      {lines.map((line) => {
+        const bpfState = getBpfState(bpfStates, line.idx);
+        const heatLevel = lineMap.get(line.bpfIns.pc || 0)?.length || 0;
+        const intensity = maxHeatLevel > 0 ? heatLevel / maxHeatLevel : 0;
+        return (
+          <InstructionLineForHeatmap
+            intensity={intensity}
+            state={bpfState}
+            line={line}
+            idx={line.idx}
+            key={`log_line_${line.idx}`}
+          />
+        );
+      })}
+    </div>
+  );
+};
+
+export function MainContentDisasmView({
+  visualLogState,
+  handleMainContentClick,
+  handleCLinesClick,
+  handleLogLinesClick,
+  handleLogLinesOver,
+  handleLogLinesOut,
+}: {
+  visualLogState: VisualLogState;
+  handleMainContentClick: (event: React.MouseEvent<HTMLDivElement>) => void;
+  handleCLinesClick: (event: React.MouseEvent<HTMLDivElement>) => void;
+  handleLogLinesClick: (event: React.MouseEvent<HTMLDivElement>) => void;
+  handleLogLinesOver: (event: React.MouseEvent<HTMLDivElement>) => void;
+  handleLogLinesOut: (event: React.MouseEvent<HTMLDivElement>) => void;
+}) {
+  const { verifierLogState } = visualLogState;
+
+  const lineMap = uniqueInstructionsMap(verifierLogState);
+  const logLines: InstructionLine[] = [];
+  for (const lines of lineMap.values()) {
+    logLines.push(lines[0]);
+  }
+  logLines.sort((a, b) => (a.bpfIns.pc || 0) - (b.bpfIns.pc || 0));
+
+  return (
+    <div
+      id="main-content"
+      className="main-content"
+      onClick={handleMainContentClick}
+    >
+      <CSourceLines
+        handleCLinesClick={handleCLinesClick}
+        verifierLogState={verifierLogState}
+      />
+      <div id="log-container">
+        <LineNumbersPC logLines={logLines} />
+        <InstructionLinesHeatmap
+          verifierLogState={verifierLogState}
+          lines={logLines}
+          lineMap={lineMap}
+          handleLogLinesClick={handleLogLinesClick}
+          handleLogLinesOver={handleLogLinesOver}
+          handleLogLinesOut={handleLogLinesOut}
+        />
+      </div>
     </div>
   );
 }

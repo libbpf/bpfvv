@@ -591,3 +591,17 @@ export function getMemSlotDependencies(
 
   return deps;
 }
+
+export function uniqueInstructionsMap(
+  logState: VerifierLogState,
+): Map<number, InstructionLine[]> {
+  const map = new Map<number, InstructionLine[]>();
+  for (const line of logState.lines) {
+    if (line.type === ParsedLineType.INSTRUCTION && line.bpfIns.pc) {
+      const arr = map.get(line.bpfIns.pc);
+      if (arr) arr.push(line);
+      else map.set(line.bpfIns.pc, [line]);
+    }
+  }
+  return map;
+}

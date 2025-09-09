@@ -26,6 +26,7 @@ import {
   SelectedLineHint,
   ToolTip,
   Examples,
+  MainContentDisasmView,
 } from "./components";
 import { ParsedLineType } from "./parser";
 
@@ -94,7 +95,10 @@ const ContentRaw = ({
 }) => {
   if (loadError) {
     return <div>{loadError}</div>;
-  } else if (visualLogState.logLines.length > 0) {
+  } else if (
+    visualLogState.logLines.length > 0 &&
+    visualLogState.logLines.length < 1000
+  ) {
     return (
       <MainContent
         visualLogState={visualLogState}
@@ -107,6 +111,17 @@ const ContentRaw = ({
         handleLogLinesOver={handleLogLinesOver}
         handleLogLinesOut={handleLogLinesOut}
         handleStateRowClick={handleStateRowClick}
+      />
+    );
+  } else if (visualLogState.logLines.length >= 1000) {
+    return (
+      <MainContentDisasmView
+        visualLogState={visualLogState}
+        handleCLinesClick={handleCLinesClick}
+        handleMainContentClick={handleMainContentClick}
+        handleLogLinesClick={handleLogLinesClick}
+        handleLogLinesOver={handleLogLinesOver}
+        handleLogLinesOut={handleLogLinesOut}
       />
     );
   } else {

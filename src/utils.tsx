@@ -94,7 +94,7 @@ function scrollToLine(
 export function scrollToLogLine(visualIdx: number, linesLen: number) {
   const logContainer = document.getElementById("log-container");
   if (!logContainer) {
-    throw new Error("Log line container is not in the DOM");
+    return;
   }
   const logRange = getVisibleLogLineRange(linesLen);
   if (
