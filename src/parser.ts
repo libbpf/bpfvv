@@ -272,6 +272,7 @@ const RE_FRAME_ID = /^frame([0-9]+): /;
 const RE_ADDR_SPACE_CAST =
   /^(r[0-9]) = addr_space_cast\((r[0-9]), ([0-9]+, [0-9]+)\)/;
 const RE_C_SOURCE_LINE = /^;\s*(.*) @ ([a-zA-Z0-9_\-.]+):([0-9]+)/;
+const RE_STACK_SLOT_ID = /fp(\[([0-9]+)\])?([+-]?[0-9]+)/;
 
 const BPF_ALU_OPERATORS = [
   "s>>=",
@@ -300,6 +301,18 @@ const BPF_COND_OPERATORS = [
   "<",
   ">",
 ];
+
+export type StackSlotId = { offset: number; frame?: number };
+
+// Examples of valid stack slot ids: "fp-64", "fp[0]-8", "fp[3]-128"
+export function parseStackSlotId(str: string): StackSlotId | null {
+  if (str === "fp0" || str === "fp-0") return null;
+  const match = str.match(RE_STACK_SLOT_ID);
+  if (!match) return null;
+  let id: StackSlotId = { offset: parseInt(match[3], 10) };
+  if (match[2]) id.frame = parseInt(match[2], 10);
+  return id;
+}
 
 function parseProgramCounter(str: string): { pc: number | null; rest: string } {
   const { match, rest } = consumeRegex(RE_PROGRAM_COUNTER, str);

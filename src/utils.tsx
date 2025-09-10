@@ -1,5 +1,13 @@
 import { VerifierLogState } from "./analyzer";
-import { getCLineId, ParsedLine, ParsedLineType } from "./parser";
+import {
+  BpfInstruction,
+  BpfInstructionKind,
+  BpfJmpKind,
+  getCLineId,
+  ParsedLine,
+  ParsedLineType,
+  parseStackSlotId,
+} from "./parser";
 
 export async function fetchLogFromUrl(url: string) {
   try {
@@ -52,7 +60,7 @@ export function getVisibleLogLineRange(linesLen: number): {
   const formattedLogLines = document.getElementById("formatted-log-lines");
   const logContainer = document.getElementById("log-container");
   if (!formattedLogLines || !logContainer) {
-    throw new Error("Missing formattedLogLines or logContainer");
+    return { min: 0, max: 0 };
   }
   return getVisibleRange(logContainer, formattedLogLines, linesLen);
 }
@@ -181,4 +189,75 @@ export function getVisibleCLines(
     }
   }
   return [cLines, cLineIdToVisualIdx];
+}
+
+export function insEntersNewFrame(ins: BpfInstruction): boolean {
+  if (ins.kind === BpfInstructionKind.JMP) {
+    switch (ins.jmpKind) {
+      case BpfJmpKind.SUBPROGRAM_CALL:
+        return true;
+      case BpfJmpKind.HELPER_CALL:
+        if (ins.target.startsWith("bpf_loop#")) return true;
+    }
+  }
+  return false;
+}
+
+export function foreachStackSlot(
+  currentFrame: number,
+  func: (id: string) => void,
+) {
+  // current stack (no frame qualifier)
+  for (let i = 0; i <= 512; i += 1) {
+    const id = `fp-${i}`;
+    func(id);
+  }
+
+  // nested stacks, e.g. fp[1]-16
+  for (let frame = currentFrame - 1; frame >= 0; frame--) {
+    for (let i = 0; i <= 512; i += 1) {
+      const id = `fp[${frame}]-${i}`;
+      func(id);
+    }
+  }
+}
+
+export function normalMemSlotId(displayId: string, frame: number): string {
+  const stackSlotId = parseStackSlotId(displayId);
+  if (stackSlotId) {
+    if (stackSlotId.frame !== undefined) {
+      return `fp[${stackSlotId.frame}]${stackSlotId.offset}`;
+    } else {
+      return `fp[${frame}]${stackSlotId.offset}`;
+    }
+  }
+  return displayId;
+}
+
+/* This class is essentially a string map, except it normalizes stack slot access ids
+ * to a canonical form of `fp[${frame}]${offset}`
+ * If [<frame>] is absent, the key refers to the current frame.
+ */
+export class BpfMemSlotMap<T> extends Map<string, T> {
+  currentFrame: number;
+  constructor(currentFrame: number) {
+    super();
+    this.currentFrame = currentFrame;
+  }
+
+  setFrame(frame: number): void {
+    this.currentFrame = frame;
+  }
+
+  get(key: string): T | undefined {
+    return super.get(normalMemSlotId(key, this.currentFrame));
+  }
+
+  set(key: string, value: T): this {
+    return super.set(normalMemSlotId(key, this.currentFrame), value);
+  }
+
+  has(key: string): boolean {
+    return super.has(normalMemSlotId(key, this.currentFrame));
+  }
 }

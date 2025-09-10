@@ -232,6 +232,9 @@ exports[`App renders the log visualizer when text is pasted 1`] = `
               id="line-0"
               line-index="0"
             >
+              <span
+                class="line-indent"
+              />
               *(u8 *)(
               <span
                 class="mem-slot r7"
@@ -294,7 +297,7 @@ exports[`App renders the log visualizer when text is pasted 1`] = `
               </div>
               <div>
                 Frame: 
-                0
+                1
               </div>
             </div>
             <table>
