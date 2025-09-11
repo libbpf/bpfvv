@@ -55,6 +55,21 @@ exports[`App renders the correct starting elements 1`] = `
             type="file"
           />
         </div>
+        <label
+          class="line-nav-item"
+        >
+          Examples:
+        </label>
+        <select
+          class="line-nav-item"
+          id="log-example-dropdown"
+        />
+        <button
+          class="line-nav-item"
+          id="load-example"
+        >
+          Load
+        </button>
         <a
           class="howto-link"
           href="https://github.com/theihor/bpfvv/blob/master/HOWTO.md"
@@ -138,6 +153,21 @@ exports[`App renders the log visualizer when text is pasted 1`] = `
             type="file"
           />
         </div>
+        <label
+          class="line-nav-item"
+        >
+          Examples:
+        </label>
+        <select
+          class="line-nav-item"
+          id="log-example-dropdown"
+        />
+        <button
+          class="line-nav-item"
+          id="load-example"
+        >
+          Load
+        </button>
         <a
           class="howto-link"
           href="https://github.com/theihor/bpfvv/blob/master/HOWTO.md"
@@ -449,7 +479,13 @@ exports[`App renders the log visualizer when text is pasted 1`] = `
           class="hint-line"
           id="hint-hovered-line"
         >
-          <br />
+          <span>
+            [hovered raw line] 
+            1
+            :
+          </span>
+           
+          314: (73) *(u8 *)(r7 +1303) = r1      ; frame1: R1_w=0 R7=map_value(off=0,ks=4,vs=2808,imm=0)
         </div>
       </div>
     </div>
@@ -512,6 +548,21 @@ exports[`App renders the log visualizer when text is pasted 2`] = `
             type="file"
           />
         </div>
+        <label
+          class="line-nav-item"
+        >
+          Examples:
+        </label>
+        <select
+          class="line-nav-item"
+          id="log-example-dropdown"
+        />
+        <button
+          class="line-nav-item"
+          id="load-example"
+        >
+          Load
+        </button>
         <a
           class="howto-link"
           href="https://github.com/theihor/bpfvv/blob/master/HOWTO.md"

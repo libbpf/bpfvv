@@ -20,12 +20,12 @@ import {
 import {
   VisualLogState,
   LogLineState,
-  Example,
   HoveredLineHint,
   LoadStatus,
   MainContent,
   SelectedLineHint,
   ToolTip,
+  Examples,
 } from "./components";
 import { ParsedLineType } from "./parser";
 
@@ -36,6 +36,14 @@ function getEmptyVisualLogState(): VisualLogState {
     logLineIdxToVisualIdx: new Map(),
     cLines: [],
     cLineIdToVisualIdx: new Map(),
+  };
+}
+
+function getEmptyLogLineState(): LogLineState {
+  return {
+    memSlotId: "",
+    line: 0,
+    cLine: "",
   };
 }
 
@@ -118,18 +126,15 @@ function App() {
   const [visualLogState, setVisualLogState] = useState<VisualLogState>(
     getEmptyVisualLogState(),
   );
-  const [hoveredState, setHoveredState] = useState<LogLineState>({
-    memSlotId: "",
-    line: -1,
-    cLine: "", // unused
-  });
-  const [selectedState, setSelectedState] = useState<LogLineState>({
-    memSlotId: "",
-    line: 0,
-    cLine: "",
-  });
+  const [hoveredState, setHoveredState] = useState<LogLineState>(
+    getEmptyLogLineState(),
+  );
+  const [selectedState, setSelectedState] = useState<LogLineState>(
+    getEmptyLogLineState(),
+  );
   const [loadError, setLoadError] = useState<string | null>(null);
   const [fullLogView, setfullLogView] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -345,16 +350,40 @@ function App() {
     (text: string) => {
       const newVerifierLogState = processRawLines(text.split("\n"));
       setVisualLogState(getVisualLogState(newVerifierLogState, fullLogView));
+      setIsLoading(false);
     },
     [fullLogView],
   );
 
+  const prepareNewLog = useCallback(() => {
+    setSelectedState(getEmptyLogLineState());
+    setIsLoading(true);
+  }, []);
+
   const handlePaste = useCallback(
     (event: React.ClipboardEvent) => {
+      prepareNewLog();
       const pastedText = event.clipboardData.getData("text");
       loadInputText(pastedText);
     },
-    [loadInputText],
+    [loadInputText, prepareNewLog],
+  );
+
+  const handleLoadExample = useCallback(
+    async (exampleLink: string) => {
+      prepareNewLog();
+      try {
+        const response = await fetch(exampleLink);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const result = await response.text();
+        loadInputText(result);
+      } catch (error) {
+        console.error("Error fetching data:", error);
+      }
+    },
+    [loadInputText, prepareNewLog],
   );
 
   function getServerInjectedInputLink(): string | null {
@@ -539,6 +568,7 @@ function App() {
 
   const onFileInputChange = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
+      prepareNewLog();
       const files = (e.target as HTMLInputElement).files;
       if (files?.[0]) {
         const fileBlob = files[0];
@@ -565,6 +595,7 @@ function App() {
         }
         const newVerifierLogState = processRawLines(rawLines);
         setVisualLogState(getVisualLogState(newVerifierLogState, fullLogView));
+        setIsLoading(false);
       }
     },
     [],
@@ -606,7 +637,7 @@ function App() {
               ref={fileInputRef}
             />
           </div>
-          <Example />
+          <Examples handleLoadExample={handleLoadExample} />
           <a
             href="https://github.com/theihor/bpfvv/blob/master/HOWTO.md"
             className="howto-link"
@@ -652,6 +683,13 @@ function App() {
             hoveredMemSlotId={hoveredState.memSlotId}
           />
         )}
+      {isLoading && (
+        <div className="loader-container">
+          <div className="loader-content">
+            <div className="loader"></div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
