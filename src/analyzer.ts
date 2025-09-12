@@ -15,8 +15,14 @@ import {
   OperandType,
   BpfOperand,
   BpfInstruction,
+  parseStackSlotId,
 } from "./parser";
-import { siblingInsLine } from "./utils";
+import {
+  BpfMemSlotMap,
+  insEntersNewFrame,
+  normalMemSlotId,
+  siblingInsLine,
+} from "./utils";
 
 export type BpfValue = {
   value: string;
@@ -29,13 +35,82 @@ export type BpfValue = {
     It is computed by sequentially applying the effects of each instruction (ParsedLine of ParsedLineType.INSTRUCTION)
     to the previous state, following the rules of the BPF execution: new stack frame for each subprogram, register scratching etc.
  */
-export type BpfState = {
-  values: Map<string, BpfValue>;
-  lastKnownWrites: Map<string, number>;
+export class BpfState {
+  values: BpfMemSlotMap<BpfValue>;
+  lastKnownWrites: BpfMemSlotMap<number>;
   frame: number;
   idx: number;
   pc: number;
-};
+  constructor({
+    frame = 0,
+    idx = 0,
+    pc = 0,
+    values = null,
+    lastKnownWrites = null,
+  }: {
+    frame?: number;
+    idx?: number;
+    pc?: number;
+    values?: BpfMemSlotMap<BpfValue> | null;
+    lastKnownWrites?: BpfMemSlotMap<number> | null;
+  }) {
+    this.frame = frame;
+    this.idx = idx;
+    this.pc = pc;
+
+    if (values !== null) {
+      this.values = values;
+    } else {
+      this.values = new BpfMemSlotMap<BpfValue>(frame);
+      for (let i = 0; i < 10; i++) {
+        this.values.set(`r${i}`, { value: "", effect: Effect.NONE });
+      }
+      this.values.set("r1", makeValue("ctx()"));
+      this.values.set("r10", makeValue("fp-0"));
+    }
+
+    if (lastKnownWrites !== null) {
+      this.lastKnownWrites = lastKnownWrites;
+    } else {
+      this.lastKnownWrites = new BpfMemSlotMap<number>(this.frame);
+      this.lastKnownWrites.set("r1", 0);
+      this.lastKnownWrites.set("r10", 0);
+    }
+  }
+
+  copy(): BpfState {
+    const values = new BpfMemSlotMap<BpfValue>(this.frame);
+    for (const [key, val] of this.values.entries()) {
+      // Don't copy the effect, only the value
+      if (val?.value)
+        values.set(key, { value: val.value, effect: Effect.NONE });
+    }
+    const lastKnownWrites = new BpfMemSlotMap<number>(this.frame);
+    for (const [key, val] of this.lastKnownWrites.entries()) {
+      lastKnownWrites.set(key, val);
+    }
+    return new BpfState({
+      frame: this.frame,
+      idx: this.idx,
+      pc: this.pc,
+      values,
+      lastKnownWrites,
+    });
+  }
+
+  setLineMetaData(line: ParsedLine) {
+    if (line.type !== ParsedLineType.INSTRUCTION) return;
+    this.idx = line.idx;
+    this.pc = line.bpfIns.pc || 0;
+    // If frame was explicitly printed by verifier, use that value
+    const frame = line.bpfStateExprs[0]?.frame;
+    if (frame !== undefined) {
+      this.frame = frame;
+      this.values.setFrame(frame);
+      this.lastKnownWrites.setFrame(frame);
+    }
+  }
+}
 
 export class CSourceMap {
   // deduped C source lines, id is a key in this array
@@ -93,53 +168,12 @@ export function makeValue(
   return ret;
 }
 
-export function initialBpfState(): BpfState {
-  let values = new Map<string, BpfValue>();
-  for (let i = 0; i < 10; i++) {
-    values.set(`r${i}`, { value: "", effect: Effect.NONE });
-  }
-  values.set("r1", makeValue("ctx()"));
-  values.set("r10", makeValue("fp-0"));
-  let lastKnownWrites = new Map<string, number>();
-  lastKnownWrites.set("r1", 0);
-  lastKnownWrites.set("r10", 0);
-  return {
-    values,
-    lastKnownWrites,
-    frame: 0,
-    idx: 0,
-    pc: 0,
-  };
-}
-
-export function getBpfState(
-  bpfStates: BpfState[],
-  idx: number,
-): { state: BpfState; idx: number } {
+export function getBpfState(bpfStates: BpfState[], idx: number): BpfState {
   if (bpfStates.length === 0 || idx < 0) {
-    return { state: initialBpfState(), idx: 0 };
+    return new BpfState({});
   }
   idx = Math.min(idx, bpfStates.length - 1);
-  return { state: bpfStates[idx], idx };
-}
-
-function copyBpfState(state: BpfState): BpfState {
-  let values = new Map<string, BpfValue>();
-  for (const [key, val] of state.values.entries()) {
-    // Don't copy the effect, only the value
-    if (val?.value) values.set(key, { value: val.value, effect: Effect.NONE });
-  }
-  let lastKnownWrites = new Map<string, number>();
-  for (const [key, val] of state.lastKnownWrites.entries()) {
-    lastKnownWrites.set(key, val);
-  }
-  return {
-    values,
-    lastKnownWrites,
-    frame: state.frame,
-    idx: state.idx,
-    pc: state.pc,
-  };
+  return bpfStates[idx];
 }
 
 function pushStackFrame(
@@ -148,9 +182,10 @@ function pushStackFrame(
 ): BpfState {
   // In a new stack frame we only copy the scratch (argument) registers
   // Everything else is cleared
-  savedBpfStates.push(copyBpfState(bpfState));
+  savedBpfStates.push(bpfState.copy());
+  const nextFrame = bpfState.frame + 1;
 
-  let values = new Map<string, BpfValue>();
+  let values = new BpfMemSlotMap<BpfValue>(nextFrame);
   for (const r of BPF_SCRATCH_REGS) {
     const val = bpfState.values.get(r)?.value;
     values.set(r, { value: val || "", effect: Effect.READ });
@@ -160,53 +195,120 @@ function pushStackFrame(
   }
   values.set("r10", makeValue("fp-0"));
 
-  let lastKnownWrites = new Map<string, number>();
+  let lastKnownWrites = new BpfMemSlotMap<number>(nextFrame);
   for (const r of BPF_SCRATCH_REGS) {
     lastKnownWrites.set(r, bpfState.lastKnownWrites.get(r) || 0);
   }
 
-  return {
-    values,
-    lastKnownWrites,
-    frame: bpfState.frame + 1,
+  // Carry over the stack slot values from the parent frames
+  // using the fp[frame]-offset notation
+  for (const [id, val] of bpfState.values.entries()) {
+    const stackSlotId = parseStackSlotId(id);
+    if (stackSlotId === null) continue;
+    const frame =
+      stackSlotId.frame !== undefined ? stackSlotId.frame : bpfState.frame;
+    const nestedId = `fp[${frame}]${stackSlotId.offset}`;
+    values.set(nestedId, val);
+    lastKnownWrites.set(nestedId, bpfState.lastKnownWrites.get(id) || 0);
+  }
+
+  return new BpfState({
+    frame: nextFrame,
     idx: bpfState.idx,
     pc: bpfState.pc,
-  };
+    values,
+    lastKnownWrites,
+  });
 }
 
 function popStackFrame(
-  bpfState: BpfState,
+  innerFrameState: BpfState,
   savedBpfStates: BpfState[],
 ): BpfState {
   // input log might be incomplete
   // if exit is encountered before any subprogram calls
   // return a fresh stack frame
   if (savedBpfStates.length === 0) {
-    return initialBpfState();
+    return new BpfState({});
   }
   // no need to copy the full state here, it was copied on push
   let state = savedBpfStates.pop();
   if (!state) {
-    return initialBpfState();
+    return new BpfState({});
   }
+
   for (const r of BPF_SCRATCH_REGS) {
     state.values.set(r, { value: "", effect: Effect.WRITE });
     state.lastKnownWrites.delete(r);
   }
+
+  // When popping a stack frame, we have to carry over any writes
+  // to the parent stack slots, so that they are included in dependencies.
+  // For example, if the current stack is 2 and there was a write to fp[1]-16
+  // we have to copy this information, because it was absent in a saved (popped) state
+  for (const [id, writeIdx] of innerFrameState.lastKnownWrites) {
+    const stackSlotId = parseStackSlotId(id);
+    if (
+      stackSlotId &&
+      stackSlotId.frame !== undefined &&
+      stackSlotId.frame <= state.frame
+    ) {
+      state.lastKnownWrites.set(id, writeIdx);
+      const val = innerFrameState.values.get(id);
+      if (val !== undefined) state.values.set(id, val);
+    }
+  }
+
   // copy r0 info from the exiting state
-  const val = bpfState.values.get("r0")?.value || "";
+  const val = innerFrameState.values.get("r0")?.value || "";
   state.values.set("r0", { value: val, effect: Effect.NONE });
-  state.lastKnownWrites.set("r0", bpfState.lastKnownWrites.get("r0") || 0);
+  state.lastKnownWrites.set(
+    "r0",
+    innerFrameState.lastKnownWrites.get("r0") || 0,
+  );
+
   return state;
 }
-
-const RE_STACK_SLOT_ID = /fp([+-]?[0-9]+)/;
 
 function srcValue(ins: BpfInstruction, state: BpfState): string {
   if (ins.kind === BpfInstructionKind.ALU) {
     return state.values.get(ins.src.id)?.value || "";
   } else {
     return "";
+  }
+}
+
+function collectVerifierReportedValues(
+  state: BpfState,
+  line: InstructionLine,
+  insEffects: Map<string, Effect>,
+): Map<string, BpfValue> {
+  const verifierReportedValues = new Map<string, BpfValue>();
+  for (const expr of line.bpfStateExprs) {
+    const val: BpfValue | undefined = state.values.get(expr.id);
+    let effect = insEffects.get(expr.id) || Effect.NONE;
+    if (!val) {
+      effect = Effect.WRITE;
+    } else if (expr.value !== val.value && effect !== Effect.WRITE) {
+      effect = Effect.UPDATE;
+    }
+    verifierReportedValues.set(
+      expr.id,
+      makeValue(expr.value, effect, val?.prevValue || ""),
+    );
+  }
+  return verifierReportedValues;
+}
+
+function updateBpfStateValues(
+  state: BpfState,
+  line: InstructionLine,
+  verifierReportedValues: Map<string, BpfValue>,
+) {
+  for (const [id, val] of verifierReportedValues.entries()) {
+    state.values.set(id, val);
+    if (val.effect === Effect.WRITE || val.effect === Effect.UPDATE)
+      state.lastKnownWrites.set(id, line.idx);
   }
 }
 
@@ -217,32 +319,32 @@ function nextBpfState(
 ): BpfState {
   if (line.type !== ParsedLineType.INSTRUCTION) return bpfState;
 
-  const setIdxAndPc = (state: BpfState) => {
-    state.idx = line.idx;
-    state.pc = line.bpfIns?.pc || 0;
-  };
-
   let newState: BpfState;
   const ins = line.bpfIns;
-  if (
-    ins &&
-    ins.kind === BpfInstructionKind.JMP &&
-    ins.jmpKind === BpfJmpKind.SUBPROGRAM_CALL
-  ) {
+  if (insEntersNewFrame(ins)) {
     newState = pushStackFrame(bpfState, savedBpfStates);
-    setIdxAndPc(newState);
+    newState.setLineMetaData(line);
+    // In some cases, such as bpf_loop, the call instruction line may contain state updates
+    // That is: line.bpfStateExprs may be non-empty, as usual for subprogram calls
+    // So we have to do collectVerifierReportedValues() here
+    const verifierReportedValues = collectVerifierReportedValues(
+      newState,
+      line,
+      new Map<string, Effect>(),
+    );
+    updateBpfStateValues(newState, line, verifierReportedValues);
     return newState;
   } else if (
-    ins &&
     ins.kind === BpfInstructionKind.JMP &&
     ins.jmpKind === BpfJmpKind.EXIT
   ) {
     newState = popStackFrame(bpfState, savedBpfStates);
-    setIdxAndPc(newState);
+    newState.setLineMetaData(line);
     return newState;
   }
 
-  newState = copyBpfState(bpfState);
+  newState = bpfState.copy();
+  newState.setLineMetaData(line);
 
   let effects = new Map<string, Effect>();
   for (const id of line.bpfIns?.reads || []) {
@@ -260,23 +362,12 @@ function nextBpfState(
     newState.lastKnownWrites.set(id, line.idx);
   }
 
-  const verifierReportedValues = new Map<string, string>();
-  for (const expr of line.bpfStateExprs) {
-    const val: BpfValue | undefined = newState.values.get(expr.id);
-    let effect = effects.get(expr.id) || Effect.NONE;
-    if (!val) {
-      effect = Effect.WRITE;
-      newState.lastKnownWrites.set(expr.id, line.idx);
-    } else if (expr.value !== val.value && effect !== Effect.WRITE) {
-      effect = Effect.UPDATE;
-      newState.lastKnownWrites.set(expr.id, line.idx);
-    }
-    newState.values.set(
-      expr.id,
-      makeValue(expr.value, effect, val?.prevValue || ""),
-    );
-    verifierReportedValues.set(expr.id, expr.value);
-  }
+  const verifierReportedValues = collectVerifierReportedValues(
+    newState,
+    line,
+    effects,
+  );
+  updateBpfStateValues(newState, line, verifierReportedValues);
 
   // Evaluate indirect stack load/store
   // For any memory access, check the current value of the register.
@@ -291,38 +382,39 @@ function nextBpfState(
   function fpIdFromMemref(op: BpfOperand): string | null {
     if (!op.memref) return null;
     const { reg, offset } = op.memref;
-    const val = newState.values.get(reg)?.value;
-    const match = val?.match(RE_STACK_SLOT_ID);
-    if (match) {
-      const off = offset + parseInt(match[1]);
-      return `fp${off}`;
-    } else {
-      return null;
-    }
+    const val = newState.values.get(reg)?.value || "";
+    const stackSlotId = parseStackSlotId(val);
+    if (stackSlotId === null) return null;
+    const off = offset + stackSlotId.offset;
+    const frame =
+      stackSlotId.frame === undefined ? newState.frame : stackSlotId.frame;
+    return `fp[${frame}]${off}`;
   }
 
   if (ins.kind === BpfInstructionKind.ALU && ins.operator === "=") {
     if (ins.dst.type === OperandType.MEM) {
       const id = fpIdFromMemref(ins.dst);
       if (id) {
-        const value = verifierReportedValues.get(id) || srcValue(ins, newState);
+        const value =
+          verifierReportedValues.get(id)?.value || srcValue(ins, newState);
         newState.values.set(id, makeValue(value, Effect.WRITE));
+        newState.lastKnownWrites.set(id, line.idx);
       }
     }
     if (ins.src.type === OperandType.MEM) {
       const id = fpIdFromMemref(ins.src);
       if (id) {
         const value =
-          verifierReportedValues.get(id) ||
+          verifierReportedValues.get(id)?.value ||
           newState.values.get(id)?.value ||
           "";
         newState.values.set(id, makeValue(value, Effect.READ));
         newState.values.set(ins.dst.id, makeValue(value, Effect.WRITE));
+        newState.lastKnownWrites.set(ins.dst.id, line.idx);
       }
     }
   }
 
-  setIdxAndPc(newState);
   return newState;
 }
 
@@ -403,8 +495,11 @@ export function processRawLines(rawLines: string[]): VerifierLogState {
     }
   });
 
+  let prevState = new BpfState({});
   // Second pass: build CSourceMap and BpfState[]
   lines.forEach((parsedLine, idx) => {
+    const bpfState = nextBpfState(prevState, parsedLine, savedBpfStates);
+
     switch (parsedLine.type) {
       case ParsedLineType.C_SOURCE: {
         if (currentCSourceLine) {
@@ -416,15 +511,19 @@ export function processRawLines(rawLines: string[]): VerifierLogState {
       }
       case ParsedLineType.INSTRUCTION: {
         idxsForCLine.push(idx);
+        // fixup ids in `reads` and `writes` of an instruction
+        parsedLine.bpfIns.reads = parsedLine.bpfIns.reads.map((id) =>
+          normalMemSlotId(id, bpfState.frame),
+        );
+        parsedLine.bpfIns.writes = parsedLine.bpfIns.writes.map((id) =>
+          normalMemSlotId(id, bpfState.frame),
+        );
         break;
       }
     }
-    const bpfState = nextBpfState(
-      getBpfState(bpfStates, idx).state,
-      parsedLine,
-      savedBpfStates,
-    );
+
     bpfStates.push(bpfState);
+    prevState = bpfState;
   });
   if (currentCSourceLine) {
     cSourceMap.addCSourceLine(currentCSourceLine, idxsForCLine);
@@ -447,8 +546,15 @@ export function getMemSlotDependencies(
   let deps = new Set<number>();
   if (lines[selectedLine].type !== ParsedLineType.INSTRUCTION) return deps;
 
+  if (selectedLine === 0) {
+    deps.add(0);
+    return deps;
+  }
+
   const bpfState = bpfStates[selectedLine];
   if (!bpfState) return deps;
+
+  memSlotId = normalMemSlotId(memSlotId, bpfState.frame);
 
   const effect = bpfState.values.get(memSlotId)?.effect;
   if (!effect) return deps;
@@ -461,13 +567,13 @@ export function getMemSlotDependencies(
   const nReads = depIns?.reads?.length;
 
   if (depIdx === selectedLine && effect === Effect.UPDATE) {
-    const prevBpfState = getBpfState(bpfStates, selectedLine - 1).state;
+    const prevBpfState = getBpfState(bpfStates, selectedLine - 1);
     if (prevBpfState.lastKnownWrites.has(memSlotId)) {
       const prevDepIdx = prevBpfState.lastKnownWrites.get(memSlotId);
-      if (!prevDepIdx) return deps;
+      if (prevDepIdx === undefined) return deps;
 
       // stop the chain on scratches
-      const prevDepState = getBpfState(bpfStates, prevDepIdx).state;
+      const prevDepState = getBpfState(bpfStates, prevDepIdx);
       const writtenValue = prevDepState.values.get(memSlotId)?.value;
       if (!writtenValue) return deps;
 

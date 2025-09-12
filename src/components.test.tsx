@@ -23,7 +23,7 @@ import {
   InstructionLine,
   BPF_SCRATCH_REGS,
 } from "./parser";
-import { BpfState, initialBpfState, makeValue } from "./analyzer";
+import { BpfState, makeValue } from "./analyzer";
 import { Effect } from "./parser";
 
 function createOp(
@@ -43,6 +43,15 @@ function createOp(
   };
 }
 
+function dummyBpfState(frame: number = 0): BpfState {
+  const state = new BpfState({});
+  state.frame = frame;
+  for (const reg of BPF_SCRATCH_REGS) {
+    state.values.set(reg, makeValue("", Effect.UPDATE));
+  }
+  return state;
+}
+
 describe("MemSlot", () => {
   function createParsedLine(raw: string, idx: number): ParsedLine {
     return parseLine(raw, idx);
@@ -50,20 +59,32 @@ describe("MemSlot", () => {
 
   it("renders raw line when op is undefined", () => {
     const line = createParsedLine("test raw line", 0);
-    render(<MemSlot line={line} op={undefined} />);
+    render(<MemSlot line={line} op={undefined} state={dummyBpfState()} />);
     expect(screen.getByText("test raw line")).toBeInTheDocument();
   });
 
   it("renders the sliced memslot string when op is UNKNOWN", () => {
     const line = createParsedLine("test raw line", 0);
-    render(<MemSlot line={line} op={createOp(OperandType.UNKNOWN, 10, -5)} />);
+    render(
+      <MemSlot
+        line={line}
+        op={createOp(OperandType.UNKNOWN, 10, -5)}
+        state={dummyBpfState()}
+      />,
+    );
     // screen.debug()
     expect(screen.getByText("line")).toBeInTheDocument();
   });
 
   it("renders the sliced memslot string when op is IMM", () => {
     const line = createParsedLine("test raw line", 0);
-    render(<MemSlot line={line} op={createOp(OperandType.IMM, 10, -7)} />);
+    render(
+      <MemSlot
+        line={line}
+        op={createOp(OperandType.IMM, 10, -7)}
+        state={dummyBpfState()}
+      />,
+    );
     expect(screen.getByText("aw line")).toBeInTheDocument();
   });
 
@@ -73,7 +94,11 @@ describe("MemSlot", () => {
       0,
     );
     render(
-      <MemSlot line={line} op={createOp(OperandType.REG, 2, -45, "r7")} />,
+      <MemSlot
+        line={line}
+        op={createOp(OperandType.REG, 2, -45, "r7")}
+        state={dummyBpfState()}
+      />,
     );
     const divs = document.getElementsByTagName("div");
     expect(divs.length).toBe(1);
@@ -88,12 +113,16 @@ describe("MemSlot", () => {
       0,
     );
     render(
-      <MemSlot line={line} op={createOp(OperandType.FP, 16, -82, "fp-8")} />,
+      <MemSlot
+        line={line}
+        op={createOp(OperandType.FP, 16, -82, "fp-8")}
+        state={dummyBpfState()}
+      />,
     );
     const divs = document.getElementsByTagName("div");
     expect(divs.length).toBe(1);
     expect(divs[0].innerHTML).toBe(
-      '<span id="mem-slot-fp-8-line-0" class="mem-slot fp-8" data-id="fp-8">*(u64 *)(r10 -8)</span>',
+      '<span id="mem-slot-fp[0]-8-line-0" class="mem-slot fp-8" data-id="fp[0]-8">*(u64 *)(r10 -8)</span>',
     );
   });
 
@@ -107,7 +136,7 @@ describe("MemSlot", () => {
       reg: "r2",
       offset: 0,
     };
-    render(<MemSlot line={line} op={op} />);
+    render(<MemSlot line={line} op={op} state={dummyBpfState()} />);
     const divs = document.getElementsByTagName("div");
     expect(divs.length).toBe(1);
     expect(divs[0].innerHTML).toBe(
@@ -172,15 +201,6 @@ describe("JmpInstruction", () => {
       bpfStateExprs: [],
       type: ParsedLineType.INSTRUCTION,
     };
-  }
-
-  function dummyBpfState(frame: number = 0): BpfState {
-    const state = initialBpfState();
-    state.frame = frame;
-    for (const reg of BPF_SCRATCH_REGS) {
-      state.values.set(reg, makeValue("", Effect.UPDATE));
-    }
-    return state;
   }
 
   it("renders an exit", () => {
@@ -307,7 +327,7 @@ describe("JmpInstruction", () => {
         "bpf_helper#123",
       );
       const line = createLine(ins);
-      const state = initialBpfState();
+      const state = new BpfState({});
 
       setCallArgValue(state, "r1", "ctx()");
       setCallArgValue(state, "r2", "16");
@@ -335,7 +355,7 @@ describe("JmpInstruction", () => {
         "bpf_helper#123",
       );
       const line = createLine(ins);
-      const state = initialBpfState();
+      const state = new BpfState({});
 
       setCallArgValue(state, "r1", "");
       setCallArgValue(state, "r2", "");
@@ -367,7 +387,7 @@ describe("JmpInstruction", () => {
         "my_global_func",
       );
       const line = createLine(ins);
-      const state = initialBpfState();
+      const state = new BpfState({});
       setCallArgValue(state, "r1", "ctx()");
       setCallArgValue(state, "r2", "buffer_ptr");
       setCallArgValue(state, "r3", "");

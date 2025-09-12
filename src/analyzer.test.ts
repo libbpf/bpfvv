@@ -2,7 +2,6 @@ import {
   BpfState,
   BpfValue,
   getMemSlotDependencies,
-  initialBpfState,
   processRawLines,
   VerifierLogState,
 } from "./analyzer";
@@ -14,6 +13,8 @@ import {
   ParsedLineType,
   BpfInstructionKind,
   BpfJmpKind,
+  BpfTargetJmpInstruction,
+  InstructionLine,
 } from "./parser";
 
 function expectInitialBpfState(s: BpfState) {
@@ -42,8 +43,8 @@ function getVerifierLogState(logString: string): VerifierLogState {
 }
 
 describe("analyzer", () => {
-  it("returns valid initialBpfState()", () => {
-    expectInitialBpfState(initialBpfState());
+  it("returns valid new BpfState()", () => {
+    expectInitialBpfState(new BpfState({}));
   });
 
   const basicVerifierLog = `
@@ -680,6 +681,122 @@ Func#123 ('my_global_func') is global and assumed valid.
       expect(s.pc).toBe(120);
       const r6Deps = getMemSlotDependencies(logState, idx, "r6");
       expect(r6Deps).toEqual(new Set<number>([4, 3, 2, 1, 0]));
+    });
+  });
+
+  describe("tracks parent stack slot writes", () => {
+    const rawLog = `
+2829: (7b) *(u64 *)(r10 -8) = r1      ; R1_w=0 R10=fp0 fp-8_w=0
+2830: (bf) r3 = r10                   ; R3_w=fp0 R10=fp0
+2831: (07) r3 += -8                   ; R3_w=fp-8
+2832: (bf) r1 = r6                    ; R1_w=scalar(id=5800,umin=1) R6_w=scalar(id=5800,umin=1)
+2833: (18) r2 = 0xdeadbeef            ; R2=0xdeadbeef
+2835: (85) call pc+140
+2976: frame1: R1=scalar(id=5800,umin=1) R2=0xdeadbeef R3=fp[0]-8 R10=fp0
+; bt_node *btn = btree->root; @ btree.bpf.c:146
+2976: (bf) r1 = addr_space_cast(r1, 0, 1)     ; frame1: R1_w=arena
+2992: (79) r6 = *(u64 *)(r3 +0)       ; frame1: R6_w=0 R3=fp[0]-8
+2993: (07) r6 += 13                   ; frame1: R6_w=13
+2994: (7b) *(u64 *)(r3 +0) = r6       ; frame1: R3=fp[0]-8 R6=13
+2995: (b4) w0 = 0                     ; frame1: R0_w=0
+3028: (95) exit
+3050: (79) r7 = *(u64 *)(r10 -8)      ; fp-8=13 R7_w=13
+`;
+    const logState = getVerifierLogState(rawLog);
+    it("tracks fp-8 dependency on write at pc 2994", () => {
+      const idx = 14;
+      const s = logState.bpfStates[idx];
+      expect(s.idx).toBe(14);
+      expect(s.pc).toBe(3050);
+      const deps = getMemSlotDependencies(logState, idx, "fp-8");
+      expect(deps).toEqual(new Set<number>([11]));
+      expect(logState.bpfStates[11].pc).toBe(2994);
+    });
+  });
+
+  describe("identifies bpf_loop as a subprogram call", () => {
+    const rawLog = `
+1187: (7b) *(u64 *)(r10 -64) = r9     ; frame1: R9=42 R10=fp0 fp-64_w=42 refs=84
+1189: (bf) r3 = r10                   ; frame1: R3_w=fp0 R10=fp0 refs=84
+1190: (07) r3 += -64                  ; frame1: R3_w=fp-64 refs=84
+; bpf_loop(BPFJ_FILE_MAX_RECURSION, &bpfj_file_save_path, &ctx, 0); @ file.h:256
+1191: (b4) w1 = 256                   ; frame1: R1_w=256 refs=84
+1192: (18) r2 = 0x1bf                 ; frame1: R2_w=func() refs=84
+1194: (b7) r4 = 0                     ; frame1: R4=0 refs=84
+1195: (85) call bpf_loop#181
+1640: frame2: R1=scalar() R2=fp[1]-64 R10=fp0 refs=84 cb
+1641: (a7) r1 ^= -1                   ; frame2: R1_w=scalar(smin=0xffffffff00000000,smax=-1,umin=0xffffffff00000000,var_off=(0xffffffff00000000; 0xffffffff)) refs=84 cb
+1649: (63) *(u32 *)(r2 +16) = r1      ; frame2: R1_w=0xfffffff9 R2=fp[1]-64 refs=84 cb
+1650: (05) goto pc+27
+1678: (95) exit
+returning from callee:
+ frame2: R0=1 R1=0xfffffff9 R2=fp[1]-64
+to caller at 1195:
+ frame1: R0=map_value(map=bpfj_file_scrat,ks=4,vs=1024) R1=256 R2=func() R3=fp-64
+1196: (71) r1 = *(u8 *)(r6 +1)        ; frame1: R1_w=scalar(smin=smin32=0,smax=umax=smax32=umax32=255,var_off=(0x0; 0xff)) R6=map_value(map=bpfj_file_scrat,ks=4,vs=1024) refs=84
+`;
+    const logState = getVerifierLogState(rawLog);
+    it("bpf_loop is in new frame", () => {
+      const s = logState.bpfStates[7];
+      expect(s.idx).toBe(7);
+      expect(s.pc).toBe(1195);
+      expect(s.frame).toBe(2);
+      expect(s.values.get("r1")?.value).toBe("scalar()");
+      expect(s.values.get("r2")?.value).toBe("fp[1]-64");
+      expect(s.values.get("fp-64")?.value).toBeUndefined();
+      expect(s.values.get("fp[1]-64")?.value).toBe("42");
+
+      let line = logState.lines[7];
+      expect(line.type).toBe(ParsedLineType.INSTRUCTION);
+      line = <InstructionLine>line;
+      expect(line.bpfIns).toMatchObject({
+        kind: BpfInstructionKind.JMP,
+        jmpKind: BpfJmpKind.HELPER_CALL,
+      });
+      const ins = <BpfTargetJmpInstruction>line.bpfIns;
+      expect(ins.target).toContain("bpf_loop");
+    });
+    it("r2+16 at 1649 writes to fp[1]-48", () => {
+      const s = logState.bpfStates[10];
+      expect(s.idx).toBe(10);
+      expect(s.pc).toBe(1649);
+      expect(s.frame).toBe(2);
+      expect(s.values.get("r1")?.value).toBe("0xfffffff9");
+      expect(s.values.get("fp[1]-48")?.value).toBe("0xfffffff9");
+      expect(s.values.get("fp[0]-48")?.value).toBeUndefined();
+      expect(s.values.get("fp-48")?.value).toBeUndefined();
+    });
+    it("exit pops the frame", () => {
+      const s = logState.bpfStates[12];
+      expect(s.idx).toBe(12);
+      expect(s.pc).toBe(1678);
+      expect(s.frame).toBe(1);
+      expect(s.values.get("fp[1]-64")?.value).toBe("42");
+      expect(s.values.get("fp-64")?.value).toBe("42");
+    });
+  });
+
+  describe("computes dependencies correctly for stack slot", () => {
+    const rawLog = `
+3172: (bf) r1 = addr_space_cast(r8, 0, 1) ; frame1: R1_w=arena R8=scalar()
+3173: (7b) *(u64 *)(r10 -8) = r1 ; frame1: R1_w=arena R10=fp0 fp-8_w=arena
+3314: (79) r1 = *(u64 *)(r10 -8) ; frame1: R1_w=arena R10=fp0 fp-8=arena
+3315: (0f) r2 += r1
+`;
+    const logState = getVerifierLogState(rawLog);
+    it("fp-8 dependencies at 3314", () => {
+      const s = logState.bpfStates[2];
+      expect(s.idx).toBe(2);
+      expect(s.pc).toBe(3314);
+      const deps = getMemSlotDependencies(logState, s.idx, "fp-8");
+      expect(deps).toEqual(new Set<number>([1, 0]));
+    });
+    it("r1 dependencies at 3315", () => {
+      const s = logState.bpfStates[3];
+      expect(s.idx).toBe(3);
+      expect(s.pc).toBe(3315);
+      const deps = getMemSlotDependencies(logState, s.idx, "r1");
+      expect(deps).toEqual(new Set<number>([2, 1, 0]));
     });
   });
 });
