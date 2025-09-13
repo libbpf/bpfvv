@@ -20,7 +20,7 @@ import {
 import {
   BpfMemSlotMap,
   insEntersNewFrame,
-  normalMemSlotId,
+  stackSlotIdFromDisplayId,
   siblingInsLine,
 } from "./utils";
 
@@ -513,11 +513,12 @@ export function processRawLines(rawLines: string[]): VerifierLogState {
         idxsForCLine.push(idx);
         // fixup ids in `reads` and `writes` of an instruction
         parsedLine.bpfIns.reads = parsedLine.bpfIns.reads.map((id) =>
-          normalMemSlotId(id, bpfState.frame),
+          stackSlotIdFromDisplayId(id, bpfState.frame),
         );
         parsedLine.bpfIns.writes = parsedLine.bpfIns.writes.map((id) =>
-          normalMemSlotId(id, bpfState.frame),
+          stackSlotIdFromDisplayId(id, bpfState.frame),
         );
+
         break;
       }
     }
@@ -554,7 +555,7 @@ export function getMemSlotDependencies(
   const bpfState = bpfStates[selectedLine];
   if (!bpfState) return deps;
 
-  memSlotId = normalMemSlotId(memSlotId, bpfState.frame);
+  memSlotId = stackSlotIdFromDisplayId(memSlotId, bpfState.frame);
 
   const effect = bpfState.values.get(memSlotId)?.effect;
   if (!effect) return deps;

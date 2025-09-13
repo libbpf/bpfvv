@@ -1,4 +1,4 @@
-import { VerifierLogState } from "./analyzer";
+import { BpfState, VerifierLogState } from "./analyzer";
 import {
   BpfInstruction,
   BpfInstructionKind,
@@ -7,6 +7,7 @@ import {
   ParsedLine,
   ParsedLineType,
   parseStackSlotId,
+  StackSlotId,
 } from "./parser";
 
 export async function fetchLogFromUrl(url: string) {
@@ -222,16 +223,43 @@ export function foreachStackSlot(
   }
 }
 
-export function normalMemSlotId(displayId: string, frame: number): string {
+function normalMemSlotId(
+  stackSlotId: StackSlotId,
+  offset: number,
+  frame: number,
+): string {
+  if (stackSlotId.frame !== undefined) {
+    return `fp[${stackSlotId.frame}]${offset}`;
+  } else {
+    return `fp[${frame}]${offset}`;
+  }
+}
+
+export function stackSlotIdFromDisplayId(
+  displayId: string,
+  frame: number,
+): string {
   const stackSlotId = parseStackSlotId(displayId);
   if (stackSlotId) {
-    if (stackSlotId.frame !== undefined) {
-      return `fp[${stackSlotId.frame}]${stackSlotId.offset}`;
-    } else {
-      return `fp[${frame}]${stackSlotId.offset}`;
-    }
+    return normalMemSlotId(stackSlotId, stackSlotId.offset, frame);
   }
   return displayId;
+}
+
+export function stackSlotIdForIndirectAccess(
+  bpfState: BpfState,
+  srcMemRef: { reg: string; offset: number } | undefined,
+): string | null {
+  if (!srcMemRef) {
+    return null;
+  }
+  const regValue = bpfState.values.get(srcMemRef.reg);
+  const stackSlotId = regValue ? parseStackSlotId(regValue.value) : null;
+  if (stackSlotId === null) {
+    return null;
+  }
+  const totalOffset = stackSlotId.offset + srcMemRef.offset;
+  return normalMemSlotId(stackSlotId, totalOffset, bpfState.frame);
 }
 
 /* This class is essentially a string map, except it normalizes stack slot access ids
@@ -250,14 +278,14 @@ export class BpfMemSlotMap<T> extends Map<string, T> {
   }
 
   get(key: string): T | undefined {
-    return super.get(normalMemSlotId(key, this.currentFrame));
+    return super.get(stackSlotIdFromDisplayId(key, this.currentFrame));
   }
 
   set(key: string, value: T): this {
-    return super.set(normalMemSlotId(key, this.currentFrame), value);
+    return super.set(stackSlotIdFromDisplayId(key, this.currentFrame), value);
   }
 
   has(key: string): boolean {
-    return super.has(normalMemSlotId(key, this.currentFrame));
+    return super.has(stackSlotIdFromDisplayId(key, this.currentFrame));
   }
 }

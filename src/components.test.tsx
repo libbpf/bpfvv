@@ -103,7 +103,7 @@ describe("MemSlot", () => {
     const divs = document.getElementsByTagName("div");
     expect(divs.length).toBe(1);
     expect(divs[0].innerHTML).toBe(
-      '<span id="mem-slot-r7-line-0" class="mem-slot r7" data-id="r7">r7</span>',
+      '<span id="mem-slot-r7-line-0" class="mem-slot" data-id="r7">r7</span>',
     );
   });
 
@@ -122,7 +122,7 @@ describe("MemSlot", () => {
     const divs = document.getElementsByTagName("div");
     expect(divs.length).toBe(1);
     expect(divs[0].innerHTML).toBe(
-      '<span id="mem-slot-fp[0]-8-line-0" class="mem-slot fp-8" data-id="fp[0]-8">*(u64 *)(r10 -8)</span>',
+      '<span id="mem-slot-fp[0]-8-line-0" class="mem-slot" data-id="fp[0]-8"><span>*(u64 *)(r10 -8)</span></span>',
     );
   });
 
@@ -140,7 +140,24 @@ describe("MemSlot", () => {
     const divs = document.getElementsByTagName("div");
     expect(divs.length).toBe(1);
     expect(divs[0].innerHTML).toBe(
-      '*(u32 *)(<span id="mem-slot-r2-line-0" class="mem-slot r2" data-id="r2">r2</span> +0)',
+      '*(u32 *)(<span id="mem-slot-r2-line-0" class="mem-slot" data-id="r2">r2</span> +0)',
+    );
+  });
+
+  it("renders a nested RegSpan when op is MEM the references an FP", () => {
+    const line = createParsedLine("530: (79) r6 = *(u64 *)(r1 -8)", 0);
+    const op = createOp(OperandType.MEM, 15, -15, "MEM");
+    op.memref = {
+      reg: "r1",
+      offset: -8,
+    };
+    const bpfState = dummyBpfState();
+    bpfState.values.set("r1", { value: "fp-16", effect: Effect.WRITE });
+    render(<MemSlot line={line} op={op} state={bpfState} />);
+    const divs = document.getElementsByTagName("div");
+    expect(divs.length).toBe(1);
+    expect(divs[0].innerHTML).toBe(
+      '<span id="mem-slot-fp[0]-24-line-0" class="mem-slot" data-id="fp[0]-24">*(u64 *)(<span id="mem-slot-r1-line-0" class="mem-slot" data-id="r1">r1</span> -8)</span>',
     );
   });
 });
@@ -241,7 +258,7 @@ describe("JmpInstruction", () => {
     const divs = document.getElementsByTagName("div");
     expect(divs.length).toBe(1);
     expect(divs[0].innerHTML).toBe(
-      '<span id="mem-slot-r0-line-0" class="mem-slot r0" data-id="r0">r0</span>&nbsp;=&nbsp;pc+3()',
+      '<span id="mem-slot-r0-line-0" class="mem-slot" data-id="r0">r0</span>&nbsp;=&nbsp;pc+3()',
     );
   });
 
@@ -311,7 +328,7 @@ describe("JmpInstruction", () => {
     const divs = document.getElementsByTagName("div");
     expect(divs.length).toBe(1);
     expect(divs[0].innerHTML).toBe(
-      'if (<span id="mem-slot-r7-line-0" class="mem-slot r7" data-id="r7">r7</span>&nbsp;==&nbsp;<span id="mem-slot-r8-line-0" class="mem-slot r8" data-id="r8">r8</span>)&nbsp;goto&nbsp;pc+3',
+      'if (<span id="mem-slot-r7-line-0" class="mem-slot" data-id="r7">r7</span>&nbsp;==&nbsp;<span id="mem-slot-r8-line-0" class="mem-slot" data-id="r8">r8</span>)&nbsp;goto&nbsp;pc+3',
     );
   });
 

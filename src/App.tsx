@@ -5,6 +5,7 @@ import {
   VerifierLogState,
   processRawLines,
   getEmptyVerifierState,
+  getMemSlotDependencies,
 } from "./analyzer";
 
 import {
@@ -495,13 +496,43 @@ function App() {
       e.stopPropagation();
 
       setSelectedState((prevSelectedState) => {
+        let shouldScrollLogLines = true;
+
+        const parsedLine = verifierLogState.lines[selectedLine];
+        if (parsedLine.type == ParsedLineType.INSTRUCTION) {
+          const bpfIns = parsedLine.bpfIns;
+          if (
+            bpfIns.reads.includes(memSlotId) ||
+            bpfIns.writes.includes(memSlotId)
+          ) {
+            // the selected log line has the selectedMemSlotId
+            // no need to scroll the panel
+            shouldScrollLogLines = false;
+          }
+        }
+
+        if (shouldScrollLogLines) {
+          const deps = getMemSlotDependencies(
+            verifierLogState,
+            selectedLine,
+            memSlotId,
+          );
+          const arr = Array.from(deps);
+          arr.sort((a, b) => a - b);
+          const maxIdx = arr[arr.length - 1];
+          const visualIdx = logLineIdxToVisualIdx.get(maxIdx);
+          if (visualIdx !== undefined) {
+            scrollToLogLine(visualIdx, logLines.length);
+          }
+        }
+
         return {
           ...prevSelectedState,
           memSlotId,
         };
       });
     },
-    [],
+    [verifierLogState, logLineIdxToVisualIdx, selectedLine],
   );
 
   const handleLogLinesClick = useCallback(
