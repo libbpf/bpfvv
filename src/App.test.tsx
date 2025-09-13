@@ -89,7 +89,7 @@ describe("App", () => {
     }
 
     expect(line5.innerHTML).toBe(
-      '<span id="mem-slot-r7-line-5" class="mem-slot r7" data-id="r7">r7</span>&nbsp;=&nbsp;1',
+      '<span id="mem-slot-r7-line-5" class="mem-slot" data-id="r7">r7</span>&nbsp;=&nbsp;1',
     );
 
     // Show that the next line is not an instruction
@@ -97,7 +97,7 @@ describe("App", () => {
 
     // Show the one after IS an instruction
     expect(line7.innerHTML).toBe(
-      'if (<span id="mem-slot-r6-line-7" class="mem-slot r6" data-id="r6">r6</span>&nbsp;==&nbsp;0x0)&nbsp;goto&nbsp;pc+104',
+      'if (<span id="mem-slot-r6-line-7" class="mem-slot" data-id="r6">r6</span>&nbsp;==&nbsp;0x0)&nbsp;goto&nbsp;pc+104',
     );
 
     // Click on Line 5

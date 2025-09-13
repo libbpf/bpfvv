@@ -237,7 +237,7 @@ exports[`App renders the log visualizer when text is pasted 1`] = `
               />
               *(u8 *)(
               <span
-                class="mem-slot r7"
+                class="mem-slot"
                 data-id="r7"
                 id="mem-slot-r7-line-0"
               >
@@ -248,7 +248,7 @@ exports[`App renders the log visualizer when text is pasted 1`] = `
               =
                
               <span
-                class="mem-slot r1"
+                class="mem-slot"
                 data-id="r1"
                 id="mem-slot-r1-line-0"
               >

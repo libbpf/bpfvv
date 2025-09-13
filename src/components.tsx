@@ -16,8 +16,9 @@ import {
 import {
   BpfMemSlotMap,
   foreachStackSlot,
+  stackSlotIdForIndirectAccess,
   insEntersNewFrame,
-  normalMemSlotId,
+  stackSlotIdFromDisplayId,
 } from "./utils";
 import { CSourceMap, getMemSlotDependencies } from "./analyzer";
 
@@ -469,26 +470,37 @@ export function MemSlot({
     case OperandType.REG:
       return <RegSpan lineIdx={line.idx} reg={op.id} display={memSlotString} />;
     case OperandType.FP:
+      const displayFp = memSlotString || op.id;
       return (
         <StackSlotSpan
           lineIdx={line.idx}
-          id={op.id}
-          normalId={normalMemSlotId(op.id, state.frame)}
-          display={memSlotString}
-        />
+          normalId={stackSlotIdFromDisplayId(op.id, state.frame)}
+        >
+          <span>{displayFp}</span>
+        </StackSlotSpan>
       );
     case OperandType.MEM:
-      // find register position and make a span around it
+      const reg = op.memref?.reg || "";
       const regStart = memSlotString.search(/r[0-9]/);
       const regEnd = regStart + 2;
-      const reg = memSlotString.slice(regStart, regEnd);
-      return (
+      const displayMem = (
         <>
           {memSlotString.slice(0, regStart)}
           <RegSpan lineIdx={line.idx} reg={reg} display={reg} />
           {memSlotString.slice(regEnd)}
         </>
       );
+
+      // If we know the fp then also make it clickable
+      const adjustedMemSlotId = stackSlotIdForIndirectAccess(state, op.memref);
+      if (adjustedMemSlotId !== null) {
+        return (
+          <StackSlotSpan lineIdx={line.idx} normalId={adjustedMemSlotId}>
+            {displayMem}
+          </StackSlotSpan>
+        );
+      }
+      return displayMem;
     default:
       return <>{memSlotString}</>;
   }
@@ -503,7 +515,7 @@ const RegSpan = ({
   display: string | undefined;
   lineIdx: number;
 }) => {
-  const classNames = ["mem-slot", reg];
+  const classNames = ["mem-slot"];
   return (
     <span
       id={getMemSlotDomId(reg, lineIdx)}
@@ -516,24 +528,22 @@ const RegSpan = ({
 };
 
 const StackSlotSpan = ({
-  id,
   normalId,
-  display,
   lineIdx,
+  children,
 }: {
-  id: string;
   normalId: string;
-  display: string | undefined;
   lineIdx: number;
+  children: ReactElement;
 }) => {
-  const classNames = ["mem-slot", id];
+  const classNames = ["mem-slot"];
   return (
     <span
       id={getMemSlotDomId(normalId, lineIdx)}
       className={classNames.join(" ")}
       data-id={normalId}
     >
-      {display || id}
+      {children}
     </span>
   );
 };
@@ -1198,29 +1208,9 @@ export function MainContent({
     }
 
     const minIdx = memSlotDependencies[0];
-    let maxIdx = memSlotDependencies[memSlotDependencies.length - 1];
-    let shouldScrollLogLines = true;
-
-    const parsedLine = verifierLogState.lines[selectedLine];
-    if (parsedLine.type == ParsedLineType.INSTRUCTION) {
-      const bpfIns = parsedLine.bpfIns;
-      if (
-        bpfIns.reads.includes(selectedMemSlotId) ||
-        bpfIns.writes.includes(selectedMemSlotId)
-      ) {
-        maxIdx = selectedLine;
-        // the selected log line has the selectedMemSlotId
-        // no need to scroll the panel
-        shouldScrollLogLines = false;
-      }
-    }
-
-    if (shouldScrollLogLines) {
-      const visualIdx = logLineIdxToVisualIdx.get(maxIdx);
-      if (visualIdx !== undefined) {
-        scrollToLogLine(visualIdx, logLines.length);
-      }
-    }
+    // selected line is always the bottom anchor even if it may not read/write
+    // this memSlot
+    const maxIdx = selectedLine;
 
     if (minIdx == maxIdx) {
       return;
