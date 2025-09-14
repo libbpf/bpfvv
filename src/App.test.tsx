@@ -72,7 +72,7 @@ describe("App", () => {
     );
 
     // Need to show all log lines
-    const checkboxEl = document.getElementById("show-full-log");
+    const checkboxEl = document.getElementById("csource-toggle");
     if (!checkboxEl) {
       throw new Error(DOM_EL_FAIL);
     }
