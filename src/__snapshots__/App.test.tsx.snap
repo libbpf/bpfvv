@@ -16,72 +16,58 @@ exports[`App renders the correct starting elements 1`] = `
         </h1>
         <div
           class="line-nav-item"
-          id="load-status"
         >
-          (
-          0
-           lines)
+          <button
+            class="nav-button"
+            id="clear"
+          >
+            Clear
+          </button>
         </div>
-        <button
-          class="line-nav-item"
-          id="goto-start"
-        >
-          Start
-        </button>
-        <button
-          class="line-nav-item"
-          id="goto-end"
-        >
-          End
-        </button>
-        <button
-          class="line-nav-item"
-          id="clear"
-        >
-          Clear
-        </button>
-        <label>
-          <input
-            id="show-full-log"
-            type="checkbox"
-          />
-          Show Full Log
-        </label>
         <div
-          class="file-input-container"
+          class="line-nav-item"
         >
-          <input
-            id="file-input"
-            type="file"
+          <label>
+            Examples:
+          </label>
+          <select
+            id="log-example-dropdown"
           />
+          <button
+            class="nav-button"
+            id="load-example"
+          >
+            Load
+          </button>
         </div>
-        <label
+        <div
           class="line-nav-item"
         >
-          Examples:
-        </label>
-        <select
-          class="line-nav-item"
-          id="log-example-dropdown"
-        />
-        <button
-          class="line-nav-item"
-          id="load-example"
+          <div
+            class="file-input-container"
+          >
+            <input
+              id="file-input"
+              type="file"
+            />
+          </div>
+        </div>
+        <div
+          class="howto-container"
         >
-          Load
-        </button>
-        <a
-          class="howto-link"
-          href="https://github.com/theihor/bpfvv/blob/master/HOWTO.md"
-          rel="noreferrer"
-          target="_blank"
-        >
-          How To Use
-        </a>
+          <a
+            class="nav-button howto-link"
+            href="https://github.com/theihor/bpfvv/blob/master/HOWTO.md"
+            rel="noreferrer"
+            target="_blank"
+          >
+            How To Use
+          </a>
+        </div>
       </div>
       <textarea
         id="input-text"
-        placeholder="Paste a verifier log here or choose a file"
+        placeholder="Paste a verifier log here, choose a file, or load an example log"
       />
       <div
         id="hint"
@@ -114,68 +100,54 @@ exports[`App renders the log visualizer when text is pasted 1`] = `
         </h1>
         <div
           class="line-nav-item"
-          id="load-status"
         >
-          (
-          1
-           lines)
+          <button
+            class="nav-button"
+            id="clear"
+          >
+            Clear
+          </button>
         </div>
-        <button
-          class="line-nav-item"
-          id="goto-start"
-        >
-          Start
-        </button>
-        <button
-          class="line-nav-item"
-          id="goto-end"
-        >
-          End
-        </button>
-        <button
-          class="line-nav-item"
-          id="clear"
-        >
-          Clear
-        </button>
-        <label>
-          <input
-            id="show-full-log"
-            type="checkbox"
-          />
-          Show Full Log
-        </label>
         <div
-          class="file-input-container"
+          class="line-nav-item"
         >
-          <input
-            id="file-input"
-            type="file"
+          <label>
+            Examples:
+          </label>
+          <select
+            id="log-example-dropdown"
           />
+          <button
+            class="nav-button"
+            id="load-example"
+          >
+            Load
+          </button>
         </div>
-        <label
+        <div
           class="line-nav-item"
         >
-          Examples:
-        </label>
-        <select
-          class="line-nav-item"
-          id="log-example-dropdown"
-        />
-        <button
-          class="line-nav-item"
-          id="load-example"
+          <div
+            class="file-input-container"
+          >
+            <input
+              id="file-input"
+              type="file"
+            />
+          </div>
+        </div>
+        <div
+          class="howto-container"
         >
-          Load
-        </button>
-        <a
-          class="howto-link"
-          href="https://github.com/theihor/bpfvv/blob/master/HOWTO.md"
-          rel="noreferrer"
-          target="_blank"
-        >
-          How To Use
-        </a>
+          <a
+            class="nav-button howto-link"
+            href="https://github.com/theihor/bpfvv/blob/master/HOWTO.md"
+            rel="noreferrer"
+            target="_blank"
+          >
+            How To Use
+          </a>
+        </div>
       </div>
       <div
         class="main-content"
@@ -186,15 +158,16 @@ exports[`App renders the log visualizer when text is pasted 1`] = `
           id="c-source-container"
         >
           <div
-            class="hide-show-button left"
+            class="nav-arrow hide-show-button left"
+            id="csource-toggle"
           >
             ⇐
             <div
-              class="hide-show-tooltip"
+              class="nav-arrow-tooltip hide-show-tooltip"
             >
               Hide
                
-              C source lines
+              C Source Panel
             </div>
           </div>
           <div
@@ -206,54 +179,88 @@ exports[`App renders the log visualizer when text is pasted 1`] = `
           id="log-container"
         >
           <div
-            class="line-numbers"
-            id="line-numbers-pc"
+            class="nav-arrow log-nav-button"
+            id="goto-start"
           >
             <div
-              class="line-numbers-line"
+              class="log-button-txt"
             >
-              314:
+              ⇒
+            </div>
+            <div
+              class="nav-arrow-tooltip up-down-tooltip"
+            >
+              Go To Start
             </div>
           </div>
           <div
-            id="dependency-arrows"
+            class="nav-arrow log-nav-button"
+            id="goto-end"
           >
             <div
-              class="dep-arrow"
-              id="dep-arrow-line-0"
-              line-id="0"
-            />
+              class="log-button-txt"
+            >
+              ⇒
+            </div>
+            <div
+              class="nav-arrow-tooltip up-down-tooltip"
+            >
+              Go To End
+            </div>
           </div>
           <div
-            id="formatted-log-lines"
+            id="log-content"
           >
             <div
-              class="log-line normal-line selected-line"
-              id="line-0"
-              line-index="0"
+              class="line-numbers"
+              id="line-numbers-pc"
             >
-              <span
-                class="line-indent"
+              <div
+                class="line-numbers-line"
+              >
+                314:
+              </div>
+            </div>
+            <div
+              id="dependency-arrows"
+            >
+              <div
+                class="dep-arrow"
+                id="dep-arrow-line-0"
+                line-id="0"
               />
-              *(u8 *)(
-              <span
-                class="mem-slot"
-                data-id="r7"
-                id="mem-slot-r7-line-0"
+            </div>
+            <div
+              id="formatted-log-lines"
+            >
+              <div
+                class="log-line normal-line selected-line"
+                id="line-0"
+                line-index="0"
               >
-                r7
-              </span>
-               +1303)
-               
-              =
-               
-              <span
-                class="mem-slot"
-                data-id="r1"
-                id="mem-slot-r1-line-0"
-              >
-                r1
-              </span>
+                <span
+                  class="line-indent"
+                />
+                *(u8 *)(
+                <span
+                  class="mem-slot"
+                  data-id="r7"
+                  id="mem-slot-r7-line-0"
+                >
+                  r7
+                </span>
+                 +1303)
+                 
+                =
+                 
+                <span
+                  class="mem-slot"
+                  data-id="r1"
+                  id="mem-slot-r1-line-0"
+                >
+                  r1
+                </span>
+              </div>
             </div>
           </div>
         </div>
@@ -262,15 +269,16 @@ exports[`App renders the log visualizer when text is pasted 1`] = `
           id="state-panel"
         >
           <div
-            class="hide-show-button right"
+            class="nav-arrow hide-show-button right"
+            id="state-toggle"
           >
             ⇒
             <div
-              class="hide-show-tooltip"
+              class="nav-arrow-tooltip hide-show-tooltip"
             >
               Hide
                
-              state panel
+              State Panel
             </div>
           </div>
           <div
@@ -282,184 +290,208 @@ exports[`App renders the log visualizer when text is pasted 1`] = `
               <div
                 class="panel-header-active"
               >
-                Log Line: 
+                <span
+                  class="bold"
+                >
+                  Log Line:
+                </span>
+                 
                 1
               </div>
               <div
                 class="panel-header-active"
               >
-                C Line: 
+                <span
+                  class="bold"
+                >
+                  C Line:
+                </span>
+                 
                 0
               </div>
               <div>
-                PC: 
+                <span
+                  class="bold"
+                >
+                  PC:
+                </span>
+                 
                 314
               </div>
               <div>
-                Frame: 
+                <span
+                  class="bold"
+                >
+                  Frame:
+                </span>
+                 
                 1
               </div>
             </div>
-            <table>
-              <tbody>
-                <tr
-                  class="state-row row-empty"
-                  data-id="0"
-                >
-                  <td
-                    class="mem-slot-label"
+            <div
+              id="state-panel-table"
+            >
+              <table>
+                <tbody>
+                  <tr
+                    class="state-row row-empty"
+                    data-id="0"
                   >
-                    r0
-                  </td>
-                  <td>
-                    <span />
-                  </td>
-                </tr>
-                <tr
-                  class="state-row effect-write"
-                  data-id="r1"
-                >
-                  <td
-                    class="mem-slot-label"
+                    <td
+                      class="mem-slot-label"
+                    >
+                      r0
+                    </td>
+                    <td>
+                      <span />
+                    </td>
+                  </tr>
+                  <tr
+                    class="state-row effect-write"
+                    data-id="r1"
                   >
-                    r1
-                  </td>
-                  <td>
-                    <span>
-                      ctx()
-                       
-                      -&gt;
-                       
-                      0
-                    </span>
-                  </td>
-                </tr>
-                <tr
-                  class="state-row row-empty"
-                  data-id="0"
-                >
-                  <td
-                    class="mem-slot-label"
+                    <td
+                      class="mem-slot-label"
+                    >
+                      r1
+                    </td>
+                    <td>
+                      <span>
+                        ctx()
+                         
+                        -&gt;
+                         
+                        0
+                      </span>
+                    </td>
+                  </tr>
+                  <tr
+                    class="state-row row-empty"
+                    data-id="0"
                   >
-                    r2
-                  </td>
-                  <td>
-                    <span />
-                  </td>
-                </tr>
-                <tr
-                  class="state-row row-empty"
-                  data-id="0"
-                >
-                  <td
-                    class="mem-slot-label"
+                    <td
+                      class="mem-slot-label"
+                    >
+                      r2
+                    </td>
+                    <td>
+                      <span />
+                    </td>
+                  </tr>
+                  <tr
+                    class="state-row row-empty"
+                    data-id="0"
                   >
-                    r3
-                  </td>
-                  <td>
-                    <span />
-                  </td>
-                </tr>
-                <tr
-                  class="state-row row-empty"
-                  data-id="0"
-                >
-                  <td
-                    class="mem-slot-label"
+                    <td
+                      class="mem-slot-label"
+                    >
+                      r3
+                    </td>
+                    <td>
+                      <span />
+                    </td>
+                  </tr>
+                  <tr
+                    class="state-row row-empty"
+                    data-id="0"
                   >
-                    r4
-                  </td>
-                  <td>
-                    <span />
-                  </td>
-                </tr>
-                <tr
-                  class="state-row row-empty"
-                  data-id="0"
-                >
-                  <td
-                    class="mem-slot-label"
+                    <td
+                      class="mem-slot-label"
+                    >
+                      r4
+                    </td>
+                    <td>
+                      <span />
+                    </td>
+                  </tr>
+                  <tr
+                    class="state-row row-empty"
+                    data-id="0"
                   >
-                    r5
-                  </td>
-                  <td>
-                    <span />
-                  </td>
-                </tr>
-                <tr
-                  class="state-row row-empty"
-                  data-id="0"
-                >
-                  <td
-                    class="mem-slot-label"
+                    <td
+                      class="mem-slot-label"
+                    >
+                      r5
+                    </td>
+                    <td>
+                      <span />
+                    </td>
+                  </tr>
+                  <tr
+                    class="state-row row-empty"
+                    data-id="0"
                   >
-                    r6
-                  </td>
-                  <td>
-                    <span />
-                  </td>
-                </tr>
-                <tr
-                  class="state-row effect-write"
-                  data-id="r7"
-                >
-                  <td
-                    class="mem-slot-label"
+                    <td
+                      class="mem-slot-label"
+                    >
+                      r6
+                    </td>
+                    <td>
+                      <span />
+                    </td>
+                  </tr>
+                  <tr
+                    class="state-row effect-write"
+                    data-id="r7"
                   >
-                    r7
-                  </td>
-                  <td>
-                    <span>
-                       
-                      -&gt;
-                       
-                      map_value(off=0,ks=4,vs=2808,imm=0)
-                    </span>
-                  </td>
-                </tr>
-                <tr
-                  class="state-row row-empty"
-                  data-id="0"
-                >
-                  <td
-                    class="mem-slot-label"
+                    <td
+                      class="mem-slot-label"
+                    >
+                      r7
+                    </td>
+                    <td>
+                      <span>
+                         
+                        -&gt;
+                         
+                        map_value(off=0,ks=4,vs=2808,imm=0)
+                      </span>
+                    </td>
+                  </tr>
+                  <tr
+                    class="state-row row-empty"
+                    data-id="0"
                   >
-                    r8
-                  </td>
-                  <td>
-                    <span />
-                  </td>
-                </tr>
-                <tr
-                  class="state-row row-empty"
-                  data-id="0"
-                >
-                  <td
-                    class="mem-slot-label"
+                    <td
+                      class="mem-slot-label"
+                    >
+                      r8
+                    </td>
+                    <td>
+                      <span />
+                    </td>
+                  </tr>
+                  <tr
+                    class="state-row row-empty"
+                    data-id="0"
                   >
-                    r9
-                  </td>
-                  <td>
-                    <span />
-                  </td>
-                </tr>
-                <tr
-                  class="state-row"
-                  data-id="r10"
-                >
-                  <td
-                    class="mem-slot-label"
+                    <td
+                      class="mem-slot-label"
+                    >
+                      r9
+                    </td>
+                    <td>
+                      <span />
+                    </td>
+                  </tr>
+                  <tr
+                    class="state-row"
+                    data-id="r10"
                   >
-                    r10
-                  </td>
-                  <td>
-                    <span>
-                      fp-0
-                    </span>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+                    <td
+                      class="mem-slot-label"
+                    >
+                      r10
+                    </td>
+                    <td>
+                      <span>
+                        fp-0
+                      </span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </div>
@@ -512,72 +544,58 @@ exports[`App renders the log visualizer when text is pasted 2`] = `
         </h1>
         <div
           class="line-nav-item"
-          id="load-status"
         >
-          (
-          0
-           lines)
+          <button
+            class="nav-button"
+            id="clear"
+          >
+            Clear
+          </button>
         </div>
-        <button
-          class="line-nav-item"
-          id="goto-start"
-        >
-          Start
-        </button>
-        <button
-          class="line-nav-item"
-          id="goto-end"
-        >
-          End
-        </button>
-        <button
-          class="line-nav-item"
-          id="clear"
-        >
-          Clear
-        </button>
-        <label>
-          <input
-            id="show-full-log"
-            type="checkbox"
-          />
-          Show Full Log
-        </label>
         <div
-          class="file-input-container"
+          class="line-nav-item"
         >
-          <input
-            id="file-input"
-            type="file"
+          <label>
+            Examples:
+          </label>
+          <select
+            id="log-example-dropdown"
           />
+          <button
+            class="nav-button"
+            id="load-example"
+          >
+            Load
+          </button>
         </div>
-        <label
+        <div
           class="line-nav-item"
         >
-          Examples:
-        </label>
-        <select
-          class="line-nav-item"
-          id="log-example-dropdown"
-        />
-        <button
-          class="line-nav-item"
-          id="load-example"
+          <div
+            class="file-input-container"
+          >
+            <input
+              id="file-input"
+              type="file"
+            />
+          </div>
+        </div>
+        <div
+          class="howto-container"
         >
-          Load
-        </button>
-        <a
-          class="howto-link"
-          href="https://github.com/theihor/bpfvv/blob/master/HOWTO.md"
-          rel="noreferrer"
-          target="_blank"
-        >
-          How To Use
-        </a>
+          <a
+            class="nav-button howto-link"
+            href="https://github.com/theihor/bpfvv/blob/master/HOWTO.md"
+            rel="noreferrer"
+            target="_blank"
+          >
+            How To Use
+          </a>
+        </div>
       </div>
       <textarea
         id="input-text"
-        placeholder="Paste a verifier log here or choose a file"
+        placeholder="Paste a verifier log here, choose a file, or load an example log"
       />
       <div
         id="hint"

@@ -22,7 +22,6 @@ import {
   VisualLogState,
   LogLineState,
   HoveredLineHint,
-  LoadStatus,
   MainContent,
   SelectedLineHint,
   ToolTip,
@@ -37,6 +36,7 @@ function getEmptyVisualLogState(): VisualLogState {
     logLineIdxToVisualIdx: new Map(),
     cLines: [],
     cLineIdToVisualIdx: new Map(),
+    showFullLog: false,
   };
 }
 
@@ -50,11 +50,11 @@ function getEmptyLogLineState(): LogLineState {
 
 function getVisualLogState(
   verifierLogState: VerifierLogState,
-  fullLogView: boolean,
+  showFullLog: boolean,
 ): VisualLogState {
   const [logLines, logLineIdxToVisualIdx] = getVisibleLogLines(
     verifierLogState,
-    fullLogView,
+    showFullLog,
   );
   const [cLines, cLineIdToVisualIdx] = getVisibleCLines(verifierLogState);
   return {
@@ -63,6 +63,7 @@ function getVisualLogState(
     logLineIdxToVisualIdx,
     cLines,
     cLineIdToVisualIdx,
+    showFullLog,
   };
 }
 
@@ -79,6 +80,9 @@ const ContentRaw = ({
   handleLogLinesOver,
   handleLogLinesOut,
   handleStateRowClick,
+  handleFullLogToggle,
+  onGotoStart,
+  onGotoEnd,
 }: {
   loadError: string | null;
   visualLogState: VisualLogState;
@@ -92,6 +96,9 @@ const ContentRaw = ({
   handleLogLinesOver: (event: React.MouseEvent<HTMLDivElement>) => void;
   handleLogLinesOut: (event: React.MouseEvent<HTMLDivElement>) => void;
   handleStateRowClick: (event: React.MouseEvent<HTMLDivElement>) => void;
+  handleFullLogToggle: () => void;
+  onGotoStart: () => void;
+  onGotoEnd: () => void;
 }) => {
   if (loadError) {
     return <div>{loadError}</div>;
@@ -108,6 +115,9 @@ const ContentRaw = ({
         handleLogLinesOver={handleLogLinesOver}
         handleLogLinesOut={handleLogLinesOut}
         handleStateRowClick={handleStateRowClick}
+        handleFullLogToggle={handleFullLogToggle}
+        onGotoStart={onGotoStart}
+        onGotoEnd={onGotoEnd}
       />
     );
   } else {
@@ -115,7 +125,7 @@ const ContentRaw = ({
       <textarea
         id="input-text"
         onPaste={handlePaste}
-        placeholder="Paste a verifier log here or choose a file"
+        placeholder="Paste a verifier log here, choose a file, or load an example log"
       />
     );
   }
@@ -134,7 +144,6 @@ function App() {
     getEmptyLogLineState(),
   );
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [fullLogView, setfullLogView] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -220,20 +229,20 @@ function App() {
     }
   }, []);
 
-  const onLogToggle = useCallback(() => {
-    setfullLogView((prev) => !prev);
-    const [newLogLines, newLogLineIdToVisualIdx] = getVisibleLogLines(
-      verifierLogState,
-      !fullLogView,
-    );
+  const handleFullLogToggle = useCallback(() => {
     setVisualLogState((prev) => {
+      const [newLogLines, newLogLineIdToVisualIdx] = getVisibleLogLines(
+        verifierLogState,
+        !prev.showFullLog,
+      );
       return {
         ...prev,
         logLines: newLogLines,
         logLineIdxToVisualIdx: newLogLineIdToVisualIdx,
+        showFullLog: !prev.showFullLog,
       };
     });
-  }, [fullLogView, verifierLogState]);
+  }, [verifierLogState]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -347,14 +356,11 @@ function App() {
     );
   }, [verifierLogState]);
 
-  const loadInputText = useCallback(
-    (text: string) => {
-      const newVerifierLogState = processRawLines(text.split("\n"));
-      setVisualLogState(getVisualLogState(newVerifierLogState, fullLogView));
-      setIsLoading(false);
-    },
-    [fullLogView],
-  );
+  const loadInputText = useCallback((text: string) => {
+    const newVerifierLogState = processRawLines(text.split("\n"));
+    setVisualLogState(getVisualLogState(newVerifierLogState, false));
+    setIsLoading(false);
+  }, []);
 
   const prepareNewLog = useCallback(() => {
     setSelectedState(getEmptyLogLineState());
@@ -625,11 +631,13 @@ function App() {
           rawLines = rawLines.concat(lines);
         }
         const newVerifierLogState = processRawLines(rawLines);
-        setVisualLogState(getVisualLogState(newVerifierLogState, fullLogView));
+        setVisualLogState(
+          getVisualLogState(newVerifierLogState, visualLogState.showFullLog),
+        );
         setIsLoading(false);
       }
     },
-    [],
+    [visualLogState],
   );
 
   return (
@@ -637,46 +645,34 @@ function App() {
       <div className="container">
         <div className="navigation-panel">
           <h1>BPF Verifier Visualizer</h1>
-          <LoadStatus lineCount={verifierLogState.lines.length} />
-          <button
-            id="goto-start"
-            className="line-nav-item"
-            onClick={onGotoStart}
-          >
-            Start
-          </button>
-          <button id="goto-end" className="line-nav-item" onClick={onGotoEnd}>
-            End
-          </button>
-          <button id="clear" className="line-nav-item" onClick={onClear}>
-            Clear
-          </button>
-          <label>
-            <input
-              type="checkbox"
-              checked={fullLogView}
-              onChange={onLogToggle}
-              id="show-full-log"
-            />
-            Show Full Log
-          </label>
-          <div className="file-input-container">
-            <input
-              type="file"
-              id="file-input"
-              onChange={onFileInputChange}
-              ref={fileInputRef}
-            />
+          <div className="line-nav-item">
+            <button id="clear" className="nav-button" onClick={onClear}>
+              Clear
+            </button>
           </div>
-          <Examples handleLoadExample={handleLoadExample} />
-          <a
-            href="https://github.com/theihor/bpfvv/blob/master/HOWTO.md"
-            className="howto-link"
-            target="_blank"
-            rel="noreferrer"
-          >
-            How To Use
-          </a>
+          <div className="line-nav-item">
+            <Examples handleLoadExample={handleLoadExample} />
+          </div>
+          <div className="line-nav-item">
+            <div className="file-input-container">
+              <input
+                type="file"
+                id="file-input"
+                onChange={onFileInputChange}
+                ref={fileInputRef}
+              />
+            </div>
+          </div>
+          <div className="howto-container">
+            <a
+              href="https://github.com/theihor/bpfvv/blob/master/HOWTO.md"
+              className="nav-button howto-link"
+              target="_blank"
+              rel="noreferrer"
+            >
+              How To Use
+            </a>
+          </div>
         </div>
         <Content
           loadError={loadError}
@@ -691,6 +687,9 @@ function App() {
           handleLogLinesOver={handleLogLinesOver}
           handleLogLinesOut={handleLogLinesOut}
           handleStateRowClick={handleStateRowClick}
+          handleFullLogToggle={handleFullLogToggle}
+          onGotoStart={onGotoStart}
+          onGotoEnd={onGotoEnd}
         />
         <div id="hint">
           <SelectedLineHint

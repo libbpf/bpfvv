@@ -38,6 +38,7 @@ export type VisualLogState = {
   cLineIdToVisualIdx: Map<string, number>;
   logLines: ParsedLine[];
   logLineIdxToVisualIdx: Map<number, number>;
+  showFullLog: boolean;
 };
 
 export type LogLineState = {
@@ -188,10 +189,9 @@ export function Examples({
   if (exampleLinks) {
     return (
       <>
-        <label className="line-nav-item">Examples:</label>
+        <label>Examples:</label>
         <select
           id="log-example-dropdown"
-          className="line-nav-item"
           onChange={handleChange}
           value={selectedOption}
         >
@@ -203,7 +203,7 @@ export function Examples({
             );
           })}
         </select>
-        <button id="load-example" className="line-nav-item" onClick={onLoad}>
+        <button id="load-example" className="nav-button" onClick={onLoad}>
           Load
         </button>
       </>
@@ -308,14 +308,6 @@ export function JmpInstruction({
   } else if (ins.jmpKind === BpfJmpKind.CONDITIONAL_GOTO) {
     return <ConditionalJmpInstruction ins={ins} line={line} state={state} />;
   }
-}
-
-export function LoadStatus({ lineCount }: { lineCount: number }) {
-  return (
-    <div id="load-status" className="line-nav-item">
-      ({lineCount} lines)
-    </div>
-  );
 }
 
 function InstructionLineContent({
@@ -573,13 +565,15 @@ function HideShowButton({
   rightOpen,
   name,
   handleHideShowClick,
+  id,
 }: {
   isVisible: boolean;
   rightOpen: boolean;
   name: string;
+  id: string;
   handleHideShowClick: (event: React.MouseEvent<HTMLDivElement>) => void;
 }) {
-  const classList = ["hide-show-button"];
+  const classList = ["nav-arrow", "hide-show-button"];
   if (rightOpen) {
     classList.push("right");
   } else {
@@ -591,9 +585,9 @@ function HideShowButton({
   }
 
   return (
-    <div className={classList.join(" ")} onClick={handleHideShowClick}>
+    <div id={id} className={classList.join(" ")} onClick={handleHideShowClick}>
       {isVisible ? (rightOpen ? "⇒" : "⇐") : rightOpen ? "⇐" : "⇒"}
-      <div className="hide-show-tooltip">
+      <div className="nav-arrow-tooltip hide-show-tooltip">
         {isVisible ? "Hide" : "Show"}&nbsp;{name}
       </div>
     </div>
@@ -698,14 +692,17 @@ function StatePanelRaw({
     addRow(key);
   }
 
+  const buttonId = "state-toggle";
+
   if (!isVisible) {
     return (
       <div className="state-panel panel-hidden">
         <HideShowButton
           isVisible={isVisible}
           rightOpen={true}
-          name="state panel"
+          name="State Panel"
           handleHideShowClick={handleHideShowClick}
+          id={buttonId}
         />
       </div>
     );
@@ -716,8 +713,9 @@ function StatePanelRaw({
       <HideShowButton
         isVisible={isVisible}
         rightOpen={true}
-        name="state panel"
+        name="State Panel"
         handleHideShowClick={handleHideShowClick}
+        id={buttonId}
       />
       <div id="state-panel-content">
         <div id="state-panel-header">
@@ -725,17 +723,23 @@ function StatePanelRaw({
             className="panel-header-active"
             onClick={handleStateLogLineClick}
           >
-            Log Line: {selectedLine + 1}
+            <span className="bold">Log Line:</span> {selectedLine + 1}
           </div>
           <div className="panel-header-active" onClick={handleStateCLineClick}>
-            C Line: {selectedCLine}
+            <span className="bold">C Line:</span> {selectedCLine}
           </div>
-          <div>PC: {bpfState.pc}</div>
-          <div>Frame: {bpfState.frame}</div>
+          <div>
+            <span className="bold">PC:</span> {bpfState.pc}
+          </div>
+          <div>
+            <span className="bold">Frame:</span> {bpfState.frame}
+          </div>
         </div>
-        <table onClick={handleStateRowClick}>
-          <tbody>{rows}</tbody>
-        </table>
+        <div id="state-panel-table">
+          <table onClick={handleStateRowClick}>
+            <tbody>{rows}</tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
@@ -988,24 +992,24 @@ function CSourceFile({
 function CSourceLinesRaw({
   handleCLinesClick,
   verifierLogState,
+  showFullLog,
+  handleFullLogToggle,
 }: {
   handleCLinesClick: (event: React.MouseEvent<HTMLDivElement>) => void;
   verifierLogState: VerifierLogState;
+  showFullLog: boolean;
+  handleFullLogToggle: () => void;
 }) {
-  const [isVisible, setIsVisible] = useState<boolean>(true);
-
-  const handleHideShowClick = useCallback(() => {
-    setIsVisible((prev) => !prev);
-  }, [setIsVisible]);
-
-  if (!isVisible) {
+  const buttonId = "csource-toggle";
+  if (showFullLog) {
     return (
       <div className="c-source-panel panel-hidden">
         <HideShowButton
-          isVisible={isVisible}
+          isVisible={!showFullLog}
           rightOpen={false}
-          name="C source lines"
-          handleHideShowClick={handleHideShowClick}
+          name="C Source Panel"
+          handleHideShowClick={handleFullLogToggle}
+          id={buttonId}
         />
       </div>
     );
@@ -1030,10 +1034,11 @@ function CSourceLinesRaw({
       onClick={handleCLinesClick}
     >
       <HideShowButton
-        isVisible={isVisible}
+        isVisible={!showFullLog}
         rightOpen={false}
-        name="C source lines"
-        handleHideShowClick={handleHideShowClick}
+        name="C Source Panel"
+        handleHideShowClick={handleFullLogToggle}
+        id={buttonId}
       />
       <div id="c-source-content">{files}</div>
     </div>
@@ -1053,6 +1058,9 @@ export function MainContent({
   handleLogLinesOver,
   handleLogLinesOut,
   handleStateRowClick,
+  handleFullLogToggle,
+  onGotoStart,
+  onGotoEnd,
 }: {
   visualLogState: VisualLogState;
   selectedLine: number;
@@ -1064,6 +1072,9 @@ export function MainContent({
   handleLogLinesOver: (event: React.MouseEvent<HTMLDivElement>) => void;
   handleLogLinesOut: (event: React.MouseEvent<HTMLDivElement>) => void;
   handleStateRowClick: (event: React.MouseEvent<HTMLDivElement>) => void;
+  handleFullLogToggle: () => void;
+  onGotoStart: () => void;
+  onGotoEnd: () => void;
 }) {
   const {
     verifierLogState,
@@ -1390,26 +1401,46 @@ export function MainContent({
       <CSourceLines
         handleCLinesClick={handleCLinesClick}
         verifierLogState={verifierLogState}
+        showFullLog={visualLogState.showFullLog}
+        handleFullLogToggle={handleFullLogToggle}
       />
       <div
         id="log-container"
         className={selectedMemSlotId !== "" ? "active_mem_slot" : ""}
       >
-        <LineNumbersPC logLines={logLines} />
         <div
-          id="dependency-arrows"
-          onMouseOver={handleArrowsOver}
-          onClick={handleArrowsClick}
+          id="goto-start"
+          className="nav-arrow log-nav-button"
+          onClick={onGotoStart}
         >
-          <DependencyArrowsPlain logLines={logLines} />
+          <div className="log-button-txt">⇒</div>
+          <div className="nav-arrow-tooltip up-down-tooltip">Go To Start</div>
         </div>
-        <LogLines
-          verifierLogState={verifierLogState}
-          logLines={logLines}
-          handleLogLinesClick={handleLogLinesClick}
-          handleLogLinesOver={handleLogLinesOver}
-          handleLogLinesOut={handleLogLinesOut}
-        />
+        <div
+          id="goto-end"
+          className="nav-arrow log-nav-button"
+          onClick={onGotoEnd}
+        >
+          <div className="log-button-txt">⇒</div>
+          <div className="nav-arrow-tooltip up-down-tooltip">Go To End</div>
+        </div>
+        <div id="log-content">
+          <LineNumbersPC logLines={logLines} />
+          <div
+            id="dependency-arrows"
+            onMouseOver={handleArrowsOver}
+            onClick={handleArrowsClick}
+          >
+            <DependencyArrowsPlain logLines={logLines} />
+          </div>
+          <LogLines
+            verifierLogState={verifierLogState}
+            logLines={logLines}
+            handleLogLinesClick={handleLogLinesClick}
+            handleLogLinesOver={handleLogLinesOver}
+            handleLogLinesOut={handleLogLinesOut}
+          />
+        </div>
       </div>
       <StatePanel
         selectedLine={selectedLine}

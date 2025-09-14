@@ -59,7 +59,7 @@ export function getVisibleLogLineRange(linesLen: number): {
     return { min: 0, max: 0 };
   }
   const formattedLogLines = document.getElementById("formatted-log-lines");
-  const logContainer = document.getElementById("log-container");
+  const logContainer = document.getElementById("log-content");
   if (!formattedLogLines || !logContainer) {
     return { min: 0, max: 0 };
   }
@@ -93,7 +93,7 @@ function scrollToLine(
 }
 
 export function scrollToLogLine(visualIdx: number, linesLen: number) {
-  const logContainer = document.getElementById("log-container");
+  const logContainer = document.getElementById("log-content");
   if (!logContainer) {
     throw new Error("Log line container is not in the DOM");
   }
