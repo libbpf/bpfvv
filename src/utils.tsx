@@ -70,8 +70,8 @@ export function getVisibleCSourceRange(linesLen: number): {
   min: number;
   max: number;
 } {
-  const csourceContent = document.getElementById("c-source-content");
-  const csourceContainer = document.getElementById("c-source-container");
+  const csourceContent = document.getElementById("c-source-files");
+  const csourceContainer = document.getElementById("c-source-content");
   if (!csourceContent || !csourceContainer) {
     // Don't throw the container might be collapsed
     return { min: 0, max: 0 };
@@ -92,22 +92,8 @@ function scrollToLine(
   el.scrollTop = relativePosition * el.scrollHeight;
 }
 
-export function scrollToLogLine(visualIdx: number, linesLen: number) {
-  const logContainer = document.getElementById("log-content");
-  if (!logContainer) {
-    throw new Error("Log line container is not in the DOM");
-  }
-  const logRange = getVisibleLogLineRange(linesLen);
-  if (
-    (visualIdx < logRange.min + 8 || visualIdx > logRange.max - 8) &&
-    !(visualIdx < 0 || visualIdx >= linesLen)
-  ) {
-    scrollToLine(logContainer, visualIdx, logRange.max, logRange.min, linesLen);
-  }
-}
-
 export function scrollToCLine(visualIdx: number, linesLen: number) {
-  const cSourceContainer = document.getElementById("c-source-container");
+  const cSourceContainer = document.getElementById("c-source-content");
   if (!cSourceContainer) {
     // This won't exist if the container is collapsed
     return;

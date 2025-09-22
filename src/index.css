@@ -5,7 +5,7 @@
   --primary-dark: rgba(4, 4, 4, 1);
   --mid-gray: rgb(212, 212, 220);
   --mid-gray-50: rgba(212, 212, 220, 0.5);
-  --mid-gray-20: rgba(212, 212, 220, 0.2);
+  --mid-gray-20: rgba(245, 245, 245, 1);
   --dark-blue: rgb(0, 73, 183);
   --light-blue: rgb(0, 221, 255);
   --light-blue-20: rgba(0, 221, 255, 0.2);
@@ -73,6 +73,7 @@ h1 {
   height: 40px;
   background-color: var(--mid-gray-20);
   font-family: "Roboto Mono", monospace;
+  z-index: 1;
 }
 
 .nav-arrow:hover {
@@ -220,12 +221,7 @@ h1 {
 }
 
 #log-content {
-  overflow-y: scroll;
   height: 100%;
-  display: flex;
-  flex-direction: row;
-  min-width: 0;
-  gap: 0;
 }
 
 .log-nav-button {
@@ -269,7 +265,22 @@ h1 {
   color: var(--primary-dark);
 }
 
-#formatted-log-lines,
+.pc-number {
+  color: var(--primary-dark);
+  background-color: var(--mid-gray-20);
+  border-right: 2px solid var(--mid-gray);
+  min-width: 50px;
+  line-height: 1.4;
+  text-align: right;
+  white-space: pre;
+  margin-right: 8px;
+  padding-right: 8px;
+}
+
+.selected-line .pc-number {
+  font-weight: bold;
+}
+
 .source-lines {
   background: white;
   padding: 10px;
@@ -342,6 +353,7 @@ h1 {
 
 .log-line {
   display: flex;
+  white-space: nowrap;
 }
 
 .line-indent {
@@ -425,6 +437,14 @@ h1 {
 
 .dep-arrow {
   position: relative;
+  line-height: 1.4;
+  text-align: right;
+  user-select: none;
+  min-width: 2em;
+  white-space: pre;
+  height: fit-content;
+  height: 20px;
+  color: #000;
 }
 
 .dep-end::before {

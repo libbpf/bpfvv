@@ -4,11 +4,26 @@
 import "@testing-library/jest-dom";
 import { render, createEvent, fireEvent } from "@testing-library/react";
 import App from "./App";
-import { SAMPLE_LOG_DATA_1, SAMPLE_LOG_DATA_2 } from "./test-data";
+import {
+  SAMPLE_LOG_DATA_1,
+  SAMPLE_LOG_DATA_2,
+  SAMPLE_LOG_DATA_ERORR,
+} from "./test-data";
+
+// use screen.debug(); to log the whole DOM
 
 const DOM_EL_FAIL = "DOM Element missing";
 
 describe("App", () => {
+  beforeEach(() => {
+    const mockObserverInstance = {
+      observe: jest.fn(),
+      unobserve: jest.fn(),
+      disconnect: jest.fn(),
+    };
+    global.ResizeObserver = jest.fn(() => mockObserverInstance);
+  });
+
   it("renders the correct starting elements", () => {
     const { container } = render(<App />);
     expect(container).toMatchSnapshot();
@@ -36,7 +51,7 @@ describe("App", () => {
     expect(container).toMatchSnapshot();
 
     expect(document.getElementById("c-source-container")).toBeTruthy();
-    expect(document.getElementById("formatted-log-lines")).toBeTruthy();
+    expect(document.getElementById("log-content")).toBeTruthy();
     expect(document.getElementById("state-panel")).toBeTruthy();
 
     // Hit the clear button and make sure we go back to the intial state
@@ -50,7 +65,7 @@ describe("App", () => {
     expect(container).toMatchSnapshot();
 
     expect(document.getElementById("c-source-container")).toBeFalsy();
-    expect(document.getElementById("formatted-log-lines")).toBeFalsy();
+    expect(document.getElementById("log-content")).toBeFalsy();
     expect(document.getElementById("state-panel")).toBeFalsy();
   });
 
@@ -80,41 +95,43 @@ describe("App", () => {
 
     const logContainerEl = document.getElementById("log-container");
 
-    const line5 = document.getElementById("line-5");
-    const line6 = document.getElementById("line-6");
-    const line7 = document.getElementById("line-7");
+    const line1 = document.getElementById("line-1");
+    const line2 = document.getElementById("line-2");
+    const line3 = document.getElementById("line-3");
 
-    if (!line5 || !line7 || !line6 || !logContainerEl) {
+    if (!line1 || !line3 || !line2 || !logContainerEl) {
       throw new Error(DOM_EL_FAIL);
     }
 
-    expect(line5.innerHTML).toBe(
-      '<span id="mem-slot-r7-line-5" class="mem-slot" data-id="r7">r7</span>&nbsp;=&nbsp;1',
+    expect(line1.innerHTML).toBe(
+      '<div class="pc-number">0</div><div class="dep-arrow" line-id="1" id="dep-arrow-line-1"></div><div class="log-line-content"><span id="mem-slot-r1-line-1" class="mem-slot" data-id="r1">r1</span>&nbsp;=&nbsp;0x11</div>',
     );
 
     // Show that the next line is not an instruction
-    expect(line6.innerHTML).toBe("; if (!n) @ rbtree.c:199");
-
-    // Show the one after IS an instruction
-    expect(line7.innerHTML).toBe(
-      'if (<span id="mem-slot-r6-line-7" class="mem-slot" data-id="r6">r6</span>&nbsp;==&nbsp;0x0)&nbsp;goto&nbsp;pc+104',
+    expect(line2.innerHTML).toBe(
+      '<div class="pc-number">\n</div><div class="dep-arrow" line-id="2" id="dep-arrow-line-2"></div><div class="log-line-content">; if (!n) @ rbtree.c:199</div>',
     );
 
-    // Click on Line 5
-    fireEvent(line5, createEvent.click(line5));
-    expect(line5.classList.contains("selected-line")).toBeTruthy();
+    // Show the one after IS an instruction
+    expect(line3.innerHTML).toBe(
+      '<div class="pc-number">2</div><div class="dep-arrow" line-id="3" id="dep-arrow-line-3"></div><div class="log-line-content"><span id="mem-slot-r2-line-3" class="mem-slot" data-id="r2">r2</span>&nbsp;=&nbsp;0</div>',
+    );
+
+    // Click on Line 1
+    fireEvent(line1, createEvent.click(line1));
+    expect(line1.classList.contains("selected-line")).toBeTruthy();
 
     // Keyboard Down Arrow
     fireEvent.keyDown(logContainerEl, { key: "ArrowDown", code: "ArrowDown" });
-    expect(line5.classList.contains("selected-line")).toBeFalsy();
-    expect(line6.classList.contains("selected-line")).toBeFalsy();
-    expect(line7.classList.contains("selected-line")).toBeTruthy();
+    expect(line1.classList.contains("selected-line")).toBeFalsy();
+    expect(line2.classList.contains("selected-line")).toBeFalsy();
+    expect(line3.classList.contains("selected-line")).toBeTruthy();
 
     // Keyboard Up Arrow
     fireEvent.keyDown(logContainerEl, { key: "ArrowUp", code: "ArrowUp" });
-    expect(line5.classList.contains("selected-line")).toBeTruthy();
-    expect(line6.classList.contains("selected-line")).toBeFalsy();
-    expect(line7.classList.contains("selected-line")).toBeFalsy();
+    expect(line1.classList.contains("selected-line")).toBeTruthy();
+    expect(line2.classList.contains("selected-line")).toBeFalsy();
+    expect(line3.classList.contains("selected-line")).toBeFalsy();
   });
 
   it("c lines and state panel containers are collapsible", async () => {
@@ -164,7 +181,9 @@ describe("App", () => {
   });
 
   it("highlights the associated c source or log line(s) when the other is clicked ", async () => {
-    render(<App />);
+    // Note: I haven't figured out how to get react-window to scroll in jest dom tests
+    // so just make the list height static so it renders the lines we care about
+    render(<App testListHeight={1000} />);
 
     const inputEl = document.getElementById("input-text");
     if (!inputEl) {
@@ -235,17 +254,19 @@ describe("App", () => {
       inputEl,
       createEvent.paste(inputEl, {
         clipboardData: {
-          getData: () => SAMPLE_LOG_DATA_2,
+          getData: () => SAMPLE_LOG_DATA_ERORR,
         },
       }),
     );
 
-    const line117El = document.getElementById("line-117");
-    if (!line117El) {
+    const line1El = document.getElementById("line-1");
+    if (!line1El) {
       throw new Error(DOM_EL_FAIL);
     }
 
-    expect(line117El.classList).toContain("error-message");
-    expect(line117El.innerHTML).toBe("R6 invalid mem access 'scalar'");
+    expect(line1El.classList).toContain("error-message");
+    expect(line1El.innerHTML).toBe(
+      '<div class="pc-number">\n</div><div class="dep-arrow" line-id="1" id="dep-arrow-line-1"></div><div class="log-line-content">R6 invalid mem access \'scalar\'</div>',
+    );
   });
 });
