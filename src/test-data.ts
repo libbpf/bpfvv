@@ -1,5 +1,6 @@
 export const SAMPLE_LOG_DATA_1 = `
-          0: (18) r1 = 0x11                     ; R1_w=17
+0: (18) r1 = 0x11                     ; R1_w=17
+; if (!n) @ rbtree.c:199
 2: (b7) r2 = 0                        ; R2_w=0
 3: (85) call bpf_obj_new_impl#54651   ; R0_w=ptr_or_null_node_data(id=2,ref_obj_id=2) refs=2
 4: (bf) r6 = r0                       ; R0_w=ptr_or_null_node_data(id=2,ref_obj_id=2) R6_w=ptr_or_null_node_data(id=2,ref_obj_id=2) refs=2
@@ -130,4 +131,9 @@ R6 invalid mem access 'scalar'
 verification time 842 usec
 stack depth 0+0
 processed 94 insns (limit 1000000) max_states_per_insn 0 total_states 10 peak_states 10 mark_read 6
+`;
+
+export const SAMPLE_LOG_DATA_ERORR = `120: (79) r7 = *(u64 *)(r6 +8)
+R6 invalid mem access 'scalar'
+verification time 842 usec
 `;

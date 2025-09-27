@@ -3,7 +3,7 @@
  */
 import "@testing-library/jest-dom";
 import { render, screen } from "@testing-library/react";
-import { JmpInstruction, MemSlot } from "./components";
+import { JmpInstruction, LogLineState, MemSlot } from "./components";
 import {
   BpfJmpKind,
   BpfInstructionClass,
@@ -43,6 +43,14 @@ function createOp(
   };
 }
 
+function getEmptyLogLineState(): LogLineState {
+  return {
+    memSlotId: "",
+    line: 0,
+    cLine: "",
+  };
+}
+
 function dummyBpfState(frame: number = 0): BpfState {
   const state = new BpfState({});
   state.frame = frame;
@@ -59,7 +67,15 @@ describe("MemSlot", () => {
 
   it("renders raw line when op is undefined", () => {
     const line = createParsedLine("test raw line", 0);
-    render(<MemSlot line={line} op={undefined} state={dummyBpfState()} />);
+    render(
+      <MemSlot
+        line={line}
+        op={undefined}
+        state={dummyBpfState()}
+        memSlotDependencies={[]}
+        selectedState={getEmptyLogLineState()}
+      />,
+    );
     expect(screen.getByText("test raw line")).toBeInTheDocument();
   });
 
@@ -70,6 +86,8 @@ describe("MemSlot", () => {
         line={line}
         op={createOp(OperandType.UNKNOWN, 10, -5)}
         state={dummyBpfState()}
+        memSlotDependencies={[]}
+        selectedState={getEmptyLogLineState()}
       />,
     );
     // screen.debug()
@@ -83,6 +101,8 @@ describe("MemSlot", () => {
         line={line}
         op={createOp(OperandType.IMM, 10, -7)}
         state={dummyBpfState()}
+        memSlotDependencies={[]}
+        selectedState={getEmptyLogLineState()}
       />,
     );
     expect(screen.getByText("aw line")).toBeInTheDocument();
@@ -98,6 +118,8 @@ describe("MemSlot", () => {
         line={line}
         op={createOp(OperandType.REG, 2, -45, "r7")}
         state={dummyBpfState()}
+        memSlotDependencies={[]}
+        selectedState={getEmptyLogLineState()}
       />,
     );
     const divs = document.getElementsByTagName("div");
@@ -117,6 +139,8 @@ describe("MemSlot", () => {
         line={line}
         op={createOp(OperandType.FP, 16, -82, "fp-8")}
         state={dummyBpfState()}
+        memSlotDependencies={[]}
+        selectedState={getEmptyLogLineState()}
       />,
     );
     const divs = document.getElementsByTagName("div");
@@ -136,7 +160,15 @@ describe("MemSlot", () => {
       reg: "r2",
       offset: 0,
     };
-    render(<MemSlot line={line} op={op} state={dummyBpfState()} />);
+    render(
+      <MemSlot
+        line={line}
+        op={op}
+        state={dummyBpfState()}
+        memSlotDependencies={[]}
+        selectedState={getEmptyLogLineState()}
+      />,
+    );
     const divs = document.getElementsByTagName("div");
     expect(divs.length).toBe(1);
     expect(divs[0].innerHTML).toBe(
@@ -153,7 +185,15 @@ describe("MemSlot", () => {
     };
     const bpfState = dummyBpfState();
     bpfState.values.set("r1", { value: "fp-16", effect: Effect.WRITE });
-    render(<MemSlot line={line} op={op} state={bpfState} />);
+    render(
+      <MemSlot
+        line={line}
+        op={op}
+        state={bpfState}
+        memSlotDependencies={[]}
+        selectedState={getEmptyLogLineState()}
+      />,
+    );
     const divs = document.getElementsByTagName("div");
     expect(divs.length).toBe(1);
     expect(divs[0].innerHTML).toBe(
@@ -234,7 +274,15 @@ describe("JmpInstruction", () => {
     };
     const line = createLine(ins);
 
-    render(<JmpInstruction ins={ins} line={line} state={dummyBpfState(1)} />);
+    render(
+      <JmpInstruction
+        ins={ins}
+        line={line}
+        state={dummyBpfState(1)}
+        memSlotDependencies={[]}
+        selectedState={getEmptyLogLineState()}
+      />,
+    );
     const divs = document.getElementsByTagName("div");
     expect(divs.length).toBe(1);
     expect(divs[0].innerHTML).toBe("<b>} exit ; return to stack frame 1</b>");
@@ -244,7 +292,15 @@ describe("JmpInstruction", () => {
     const ins = createTargetJmpIns(BpfJmpCode.JA, BpfJmpKind.SUBPROGRAM_CALL);
     const line = createLine(ins);
 
-    render(<JmpInstruction ins={ins} line={line} state={dummyBpfState(1)} />);
+    render(
+      <JmpInstruction
+        ins={ins}
+        line={line}
+        state={dummyBpfState(1)}
+        memSlotDependencies={[]}
+        selectedState={getEmptyLogLineState()}
+      />,
+    );
     const divs = document.getElementsByTagName("div");
     expect(divs.length).toBe(1);
     expect(divs[0].innerHTML).toBe("<b>pc+3() { ; enter new stack frame 1</b>");
@@ -254,7 +310,15 @@ describe("JmpInstruction", () => {
     const ins = createTargetJmpIns(BpfJmpCode.JA, BpfJmpKind.HELPER_CALL);
     const line = createLine(ins);
 
-    render(<JmpInstruction ins={ins} line={line} state={dummyBpfState(1)} />);
+    render(
+      <JmpInstruction
+        ins={ins}
+        line={line}
+        state={dummyBpfState(1)}
+        memSlotDependencies={[]}
+        selectedState={getEmptyLogLineState()}
+      />,
+    );
     const divs = document.getElementsByTagName("div");
     expect(divs.length).toBe(1);
     expect(divs[0].innerHTML).toBe(
@@ -270,7 +334,15 @@ describe("JmpInstruction", () => {
     );
     const line = createLine(ins);
 
-    render(<JmpInstruction ins={ins} line={line} state={dummyBpfState(1)} />);
+    render(
+      <JmpInstruction
+        ins={ins}
+        line={line}
+        state={dummyBpfState(1)}
+        memSlotDependencies={[]}
+        selectedState={getEmptyLogLineState()}
+      />,
+    );
     const divs = document.getElementsByTagName("div");
     expect(divs.length).toBe(1);
     expect(divs[0].innerHTML).toBe("goto&nbsp;pc+3");
@@ -284,7 +356,15 @@ describe("JmpInstruction", () => {
     );
     const line = createLine(ins);
 
-    render(<JmpInstruction ins={ins} line={line} state={dummyBpfState(1)} />);
+    render(
+      <JmpInstruction
+        ins={ins}
+        line={line}
+        state={dummyBpfState(1)}
+        memSlotDependencies={[]}
+        selectedState={getEmptyLogLineState()}
+      />,
+    );
     const divs = document.getElementsByTagName("div");
     expect(divs.length).toBe(1);
     expect(divs[0].innerHTML).toBe("may_goto&nbsp;pc+3");
@@ -298,7 +378,15 @@ describe("JmpInstruction", () => {
     );
     const line = createLine(ins);
 
-    render(<JmpInstruction ins={ins} line={line} state={dummyBpfState(1)} />);
+    render(
+      <JmpInstruction
+        ins={ins}
+        line={line}
+        state={dummyBpfState(1)}
+        memSlotDependencies={[]}
+        selectedState={getEmptyLogLineState()}
+      />,
+    );
     const divs = document.getElementsByTagName("div");
     expect(divs.length).toBe(1);
     expect(divs[0].innerHTML).toBe("goto_or_nop&nbsp;pc+3");
@@ -324,7 +412,15 @@ describe("JmpInstruction", () => {
     };
     const line = createLine(ins);
 
-    render(<JmpInstruction ins={ins} line={line} state={dummyBpfState(1)} />);
+    render(
+      <JmpInstruction
+        ins={ins}
+        line={line}
+        state={dummyBpfState(1)}
+        memSlotDependencies={[]}
+        selectedState={getEmptyLogLineState()}
+      />,
+    );
     const divs = document.getElementsByTagName("div");
     expect(divs.length).toBe(1);
     expect(divs[0].innerHTML).toBe(
@@ -352,7 +448,15 @@ describe("JmpInstruction", () => {
       setCallArgValue(state, "r4", "");
       setCallArgValue(state, "r5", "");
 
-      render(<JmpInstruction ins={ins} line={line} state={state} />);
+      render(
+        <JmpInstruction
+          ins={ins}
+          line={line}
+          state={state}
+          memSlotDependencies={[]}
+          selectedState={getEmptyLogLineState()}
+        />,
+      );
       const divs = document.getElementsByTagName("div");
       expect(divs.length).toBe(1);
 
@@ -380,7 +484,15 @@ describe("JmpInstruction", () => {
       setCallArgValue(state, "r4", "scalar()");
       setCallArgValue(state, "r5", "");
 
-      render(<JmpInstruction ins={ins} line={line} state={state} />);
+      render(
+        <JmpInstruction
+          ins={ins}
+          line={line}
+          state={state}
+          memSlotDependencies={[]}
+          selectedState={getEmptyLogLineState()}
+        />,
+      );
       const divs = document.getElementsByTagName("div");
       expect(divs.length).toBe(1);
 
@@ -409,7 +521,15 @@ describe("JmpInstruction", () => {
       setCallArgValue(state, "r2", "buffer_ptr");
       setCallArgValue(state, "r3", "");
 
-      render(<JmpInstruction ins={ins} line={line} state={state} />);
+      render(
+        <JmpInstruction
+          ins={ins}
+          line={line}
+          state={state}
+          memSlotDependencies={[]}
+          selectedState={getEmptyLogLineState()}
+        />,
+      );
       const divs = document.getElementsByTagName("div");
       expect(divs.length).toBe(1);
 

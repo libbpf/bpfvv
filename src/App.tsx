@@ -1,5 +1,6 @@
-import React from "react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { RefObject } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { ListImperativeAPI, useListRef } from "react-window";
 
 import {
   VerifierLogState,
@@ -11,7 +12,6 @@ import {
 import {
   fetchLogFromUrl,
   getVisibleLogLineRange,
-  scrollToLogLine,
   scrollToCLine,
   siblingInsLine,
   getVisibleLogLines,
@@ -70,9 +70,7 @@ function getVisualLogState(
 const ContentRaw = ({
   loadError,
   visualLogState,
-  selectedLine,
-  selectedMemSlotId,
-  selectedCLine,
+  selectedState,
   handlePaste,
   handleMainContentClick,
   handleCLinesClick,
@@ -83,12 +81,15 @@ const ContentRaw = ({
   handleFullLogToggle,
   onGotoStart,
   onGotoEnd,
+  logListRef,
+  visualLogStart,
+  visualLogEnd,
+  onLogRowsRendered,
+  testListHeight,
 }: {
   loadError: string | null;
   visualLogState: VisualLogState;
-  selectedLine: number;
-  selectedMemSlotId: string;
-  selectedCLine: number;
+  selectedState: LogLineState;
   handlePaste: (event: React.ClipboardEvent) => void;
   handleMainContentClick: (event: React.MouseEvent<HTMLDivElement>) => void;
   handleCLinesClick: (event: React.MouseEvent<HTMLDivElement>) => void;
@@ -99,6 +100,11 @@ const ContentRaw = ({
   handleFullLogToggle: () => void;
   onGotoStart: () => void;
   onGotoEnd: () => void;
+  logListRef: RefObject<ListImperativeAPI | null>;
+  visualLogStart: number;
+  visualLogEnd: number;
+  onLogRowsRendered: (start: number, end: number) => void;
+  testListHeight: number | undefined;
 }) => {
   if (loadError) {
     return <div>{loadError}</div>;
@@ -106,9 +112,7 @@ const ContentRaw = ({
     return (
       <MainContent
         visualLogState={visualLogState}
-        selectedLine={selectedLine}
-        selectedMemSlotId={selectedMemSlotId}
-        selectedCLine={selectedCLine}
+        selectedState={selectedState}
         handleCLinesClick={handleCLinesClick}
         handleMainContentClick={handleMainContentClick}
         handleLogLinesClick={handleLogLinesClick}
@@ -118,6 +122,11 @@ const ContentRaw = ({
         handleFullLogToggle={handleFullLogToggle}
         onGotoStart={onGotoStart}
         onGotoEnd={onGotoEnd}
+        logListRef={logListRef}
+        visualLogStart={visualLogStart}
+        visualLogEnd={visualLogEnd}
+        onLogRowsRendered={onLogRowsRendered}
+        testListHeight={testListHeight}
       />
     );
   } else {
@@ -133,7 +142,10 @@ const ContentRaw = ({
 
 const Content = React.memo(ContentRaw);
 
-function App() {
+// testListHeight is only used in our unit tests because react-window
+// doesn't seem to respond to scroll events in the virtual dom
+// so we set the height manually to include more log lines
+function App({ testListHeight }: { testListHeight?: number }) {
   const [visualLogState, setVisualLogState] = useState<VisualLogState>(
     getEmptyVisualLogState(),
   );
@@ -145,8 +157,16 @@ function App() {
   );
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [visualIndexRange, setVisualIndexRange] = useState<{
+    visualLogStart: number;
+    visualLogEnd: number;
+  }>({ visualLogStart: 0, visualLogEnd: 0 });
+  const onLogRowsRendered = useCallback((start: number, end: number) => {
+    setVisualIndexRange({ visualLogStart: start, visualLogEnd: end });
+  }, []);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const logListRef = useListRef(null);
 
   const {
     verifierLogState,
@@ -156,29 +176,24 @@ function App() {
     logLineIdxToVisualIdx,
   } = visualLogState;
 
-  const { line: selectedLine, memSlotId: selectedMemSlotId } = selectedState;
+  const { line: selectedLine } = selectedState;
   const selectedLineVisualIdx = logLineIdxToVisualIdx.get(selectedLine) || 0;
   const hoveredLineVisualIdx =
     logLineIdxToVisualIdx.get(hoveredState.line) || 0;
-  const selectedCLine = useMemo(() => {
-    let clineId = "";
-    if (selectedState.cLine) {
-      clineId = selectedState.cLine;
-    } else {
-      const parsedLine = verifierLogState.lines[selectedState.line];
-      if (!parsedLine) {
-        return 0;
+
+  const scrollToLogLine = useCallback(
+    (index: number) => {
+      if (index < 0) {
+        return;
       }
-      if (parsedLine.type === ParsedLineType.C_SOURCE) {
-        clineId = parsedLine.id;
-      } else {
-        clineId =
-          verifierLogState.cSourceMap.logLineToCLine.get(selectedState.line) ||
-          "";
-      }
-    }
-    return verifierLogState.cSourceMap.cSourceLines.get(clineId)?.lineNum || 0;
-  }, [verifierLogState, selectedState]);
+      const list = logListRef.current;
+      list?.scrollToRow({
+        index,
+        align: "center",
+      });
+    },
+    [logListRef],
+  );
 
   const setSelectedAndScroll = useCallback(
     (
@@ -188,7 +203,7 @@ function App() {
       nextCLineVisualIdx: number,
       memSlotId: string = "",
     ) => {
-      scrollToLogLine(nextInsLineVisualIdx, logLines.length);
+      scrollToLogLine(nextInsLineVisualIdx);
       scrollToCLine(nextCLineVisualIdx, cLines.length);
       setSelectedState({ line: nextInsLineId, memSlotId, cLine: nextCLineId });
     },
@@ -248,9 +263,17 @@ function App() {
     const handleKeyDown = (e: KeyboardEvent) => {
       let delta = 0;
       let areCLinesInFocus = selectedState.cLine !== "";
-      let { min, max } = getVisibleLogLineRange(
-        areCLinesInFocus ? cLines.length : logLines.length,
-      );
+      let min = 0;
+      let max = 0;
+
+      if (areCLinesInFocus) {
+        const range = getVisibleLogLineRange(cLines.length);
+        min = range.min;
+        max = range.max;
+      } else {
+        min = visualIndexRange.visualLogStart;
+        max = visualIndexRange.visualLogEnd;
+      }
       let page = max - min + 1;
       switch (e.key) {
         case "ArrowDown":
@@ -528,7 +551,7 @@ function App() {
           const maxIdx = arr[arr.length - 1];
           const visualIdx = logLineIdxToVisualIdx.get(maxIdx);
           if (visualIdx !== undefined) {
-            scrollToLogLine(visualIdx, logLines.length);
+            scrollToLogLine(visualIdx);
           }
         }
 
@@ -677,9 +700,7 @@ function App() {
         <Content
           loadError={loadError}
           visualLogState={visualLogState}
-          selectedLine={selectedLine}
-          selectedMemSlotId={selectedMemSlotId}
-          selectedCLine={selectedCLine}
+          selectedState={selectedState}
           handlePaste={handlePaste}
           handleMainContentClick={handleMainContentClick}
           handleCLinesClick={handleCLinesClick}
@@ -690,6 +711,11 @@ function App() {
           handleFullLogToggle={handleFullLogToggle}
           onGotoStart={onGotoStart}
           onGotoEnd={onGotoEnd}
+          logListRef={logListRef}
+          visualLogStart={visualIndexRange.visualLogStart}
+          visualLogEnd={visualIndexRange.visualLogEnd}
+          onLogRowsRendered={onLogRowsRendered}
+          testListHeight={testListHeight}
         />
         <div id="hint">
           <SelectedLineHint

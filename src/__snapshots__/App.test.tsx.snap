@@ -172,7 +172,11 @@ exports[`App renders the log visualizer when text is pasted 1`] = `
           </div>
           <div
             id="c-source-content"
-          />
+          >
+            <div
+              id="c-source-files"
+            />
+          </div>
         </div>
         <div
           class=""
@@ -212,55 +216,56 @@ exports[`App renders the log visualizer when text is pasted 1`] = `
             id="log-content"
           >
             <div
-              class="line-numbers"
-              id="line-numbers-pc"
+              role="list"
+              style="position: relative; max-height: 100%; flex-grow: 1; overflow-y: auto;"
             >
               <div
-                class="line-numbers-line"
-              >
-                314:
-              </div>
-            </div>
-            <div
-              id="dependency-arrows"
-            >
-              <div
-                class="dep-arrow"
-                id="dep-arrow-line-0"
-                line-id="0"
-              />
-            </div>
-            <div
-              id="formatted-log-lines"
-            >
-              <div
-                class="log-line normal-line selected-line"
+                class="flex items-center justify-between log-line selected-line normal-line"
                 id="line-0"
                 line-index="0"
+                style="position: absolute; left: 0px; transform: translateY(0px); height: 20px; width: 100%;"
               >
-                <span
-                  class="line-indent"
+                <div
+                  class="pc-number"
+                >
+                  314
+                </div>
+                <div
+                  class="dep-arrow"
+                  id="dep-arrow-line-0"
+                  line-id="0"
                 />
-                *(u8 *)(
-                <span
-                  class="mem-slot"
-                  data-id="r7"
-                  id="mem-slot-r7-line-0"
+                <div
+                  class="log-line-content"
                 >
-                  r7
-                </span>
-                 +1303)
-                 
-                =
-                 
-                <span
-                  class="mem-slot"
-                  data-id="r1"
-                  id="mem-slot-r1-line-0"
-                >
-                  r1
-                </span>
+                  <span
+                    class="line-indent"
+                  />
+                  *(u8 *)(
+                  <span
+                    class="mem-slot"
+                    data-id="r7"
+                    id="mem-slot-r7-line-0"
+                  >
+                    r7
+                  </span>
+                   +1303)
+                   
+                  =
+                   
+                  <span
+                    class="mem-slot"
+                    data-id="r1"
+                    id="mem-slot-r1-line-0"
+                  >
+                    r1
+                  </span>
+                </div>
               </div>
+              <div
+                aria-hidden="true"
+                style="height: 20px; width: 100%; z-index: -1;"
+              />
             </div>
           </div>
         </div>
