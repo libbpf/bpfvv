@@ -221,6 +221,7 @@ exports[`App renders the log visualizer when text is pasted 1`] = `
             >
               <div
                 class="flex items-center justify-between log-line selected-line normal-line"
+                data-react-window-index="0"
                 id="line-0"
                 line-index="0"
                 style="position: absolute; left: 0px; transform: translateY(0px); height: 20px; width: 100%;"
