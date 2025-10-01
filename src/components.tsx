@@ -1,5 +1,7 @@
-import React, { ChangeEvent, ReactElement } from "react";
+import React, { ChangeEvent, ReactElement, RefObject } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { List, ListImperativeAPI } from "react-window";
+import { type RowComponentProps } from "react-window";
 import {
   BpfJmpKind,
   BpfOperand,
@@ -24,11 +26,7 @@ import { CSourceMap, getMemSlotDependencies } from "./analyzer";
 
 import { BpfState, getBpfState, VerifierLogState } from "./analyzer";
 
-import {
-  getVisibleLogLineRange,
-  scrollToCLine,
-  scrollToLogLine,
-} from "./utils";
+import { scrollToCLine } from "./utils";
 
 import BPF_HELPERS_JSON from "./bpf-helpers.json";
 
@@ -45,6 +43,13 @@ export type LogLineState = {
   memSlotId: string;
   line: number;
   cLine: string;
+};
+
+export type DepArrowState = {
+  start: number;
+  end: number;
+  mids: Set<number>;
+  tracks: Set<number>;
 };
 
 type HelperArg = {
@@ -78,10 +83,14 @@ function CallHtml({
   ins,
   line,
   state,
+  memSlotDependencies,
+  selectedState,
 }: {
   ins: BpfTargetJmpInstruction;
   line: ParsedLine;
   state: BpfState;
+  memSlotDependencies: number[];
+  selectedState: LogLineState;
 }) {
   const location = ins.location;
   if (!location) {
@@ -102,7 +111,14 @@ function CallHtml({
       if (typeof arg.name === "string") {
         const display = `${arg.name}: r${i}`;
         contents.push(
-          <RegSpan lineIdx={line.idx} reg={reg} display={display} key={key} />,
+          <RegSpan
+            lineIdx={line.idx}
+            reg={reg}
+            display={display}
+            key={key}
+            memSlotDependencies={memSlotDependencies}
+            selectedState={selectedState}
+          />,
         );
       } else {
         contents.push(
@@ -111,6 +127,8 @@ function CallHtml({
             reg={reg}
             display={undefined}
             key={key}
+            memSlotDependencies={memSlotDependencies}
+            selectedState={selectedState}
           />,
         );
       }
@@ -152,6 +170,8 @@ function CallHtml({
           reg={reg}
           display={undefined}
           key={`call_html_${reg}`}
+          memSlotDependencies={memSlotDependencies}
+          selectedState={selectedState}
         />,
       );
       if (i < numArgs)
@@ -249,17 +269,33 @@ function ConditionalJmpInstruction({
   ins,
   line,
   state,
+  memSlotDependencies,
+  selectedState,
 }: {
   ins: BpfConditionalJmpInstruction;
   line: ParsedLine;
   state: BpfState;
+  memSlotDependencies: number[];
+  selectedState: LogLineState;
 }) {
   return (
     <>
       if (
-      <MemSlot line={line} op={ins.cond.left} state={state} />
+      <MemSlot
+        line={line}
+        op={ins.cond.left}
+        state={state}
+        memSlotDependencies={memSlotDependencies}
+        selectedState={selectedState}
+      />
       &nbsp;{ins.cond.op}&nbsp;
-      <MemSlot line={line} op={ins.cond.right} state={state} />
+      <MemSlot
+        line={line}
+        op={ins.cond.right}
+        state={state}
+        memSlotDependencies={memSlotDependencies}
+        selectedState={selectedState}
+      />
       )&nbsp;goto&nbsp;{ins.target}
     </>
   );
@@ -269,10 +305,14 @@ export function JmpInstruction({
   ins,
   line,
   state,
+  memSlotDependencies,
+  selectedState,
 }: {
   ins: BpfJmpInstruction;
   line: ParsedLine;
   state: BpfState;
+  memSlotDependencies: number[];
+  selectedState: LogLineState;
 }) {
   if (insEntersNewFrame(ins)) {
     return (
@@ -281,6 +321,8 @@ export function JmpInstruction({
           ins={ins as BpfTargetJmpInstruction}
           line={line}
           state={state}
+          memSlotDependencies={memSlotDependencies}
+          selectedState={selectedState}
         />
         {" {"} ; enter new stack frame {state.frame}
       </b>
@@ -290,9 +332,21 @@ export function JmpInstruction({
   } else if (ins.jmpKind === BpfJmpKind.HELPER_CALL) {
     return (
       <>
-        <RegSpan lineIdx={line.idx} reg={"r0"} display={undefined} />
+        <RegSpan
+          lineIdx={line.idx}
+          reg={"r0"}
+          display={undefined}
+          memSlotDependencies={memSlotDependencies}
+          selectedState={selectedState}
+        />
         &nbsp;=&nbsp;
-        <CallHtml ins={ins} line={line} state={state} />
+        <CallHtml
+          ins={ins}
+          line={line}
+          state={state}
+          memSlotDependencies={memSlotDependencies}
+          selectedState={selectedState}
+        />
       </>
     );
   } else if (
@@ -306,68 +360,172 @@ export function JmpInstruction({
       </>
     );
   } else if (ins.jmpKind === BpfJmpKind.CONDITIONAL_GOTO) {
-    return <ConditionalJmpInstruction ins={ins} line={line} state={state} />;
+    return (
+      <ConditionalJmpInstruction
+        ins={ins}
+        line={line}
+        state={state}
+        memSlotDependencies={memSlotDependencies}
+        selectedState={selectedState}
+      />
+    );
   }
 }
 
 function InstructionLineContent({
   line,
   state,
+  memSlotDependencies,
+  selectedState,
 }: {
   line: InstructionLine;
   state: BpfState;
+  memSlotDependencies: number[];
+  selectedState: LogLineState;
 }) {
   const ins = line.bpfIns;
   switch (ins.kind) {
     case BpfInstructionKind.ALU:
       return (
         <>
-          <MemSlot line={line} op={ins.dst} state={state} />
+          <MemSlot
+            line={line}
+            op={ins.dst}
+            state={state}
+            memSlotDependencies={memSlotDependencies}
+            selectedState={selectedState}
+          />
           &nbsp;{ins.operator}&nbsp;
-          <MemSlot line={line} op={ins.src} state={state} />
+          <MemSlot
+            line={line}
+            op={ins.src}
+            state={state}
+            memSlotDependencies={memSlotDependencies}
+            selectedState={selectedState}
+          />
         </>
       );
     case BpfInstructionKind.JMP:
-      return <JmpInstruction ins={ins} line={line} state={state} />;
+      return (
+        <JmpInstruction
+          ins={ins}
+          line={line}
+          state={state}
+          memSlotDependencies={memSlotDependencies}
+          selectedState={selectedState}
+        />
+      );
     case BpfInstructionKind.ADDR_SPACE_CAST:
       return (
         <>
-          <MemSlot line={line} op={ins.dst} state={state} />
+          <MemSlot
+            line={line}
+            op={ins.dst}
+            state={state}
+            memSlotDependencies={memSlotDependencies}
+            selectedState={selectedState}
+          />
           {" = addr_space_cast("}
-          <MemSlot line={line} op={ins.src} state={state} />
+          <MemSlot
+            line={line}
+            op={ins.src}
+            state={state}
+            memSlotDependencies={memSlotDependencies}
+            selectedState={selectedState}
+          />
           {`, ${ins.directionStr})`}
         </>
       );
   }
 }
 
-const LogLineRaw = ({
+function DependencyArrow({
   line,
-  state,
-  indentLevel,
-  idx,
-  lastInsIdx,
+  depArrowState,
 }: {
   line: ParsedLine;
-  state: BpfState;
-  indentLevel: number;
-  idx: number;
+  depArrowState: DepArrowState;
+}) {
+  const classList = ["dep-arrow"];
+  const idx = line.idx;
+
+  if (depArrowState.start !== -1) {
+    if (depArrowState.start === idx) {
+      classList.push("dep-start");
+    } else if (depArrowState.end === idx) {
+      classList.push("dep-end");
+    } else if (depArrowState.mids.has(idx)) {
+      classList.push("dep-mid");
+    } else if (depArrowState.tracks.has(idx)) {
+      classList.push("dep-track");
+    }
+  }
+
+  return (
+    <div
+      className={classList.join(" ")}
+      line-id={idx}
+      id={getDepArrowDomId(idx)}
+      key={`dependency-arrow-${idx}`}
+    ></div>
+  );
+}
+
+const LogLineRaw = ({
+  index,
+  style,
+  bpfStates,
+  logLines,
+  lastInsIdx,
+  memSlotDependencies,
+  depArrowState,
+  selectedState,
+}: RowComponentProps<{
+  logLines: ParsedLine[];
+  bpfStates: BpfState[];
   lastInsIdx: number;
-}) => {
+  memSlotDependencies: number[];
+  depArrowState: DepArrowState;
+  selectedState: LogLineState;
+}>) => {
   let content;
-  const topClasses = ["log-line"];
+  let indentLevel = 0;
+  const topClasses = ["flex", "items-center", "justify-between", "log-line"];
+  const line = logLines[index];
+  const state = getBpfState(bpfStates, line.idx);
+  const frame = state.frame;
+  indentLevel = frame;
+  if (
+    line.type === ParsedLineType.INSTRUCTION &&
+    insEntersNewFrame(line.bpfIns)
+  ) {
+    indentLevel -= 1;
+  }
+
+  const { line: selectedLine } = selectedState;
+
+  if (selectedLine === line.idx) {
+    topClasses.push("selected-line");
+  } else if (memSlotDependencies.includes(line.idx)) {
+    topClasses.push("dependency-line");
+  }
 
   switch (line.type) {
     case ParsedLineType.INSTRUCTION:
       topClasses.push("normal-line");
-      content = InstructionLineContent({ line, state });
+      content = InstructionLineContent({
+        line,
+        state,
+        memSlotDependencies,
+        selectedState,
+      });
       break;
     case ParsedLineType.C_SOURCE:
       topClasses.push("inline-c-source-line");
       content = <>{line.raw}</>;
       break;
     default:
-      if (lastInsIdx + 1 === idx) {
+      if (lastInsIdx + 1 === line.idx) {
         topClasses.push("error-message");
       } else {
         topClasses.push("ignorable-line");
@@ -376,7 +534,7 @@ const LogLineRaw = ({
       break;
   }
 
-  const lineId = "line-" + idx;
+  const lineId = "line-" + line.idx;
   const indentSpans: ReactElement[] = [];
 
   for (let i = 0; i < indentLevel; ++i) {
@@ -386,9 +544,20 @@ const LogLineRaw = ({
   }
 
   return (
-    <div line-index={idx} id={lineId} className={topClasses.join(" ")}>
-      {indentSpans}
-      {content}
+    <div
+      style={style}
+      line-index={line.idx}
+      id={lineId}
+      className={topClasses.join(" ")}
+    >
+      <div className="pc-number" key={`line_num_pc_${line.idx}`}>
+        {line.type === ParsedLineType.INSTRUCTION ? line.bpfIns.pc : "\n"}
+      </div>
+      <DependencyArrow line={line} depArrowState={depArrowState} />
+      <div className="log-line-content">
+        {indentSpans}
+        {content}
+      </div>
     </div>
   );
 };
@@ -447,10 +616,14 @@ export function MemSlot({
   line,
   op,
   state,
+  memSlotDependencies,
+  selectedState,
 }: {
   line: ParsedLine;
   op: BpfOperand | undefined;
   state: BpfState;
+  memSlotDependencies: number[];
+  selectedState: LogLineState;
 }) {
   if (!op) {
     return <>{line.raw}</>;
@@ -460,13 +633,23 @@ export function MemSlot({
   const memSlotString = line.raw.slice(start, end);
   switch (op.type) {
     case OperandType.REG:
-      return <RegSpan lineIdx={line.idx} reg={op.id} display={memSlotString} />;
+      return (
+        <RegSpan
+          lineIdx={line.idx}
+          reg={op.id}
+          display={memSlotString}
+          memSlotDependencies={memSlotDependencies}
+          selectedState={selectedState}
+        />
+      );
     case OperandType.FP:
       const displayFp = memSlotString || op.id;
       return (
         <StackSlotSpan
           lineIdx={line.idx}
           normalId={stackSlotIdFromDisplayId(op.id, state.frame)}
+          memSlotDependencies={memSlotDependencies}
+          selectedState={selectedState}
         >
           <span>{displayFp}</span>
         </StackSlotSpan>
@@ -478,7 +661,13 @@ export function MemSlot({
       const displayMem = (
         <>
           {memSlotString.slice(0, regStart)}
-          <RegSpan lineIdx={line.idx} reg={reg} display={reg} />
+          <RegSpan
+            lineIdx={line.idx}
+            reg={reg}
+            display={reg}
+            memSlotDependencies={memSlotDependencies}
+            selectedState={selectedState}
+          />
           {memSlotString.slice(regEnd)}
         </>
       );
@@ -487,7 +676,12 @@ export function MemSlot({
       const adjustedMemSlotId = stackSlotIdForIndirectAccess(state, op.memref);
       if (adjustedMemSlotId !== null) {
         return (
-          <StackSlotSpan lineIdx={line.idx} normalId={adjustedMemSlotId}>
+          <StackSlotSpan
+            lineIdx={line.idx}
+            normalId={adjustedMemSlotId}
+            memSlotDependencies={memSlotDependencies}
+            selectedState={selectedState}
+          >
             {displayMem}
           </StackSlotSpan>
         );
@@ -502,12 +696,24 @@ const RegSpan = ({
   reg,
   display,
   lineIdx,
+  memSlotDependencies,
+  selectedState,
 }: {
   reg: string;
   display: string | undefined;
   lineIdx: number;
+  memSlotDependencies: number[];
+  selectedState: LogLineState;
 }) => {
   const classNames = ["mem-slot"];
+  if (reg === selectedState.memSlotId && selectedState.line === lineIdx) {
+    classNames.push("selected-mem-slot");
+  } else if (
+    reg === selectedState.memSlotId &&
+    memSlotDependencies.includes(lineIdx)
+  ) {
+    classNames.push("dependency-mem-slot");
+  }
   return (
     <span
       id={getMemSlotDomId(reg, lineIdx)}
@@ -523,12 +729,24 @@ const StackSlotSpan = ({
   normalId,
   lineIdx,
   children,
+  memSlotDependencies,
+  selectedState,
 }: {
   normalId: string;
   lineIdx: number;
   children: ReactElement;
+  memSlotDependencies: number[];
+  selectedState: LogLineState;
 }) => {
   const classNames = ["mem-slot"];
+  if (normalId === selectedState.memSlotId && selectedState.line === lineIdx) {
+    classNames.push("selected-mem-slot");
+  } else if (
+    normalId === selectedState.memSlotId &&
+    memSlotDependencies.includes(lineIdx)
+  ) {
+    classNames.push("dependency-mem-slot");
+  }
   return (
     <span
       id={getMemSlotDomId(normalId, lineIdx)}
@@ -595,27 +813,44 @@ function HideShowButton({
 }
 
 function StatePanelRaw({
-  selectedLine,
-  selectedCLine,
-  selectedMemSlotId,
+  selectedState,
   verifierLogState,
   handleStateRowClick,
   handleStateLogLineClick,
   handleStateCLineClick,
 }: {
-  selectedLine: number;
-  selectedCLine: number;
-  selectedMemSlotId: string;
+  selectedState: LogLineState;
   verifierLogState: VerifierLogState;
   handleStateRowClick: (event: React.MouseEvent<HTMLDivElement>) => void;
   handleStateLogLineClick: (event: React.MouseEvent<HTMLDivElement>) => void;
   handleStateCLineClick: (event: React.MouseEvent<HTMLDivElement>) => void;
 }) {
   const { lines, bpfStates } = verifierLogState;
+  const { line: selectedLine, memSlotId: selectedMemSlotId } = selectedState;
   let rows: ReactElement[] = [];
   const bpfState = getBpfState(bpfStates, selectedLine);
   const prevBpfState = getBpfState(bpfStates, bpfState.idx - 1);
   const [isVisible, setIsVisible] = useState<boolean>(true);
+
+  const selectedCLine = useMemo(() => {
+    let clineId = "";
+    if (selectedState.cLine) {
+      clineId = selectedState.cLine;
+    } else {
+      const parsedLine = verifierLogState.lines[selectedState.line];
+      if (!parsedLine) {
+        return 0;
+      }
+      if (parsedLine.type === ParsedLineType.C_SOURCE) {
+        clineId = parsedLine.id;
+      } else {
+        clineId =
+          verifierLogState.cSourceMap.logLineToCLine.get(selectedState.line) ||
+          "";
+      }
+    }
+    return verifierLogState.cSourceMap.cSourceLines.get(clineId)?.lineNum || 0;
+  }, [verifierLogState, selectedState]);
 
   const handleHideShowClick = useCallback(() => {
     setIsVisible((prev) => !prev);
@@ -834,88 +1069,50 @@ export function ToolTip({
 const LogLinesRaw = ({
   verifierLogState,
   logLines,
-  handleLogLinesClick,
-  handleLogLinesOver,
-  handleLogLinesOut,
+  logListRef,
+  selectedState,
+  memSlotDependencies,
+  depArrowState,
+  onLogRowsRendered,
+  testListHeight,
 }: {
   verifierLogState: VerifierLogState;
   logLines: ParsedLine[];
-  handleLogLinesClick: (event: React.MouseEvent<HTMLDivElement>) => void;
-  handleLogLinesOver: (event: React.MouseEvent<HTMLDivElement>) => void;
-  handleLogLinesOut: (event: React.MouseEvent<HTMLDivElement>) => void;
+  logListRef: RefObject<ListImperativeAPI | null>;
+  memSlotDependencies: number[];
+  depArrowState: DepArrowState;
+  selectedState: LogLineState;
+  onLogRowsRendered: (start: number, end: number) => void;
+  testListHeight: number | undefined;
 }) => {
   const { bpfStates, lastInsIdx } = verifierLogState;
-  let indentLevel = 0;
+  const onRowsRendered = useCallback(
+    (visibleRows: { startIndex: number; stopIndex: number }) => {
+      onLogRowsRendered(visibleRows.startIndex, visibleRows.stopIndex);
+    },
+    [],
+  );
   return (
-    <div
-      id="formatted-log-lines"
-      onClick={handleLogLinesClick}
-      onMouseOver={handleLogLinesOver}
-      onMouseOut={handleLogLinesOut}
-    >
-      {logLines.map((line) => {
-        const bpfState = getBpfState(bpfStates, line.idx);
-        const frame = bpfState.frame;
-        indentLevel = frame;
-        if (
-          line.type === ParsedLineType.INSTRUCTION &&
-          insEntersNewFrame(line.bpfIns)
-        ) {
-          indentLevel -= 1;
-        }
-        return (
-          <LogLine
-            indentLevel={indentLevel}
-            state={bpfState}
-            line={line}
-            idx={line.idx}
-            key={`log_line_${line.idx}`}
-            lastInsIdx={lastInsIdx}
-          />
-        );
-      })}
-    </div>
+    <List
+      rowComponent={LogLine}
+      rowCount={logLines.length}
+      rowHeight={20}
+      defaultHeight={testListHeight}
+      rowProps={{
+        logLines,
+        bpfStates,
+        lastInsIdx,
+        memSlotDependencies,
+        depArrowState,
+        selectedState,
+      }}
+      listRef={logListRef}
+      onRowsRendered={onRowsRendered}
+    />
   );
 };
 
 const LogLines = React.memo(LogLinesRaw);
-
-const LineNumbersPCRaw = ({ logLines }: { logLines: ParsedLine[] }) => {
-  return (
-    <div id="line-numbers-pc" className="line-numbers">
-      {logLines.map((line) => {
-        return (
-          <div className="line-numbers-line" key={`line_num_pc_${line.idx}`}>
-            {line.type === ParsedLineType.INSTRUCTION
-              ? line.bpfIns.pc + ":"
-              : "\n"}
-          </div>
-        );
-      })}
-    </div>
-  );
-};
-
-const LineNumbersPC = React.memo(LineNumbersPCRaw);
-
-const DependencyArrowsRaw = ({ logLines }: { logLines: ParsedLine[] }) => {
-  return (
-    <>
-      {logLines.map((line) => {
-        return (
-          <div
-            className="dep-arrow"
-            line-id={line.idx}
-            id={getDepArrowDomId(line.idx)}
-            key={`dependency-arrow-${line.idx}`}
-          ></div>
-        );
-      })}
-    </>
-  );
-};
-
-const DependencyArrowsPlain = React.memo(DependencyArrowsRaw);
 
 function CSourceFile({
   file,
@@ -1040,7 +1237,9 @@ function CSourceLinesRaw({
         handleHideShowClick={handleFullLogToggle}
         id={buttonId}
       />
-      <div id="c-source-content">{files}</div>
+      <div id="c-source-content">
+        <div id="c-source-files">{files}</div>
+      </div>
     </div>
   );
 }
@@ -1049,9 +1248,7 @@ const CSourceLines = React.memo(CSourceLinesRaw);
 
 export function MainContent({
   visualLogState,
-  selectedLine,
-  selectedMemSlotId,
-  selectedCLine,
+  selectedState,
   handleMainContentClick,
   handleCLinesClick,
   handleLogLinesClick,
@@ -1061,11 +1258,14 @@ export function MainContent({
   handleFullLogToggle,
   onGotoStart,
   onGotoEnd,
+  logListRef,
+  visualLogStart,
+  visualLogEnd,
+  onLogRowsRendered,
+  testListHeight,
 }: {
   visualLogState: VisualLogState;
-  selectedLine: number;
-  selectedMemSlotId: string;
-  selectedCLine: number;
+  selectedState: LogLineState;
   handleMainContentClick: (event: React.MouseEvent<HTMLDivElement>) => void;
   handleCLinesClick: (event: React.MouseEvent<HTMLDivElement>) => void;
   handleLogLinesClick: (event: React.MouseEvent<HTMLDivElement>) => void;
@@ -1075,6 +1275,11 @@ export function MainContent({
   handleFullLogToggle: () => void;
   onGotoStart: () => void;
   onGotoEnd: () => void;
+  logListRef: RefObject<ListImperativeAPI | null>;
+  visualLogStart: number;
+  visualLogEnd: number;
+  onLogRowsRendered: (start: number, end: number) => void;
+  testListHeight: number | undefined;
 }) {
   const {
     verifierLogState,
@@ -1083,6 +1288,9 @@ export function MainContent({
     cLines,
     cLineIdToVisualIdx,
   } = visualLogState;
+
+  const { line: selectedLine, memSlotId: selectedMemSlotId } = selectedState;
+
   const memSlotDependencies: number[] = useMemo(() => {
     const lines = verifierLogState.lines;
     if (lines.length === 0) {
@@ -1111,26 +1319,23 @@ export function MainContent({
     return arr;
   }, [selectedMemSlotId, selectedLine, verifierLogState]);
 
-  useEffect(() => {
-    const selectedLogLine = document.getElementById(`line-${selectedLine}`);
-    if (selectedLogLine) {
-      selectedLogLine.classList.add("selected-line");
-    }
-
-    const logLinesUpdated: [number, string][] = [];
-    const cLinesUpdated: string[] = [];
-
-    let selectedMemSlotIdEl: HTMLElement | null;
-
-    if (selectedMemSlotId !== "") {
-      selectedMemSlotIdEl = document.getElementById(
-        `mem-slot-${selectedMemSlotId}-line-${selectedLine}`,
-      );
-
-      if (selectedMemSlotIdEl) {
-        selectedMemSlotIdEl.classList.add("selected-mem-slot");
+  const scrollToLogLine = useCallback(
+    (index: number) => {
+      if (index < 0) {
+        return;
       }
+      const list = logListRef.current;
+      list?.scrollToRow({
+        index,
+        align: "center",
+      });
+    },
+    [logListRef],
+  );
 
+  useEffect(() => {
+    const cLinesUpdated: string[] = [];
+    if (selectedMemSlotId !== "") {
       const relevantCLineIds: Set<string> = new Set();
       for (const idx of [selectedLine, ...memSlotDependencies]) {
         const cLineId = verifierLogState.cSourceMap.logLineToCLine.get(idx);
@@ -1163,29 +1368,10 @@ export function MainContent({
             cLinesUpdated.push(cLine);
           }
         }
-
-        const logLine = document.getElementById(`line-${idx}`);
-        if (logLine) {
-          logLine.classList.add("dependency-line");
-          logLinesUpdated.push([idx, selectedMemSlotId]);
-        }
-
-        const memSlot = document.getElementById(
-          getMemSlotDomId(selectedMemSlotId, idx),
-        );
-        if (memSlot) {
-          memSlot.classList.add("dependency-mem-slot");
-        }
       });
     }
 
     return () => {
-      if (selectedLogLine) {
-        selectedLogLine.classList.remove("selected-line");
-      }
-      if (selectedMemSlotIdEl) {
-        selectedMemSlotIdEl.classList.remove("selected-mem-slot");
-      }
       if (selectedMemSlotId !== "") {
         cLinesUpdated.forEach((cLine) => {
           const cLineEl = document.getElementById(`line-${cLine}`);
@@ -1193,29 +1379,23 @@ export function MainContent({
             cLineEl.classList.remove("dependency-line");
           }
         });
-        logLinesUpdated.forEach((pair) => {
-          const logLine = document.getElementById(`line-${pair[0]}`);
-          if (logLine) {
-            logLine.classList.remove("dependency-line");
-          }
-          const memSlot = document.getElementById(
-            getMemSlotDomId(pair[1], pair[0]),
-          );
-          if (memSlot) {
-            memSlot.classList.remove("dependency-mem-slot");
-          }
-        });
       }
     };
   }, [selectedLine, selectedMemSlotId, memSlotDependencies, verifierLogState]);
 
-  useEffect(() => {
+  const depArrowState: DepArrowState = useMemo(() => {
+    const arrowState = {
+      start: -1,
+      end: -1,
+      mids: new Set<number>(),
+      tracks: new Set<number>(),
+    };
     if (
       selectedMemSlotId === "" ||
       memSlotDependencies.length === 0 ||
       memSlotDependencies[0] === selectedLine
     ) {
-      return;
+      return arrowState;
     }
 
     const minIdx = memSlotDependencies[0];
@@ -1224,56 +1404,22 @@ export function MainContent({
     const maxIdx = selectedLine;
 
     if (minIdx == maxIdx) {
-      return;
+      return arrowState;
     }
 
-    const depArrowSelected = document.getElementById(getDepArrowDomId(maxIdx));
-    if (depArrowSelected) {
-      depArrowSelected.classList.add("dep-end");
-    }
+    arrowState.end = maxIdx;
 
     for (let idx = minIdx; idx < maxIdx; idx++) {
       if (idx === minIdx) {
-        const depArrowStart = document.getElementById(getDepArrowDomId(idx));
-        if (depArrowStart) {
-          depArrowStart.classList.add("dep-start");
-        }
+        arrowState.start = idx;
       } else if (memSlotDependencies.includes(idx)) {
-        const depArrowMid = document.getElementById(getDepArrowDomId(idx));
-        if (depArrowMid) {
-          depArrowMid.classList.add("dep-mid");
-        }
+        arrowState.mids.add(idx);
       } else if (minIdx < idx && idx < maxIdx) {
-        const depArrowTrack = document.getElementById(getDepArrowDomId(idx));
-        if (depArrowTrack) {
-          depArrowTrack.classList.add("dep-track");
-        }
+        arrowState.tracks.add(idx);
       }
     }
 
-    return () => {
-      if (depArrowSelected) {
-        depArrowSelected.classList.remove("dep-end");
-      }
-      for (let idx = minIdx; idx < maxIdx; idx++) {
-        if (idx === minIdx) {
-          const depArrowStart = document.getElementById(getDepArrowDomId(idx));
-          if (depArrowStart) {
-            depArrowStart.classList.remove("dep-start");
-          }
-        } else if (memSlotDependencies.includes(idx)) {
-          const depArrowMid = document.getElementById(getDepArrowDomId(idx));
-          if (depArrowMid) {
-            depArrowMid.classList.remove("dep-mid");
-          }
-        } else if (minIdx < idx && idx < maxIdx) {
-          const depArrowTrack = document.getElementById(getDepArrowDomId(idx));
-          if (depArrowTrack) {
-            depArrowTrack.classList.remove("dep-track");
-          }
-        }
-      }
-    };
+    return arrowState;
   }, [
     selectedLine,
     selectedMemSlotId,
@@ -1286,7 +1432,7 @@ export function MainContent({
     (e: React.MouseEvent<HTMLDivElement>) => {
       const visualIdx = logLineIdxToVisualIdx.get(selectedLine);
       if (visualIdx !== undefined) {
-        scrollToLogLine(visualIdx, logLines.length);
+        scrollToLogLine(visualIdx);
       }
       e.stopPropagation();
     },
@@ -1305,17 +1451,18 @@ export function MainContent({
       }
       e.stopPropagation();
     },
-    [verifierLogState, cLines, cLineIdToVisualIdx, selectedCLine],
+    [verifierLogState, cLines, cLineIdToVisualIdx, selectedLine],
   );
 
-  const handleArrowsClick = useCallback(
+  const handleLogLinesClickSub = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
       const hoveredElement = e.target as HTMLElement;
-      e.stopPropagation();
       const depArrow = hoveredElement.closest(".dep-track") as HTMLElement;
       if (!depArrow) {
+        handleLogLinesClick(e);
         return;
       }
+      e.stopPropagation();
       const id = parseInt(depArrow.getAttribute("line-id") || "0", 10);
       const ids = [...memSlotDependencies, selectedLine];
 
@@ -1331,65 +1478,73 @@ export function MainContent({
       }
 
       if (depArrow.classList.contains("active-down")) {
-        scrollToLogLine(logLineIdxToVisualIdx.get(next) || 0, logLines.length);
+        scrollToLogLine(logLineIdxToVisualIdx.get(next) || 0);
       } else if (depArrow.classList.contains("active-up")) {
-        scrollToLogLine(logLineIdxToVisualIdx.get(prev) || 0, logLines.length);
+        scrollToLogLine(logLineIdxToVisualIdx.get(prev) || 0);
       }
     },
     [logLines, logLineIdxToVisualIdx, memSlotDependencies, selectedLine],
   );
 
-  const handleArrowsOver = useCallback(
+  const handleLogLinesOverSub = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
       const hoveredElement = e.target as HTMLElement;
       const depArrow = hoveredElement.closest(".dep-track") as HTMLElement;
-      if (!depArrow) {
-        return;
-      }
-      const id = parseInt(depArrow.getAttribute("line-id") || "0", 10);
-      const ids = [...memSlotDependencies, selectedLine];
+      if (depArrow) {
+        const id = parseInt(depArrow.getAttribute("line-id") || "0", 10);
+        const ids = [...memSlotDependencies, selectedLine];
 
-      let prev = ids[0];
-      let next = ids[ids.length - 1];
-      for (let i = 1; i < ids.length; i++) {
-        if (ids[i] > id) {
-          next = ids[i];
-          break;
-        } else {
-          prev = ids[i];
+        let prev = ids[0];
+        let next = ids[ids.length - 1];
+        for (let i = 1; i < ids.length; i++) {
+          if (ids[i] > id) {
+            next = ids[i];
+            break;
+          } else {
+            prev = ids[i];
+          }
         }
-      }
 
-      let { min, max } = getVisibleLogLineRange(logLines.length);
-      const isVisible = (id: number) => {
-        const visualIdx = logLineIdxToVisualIdx.get(id) || 0;
-        return min < visualIdx && visualIdx < max;
-      };
-      const setTargetToPrev = () => {
-        depArrow.classList.add("active-up");
-        depArrow.classList.remove("active-down");
-      };
-      const setTargetToNext = () => {
-        depArrow.classList.add("active-down");
-        depArrow.classList.remove("active-up");
-      };
+        const min = visualLogStart;
+        const max = visualLogEnd;
+        const isVisible = (id: number) => {
+          const visualIdx = logLineIdxToVisualIdx.get(id) || 0;
+          return min < visualIdx && visualIdx < max;
+        };
+        const setTargetToPrev = () => {
+          depArrow.classList.add("active-up");
+          depArrow.classList.remove("active-down");
+        };
+        const setTargetToNext = () => {
+          depArrow.classList.add("active-down");
+          depArrow.classList.remove("active-up");
+        };
 
-      if (isVisible(prev) && isVisible(next)) return;
+        if (isVisible(prev) && isVisible(next)) return;
 
-      if (isVisible(prev)) {
-        setTargetToNext();
-      } else if (isVisible(next)) {
-        setTargetToPrev();
-      } else {
-        const mid = (min + max) / 2;
-        if ((logLineIdxToVisualIdx.get(id) || 0) < mid) {
+        if (isVisible(prev)) {
+          setTargetToNext();
+        } else if (isVisible(next)) {
           setTargetToPrev();
         } else {
-          setTargetToNext();
+          const mid = (min + max) / 2;
+          if ((logLineIdxToVisualIdx.get(id) || 0) < mid) {
+            setTargetToPrev();
+          } else {
+            setTargetToNext();
+          }
         }
       }
+      handleLogLinesOver(e);
     },
-    [logLines, logLineIdxToVisualIdx, memSlotDependencies, selectedLine],
+    [
+      logLines,
+      logLineIdxToVisualIdx,
+      memSlotDependencies,
+      selectedLine,
+      visualLogStart,
+      visualLogEnd,
+    ],
   );
 
   return (
@@ -1424,28 +1579,26 @@ export function MainContent({
           <div className="log-button-txt">⇒</div>
           <div className="nav-arrow-tooltip up-down-tooltip">Go To End</div>
         </div>
-        <div id="log-content">
-          <LineNumbersPC logLines={logLines} />
-          <div
-            id="dependency-arrows"
-            onMouseOver={handleArrowsOver}
-            onClick={handleArrowsClick}
-          >
-            <DependencyArrowsPlain logLines={logLines} />
-          </div>
+        <div
+          id="log-content"
+          onClick={handleLogLinesClickSub}
+          onMouseOver={handleLogLinesOverSub}
+          onMouseOut={handleLogLinesOut}
+        >
           <LogLines
             verifierLogState={verifierLogState}
             logLines={logLines}
-            handleLogLinesClick={handleLogLinesClick}
-            handleLogLinesOver={handleLogLinesOver}
-            handleLogLinesOut={handleLogLinesOut}
+            logListRef={logListRef}
+            memSlotDependencies={memSlotDependencies}
+            selectedState={selectedState}
+            depArrowState={depArrowState}
+            onLogRowsRendered={onLogRowsRendered}
+            testListHeight={testListHeight}
           />
         </div>
       </div>
       <StatePanel
-        selectedLine={selectedLine}
-        selectedCLine={selectedCLine}
-        selectedMemSlotId={selectedMemSlotId}
+        selectedState={selectedState}
         verifierLogState={verifierLogState}
         handleStateLogLineClick={handleStateLogLineClick}
         handleStateCLineClick={handleStateCLineClick}
