@@ -27,22 +27,6 @@ exports[`App renders the correct starting elements 1`] = `
         <div
           class="line-nav-item"
         >
-          <label>
-            Examples:
-          </label>
-          <select
-            id="log-example-dropdown"
-          />
-          <button
-            class="nav-button"
-            id="load-example"
-          >
-            Load
-          </button>
-        </div>
-        <div
-          class="line-nav-item"
-        >
           <div
             class="file-input-container"
           >
@@ -106,22 +90,6 @@ exports[`App renders the log visualizer when text is pasted 1`] = `
             id="clear"
           >
             Clear
-          </button>
-        </div>
-        <div
-          class="line-nav-item"
-        >
-          <label>
-            Examples:
-          </label>
-          <select
-            id="log-example-dropdown"
-          />
-          <button
-            class="nav-button"
-            id="load-example"
-          >
-            Load
           </button>
         </div>
         <div
@@ -556,22 +524,6 @@ exports[`App renders the log visualizer when text is pasted 2`] = `
             id="clear"
           >
             Clear
-          </button>
-        </div>
-        <div
-          class="line-nav-item"
-        >
-          <label>
-            Examples:
-          </label>
-          <select
-            id="log-example-dropdown"
-          />
-          <button
-            class="nav-button"
-            id="load-example"
-          >
-            Load
           </button>
         </div>
         <div
