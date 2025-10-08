@@ -206,9 +206,9 @@ export function Examples({
     handleLoadExample(selectedOption);
   }, [selectedOption]);
 
-  if (exampleLinks) {
+  if (exampleLinks && exampleLinks.length !== 0) {
     return (
-      <>
+      <div className="line-nav-item">
         <label>Examples:</label>
         <select
           id="log-example-dropdown"
@@ -226,7 +226,7 @@ export function Examples({
         <button id="load-example" className="nav-button" onClick={onLoad}>
           Load
         </button>
-      </>
+      </div>
     );
   } else {
     return <></>;

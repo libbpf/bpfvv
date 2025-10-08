@@ -673,9 +673,7 @@ function App({ testListHeight }: { testListHeight?: number }) {
               Clear
             </button>
           </div>
-          <div className="line-nav-item">
-            <Examples handleLoadExample={handleLoadExample} />
-          </div>
+          <Examples handleLoadExample={handleLoadExample} />
           <div className="line-nav-item">
             <div className="file-input-container">
               <input
