@@ -1,6 +1,6 @@
 import React, { ChangeEvent, ReactElement, RefObject } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { List, ListImperativeAPI } from "react-window";
+import { List, ListImperativeAPI, useListRef } from "react-window";
 import { type RowComponentProps } from "react-window";
 import {
   BpfJmpKind,
@@ -21,20 +21,29 @@ import {
   stackSlotIdForIndirectAccess,
   insEntersNewFrame,
   stackSlotIdFromDisplayId,
-  getVisibleLogLineRange,
   siblingInsLine,
+  siblingCLine,
 } from "./utils";
-import { CSourceMap, getMemSlotDependencies } from "./analyzer";
+import { getMemSlotDependencies } from "./analyzer";
 
 import { BpfState, getBpfState, VerifierLogState } from "./analyzer";
 
-import { scrollToCLine } from "./utils";
-
 import BPF_HELPERS_JSON from "./bpf-helpers.json";
+
+export type CSourceRow =
+  | { type: "file_name"; file: string }
+  | {
+      type: "c_line";
+      file: string;
+      lineNum: number;
+      lineText: string;
+      sourceId: string;
+      ignore: boolean;
+    };
 
 export type VisualLogState = {
   verifierLogState: VerifierLogState;
-  cLines: string[];
+  cLines: CSourceRow[];
   cLineIdToVisualIdx: Map<string, number>;
   logLines: ParsedLine[];
   logLineIdxToVisualIdx: Map<number, number>;
@@ -482,6 +491,7 @@ const LogLineRaw = ({
   memSlotDependencies,
   depArrowState,
   selectedState,
+  verifierLogState,
 }: RowComponentProps<{
   logLines: ParsedLine[];
   bpfStates: BpfState[];
@@ -489,6 +499,7 @@ const LogLineRaw = ({
   memSlotDependencies: number[];
   depArrowState: DepArrowState;
   selectedState: LogLineState;
+  verifierLogState: VerifierLogState;
 }>) => {
   let content;
   let indentLevel = 0;
@@ -504,12 +515,20 @@ const LogLineRaw = ({
     indentLevel -= 1;
   }
 
-  const { line: selectedLine } = selectedState;
+  const { line: selectedLine, cLine: selectedCLine } = selectedState;
 
   if (selectedLine === line.idx) {
     topClasses.push("selected-line");
   } else if (memSlotDependencies.includes(line.idx)) {
     topClasses.push("dependency-line");
+  }
+
+  const logLinesFromCLine =
+    verifierLogState.cSourceMap.cLineToLogLines.get(selectedCLine);
+  if (logLinesFromCLine && logLinesFromCLine.size > 0) {
+    if (logLinesFromCLine.has(line.idx) && selectedLine !== line.idx) {
+      topClasses.push("selected-line");
+    }
   }
 
   switch (line.type) {
@@ -1107,6 +1126,7 @@ const LogLinesRaw = ({
         memSlotDependencies,
         depArrowState,
         selectedState,
+        verifierLogState,
       }}
       listRef={logListRef}
       onRowsRendered={onRowsRendered}
@@ -1116,90 +1136,167 @@ const LogLinesRaw = ({
 
 const LogLines = React.memo(LogLinesRaw);
 
-function CSourceFile({
-  file,
-  range,
-  cSourceMap,
-}: {
-  file: string;
-  range: [number, number];
-  cSourceMap: CSourceMap;
-}) {
-  const lineNums: ReactElement[] = [];
-  const sourceLines: ReactElement[] = [];
+type CSourceRowProps = {
+  cLines: CSourceRow[];
+  dependencyCLines: Set<string>;
+  selectedCLine: string;
+};
 
-  let unknownStart = 0;
-  for (let i = range[0]; i < range[1]; ++i) {
-    const sourceId = `${file}:${i}`;
-    const sourceLine = cSourceMap.cSourceLines.get(sourceId);
-    if (sourceLine?.lineNum === 0) {
-      continue;
+function CSourceRowHeight(index: number, { cLines }: CSourceRowProps) {
+  switch (cLines[index].type) {
+    case "file_name": {
+      return 40;
     }
-    if (!sourceLine || sourceLine.ignore) {
-      if (!unknownStart) {
-        unknownStart = i;
-      }
-      continue;
+    case "c_line": {
+      return 20;
     }
-    if (unknownStart > 0) {
-      lineNums.push(
-        <div
-          className="line-numbers-line"
-          key={`c_line_num_${file}-${unknownStart}`}
-        >
-          {unknownStart}
-        </div>,
-      );
-      sourceLines.push(
-        <div
-          className="c-source-line ignorable-line"
-          key={`c_source_line_${file}-${unknownStart}`}
-        >
-          ..&nbsp;{i - 1}
-        </div>,
-      );
+  }
+}
+
+const CSourceRowComponent = ({
+  index,
+  style,
+  cLines,
+  dependencyCLines,
+  selectedCLine,
+}: RowComponentProps<CSourceRowProps>) => {
+  const item = cLines[index];
+
+  if (item.type == "file_name") {
+    const fileNameStyle = { ...style };
+    if (index === 0) {
+      fileNameStyle["borderTop"] = "0px";
     }
-    unknownStart = 0;
-    lineNums.push(
-      <div className="line-numbers-line" key={`c_line_num_${i}`}>
-        {i}
-      </div>,
-    );
-    sourceLines.push(
-      <div
-        className="c-source-line"
-        id={`line-${sourceId}`}
-        data-id={sourceId}
-        key={`c_source_line_${i}`}
-      >
-        {sourceLine.content}
-      </div>,
+    return (
+      <div className="filename-header" style={fileNameStyle}>
+        {item.file}
+      </div>
     );
   }
 
+  const classListLine = ["c-line"];
+  const classListSrcLine = ["c-source-line"];
+
+  if (item.ignore) {
+    classListSrcLine.push("ignorable-line");
+  }
+
+  if (dependencyCLines.has(item.sourceId)) {
+    classListLine.push("dependency-line");
+  }
+
+  if (selectedCLine === item.sourceId) {
+    classListLine.push("selected-line");
+  }
+
   return (
-    <div className="c-source-file">
-      <div className="filename-header">{file}</div>
-      <div className="file-lines">
-        <div className="line-numbers">{lineNums}</div>
-        <div className="source-lines">{sourceLines}</div>
+    <div
+      className={classListLine.join(" ")}
+      id={`line-${item.sourceId}`}
+      data-id={item.sourceId}
+      style={style}
+    >
+      <div className="line-number" key={`c_line_num_${index}`}>
+        {item.lineNum}
+      </div>
+      <div
+        className={classListSrcLine.join(" ")}
+        key={`c_source_line_${index}`}
+      >
+        {item.lineText}
       </div>
     </div>
   );
-}
+};
 
 function CSourceLinesRaw({
-  handleCLinesClick,
-  verifierLogState,
   showFullLog,
+  selectedState,
+  memSlotDependencies,
+  visualLogState,
+  cListRef,
+  testListHeight,
   handleFullLogToggle,
+  handleCLinesClick,
+  onCRowsRendered,
 }: {
-  handleCLinesClick: (event: React.MouseEvent<HTMLDivElement>) => void;
-  verifierLogState: VerifierLogState;
   showFullLog: boolean;
+  selectedState: LogLineState;
+  memSlotDependencies: number[];
+  visualLogState: VisualLogState;
+  cListRef: RefObject<ListImperativeAPI | null>;
+  testListHeight: number | undefined;
   handleFullLogToggle: () => void;
+  handleCLinesClick: (event: React.MouseEvent<HTMLDivElement>) => void;
+  onCRowsRendered: (start: number, end: number) => void;
 }) {
   const buttonId = "csource-toggle";
+
+  const { line: selectedLine, memSlotId: selectedMemSlotId } = selectedState;
+  const { verifierLogState } = visualLogState;
+
+  const onRowsRendered = useCallback(
+    (visibleRows: { startIndex: number; stopIndex: number }) => {
+      onCRowsRendered(visibleRows.startIndex, visibleRows.stopIndex);
+    },
+    [],
+  );
+
+  const dependencyCLines = useMemo(() => {
+    const dependencyCLines: Set<string> = new Set();
+    if (selectedMemSlotId !== "") {
+      const relevantCLineIds: Set<string> = new Set();
+      for (const idx of [selectedLine, ...memSlotDependencies]) {
+        const cLineId = verifierLogState.cSourceMap.logLineToCLine.get(idx);
+        if (cLineId) {
+          relevantCLineIds.add(cLineId);
+        }
+      }
+
+      verifierLogState.lines.forEach((line) => {
+        const idx = line.idx;
+        if (selectedLine === idx) {
+          return;
+        }
+        if (
+          line.type === ParsedLineType.UNRECOGNIZED ||
+          line.type === ParsedLineType.KNOWN_MESSAGE ||
+          (line.type === ParsedLineType.INSTRUCTION &&
+            !memSlotDependencies.includes(idx)) ||
+          (line.type === ParsedLineType.C_SOURCE &&
+            !relevantCLineIds.has(line.id))
+        ) {
+          return;
+        }
+
+        const cLine = verifierLogState.cSourceMap.logLineToCLine.get(idx);
+        if (cLine) {
+          dependencyCLines.add(cLine);
+        }
+      });
+    }
+
+    return dependencyCLines;
+  }, [selectedLine, selectedMemSlotId, memSlotDependencies, verifierLogState]);
+
+  const selectedCLine = useMemo(() => {
+    if (selectedState.cLine) {
+      return selectedState.cLine;
+    } else if (selectedState.line) {
+      const parsedLine = verifierLogState.lines[selectedState.line];
+      if (parsedLine.type === ParsedLineType.C_SOURCE) {
+        return parsedLine.id;
+      }
+      const cLine = verifierLogState.cSourceMap.logLineToCLine.get(
+        selectedState.line,
+      );
+      if (cLine) {
+        return cLine;
+      }
+    }
+    return "";
+  }, [verifierLogState, selectedState]);
+
   if (showFullLog) {
     return (
       <div className="c-source-panel panel-hidden">
@@ -1211,18 +1308,6 @@ function CSourceLinesRaw({
           id={buttonId}
         />
       </div>
-    );
-  }
-
-  const files: ReactElement[] = [];
-  for (const [file, range] of verifierLogState.cSourceMap.fileRange) {
-    files.push(
-      <CSourceFile
-        key={`filename-${file}`}
-        cSourceMap={verifierLogState.cSourceMap}
-        file={file}
-        range={range}
-      />,
     );
   }
 
@@ -1240,7 +1325,19 @@ function CSourceLinesRaw({
         id={buttonId}
       />
       <div id="c-source-content">
-        <div id="c-source-files">{files}</div>
+        <List<CSourceRowProps>
+          rowComponent={CSourceRowComponent}
+          rowCount={visualLogState.cLines.length}
+          rowHeight={CSourceRowHeight}
+          listRef={cListRef}
+          onRowsRendered={onRowsRendered}
+          defaultHeight={testListHeight}
+          rowProps={{
+            cLines: visualLogState.cLines,
+            dependencyCLines,
+            selectedCLine,
+          }}
+        />
       </div>
     </div>
   );
@@ -1255,7 +1352,6 @@ export function MainContent({
   handleLogLinesOver,
   handleLogLinesOut,
   handleFullLogToggle,
-  logListRef,
   testListHeight,
 }: {
   visualLogState: VisualLogState;
@@ -1264,9 +1360,10 @@ export function MainContent({
   handleLogLinesOver: (event: React.MouseEvent<HTMLDivElement>) => void;
   handleLogLinesOut: (event: React.MouseEvent<HTMLDivElement>) => void;
   handleFullLogToggle: () => void;
-  logListRef: RefObject<ListImperativeAPI | null>;
   testListHeight: number | undefined;
 }) {
+  const logListRef = useListRef(null);
+  const cListRef = useListRef(null);
   const {
     verifierLogState,
     logLines,
@@ -1277,14 +1374,51 @@ export function MainContent({
 
   const { line: selectedLine, memSlotId: selectedMemSlotId } = selectedState;
 
-  const [visualIndexRange, setVisualIndexRange] = useState<{
+  const [visualLogIndexRange, setVisualLogIndexRange] = useState<{
     visualLogStart: number;
     visualLogEnd: number;
   }>({ visualLogStart: 0, visualLogEnd: 0 });
 
   const onLogRowsRendered = useCallback((start: number, end: number) => {
-    setVisualIndexRange({ visualLogStart: start, visualLogEnd: end });
+    setVisualLogIndexRange({ visualLogStart: start, visualLogEnd: end });
   }, []);
+
+  const [visualCIndexRange, setVisualCIndexRange] = useState<{
+    visualLogStart: number;
+    visualLogEnd: number;
+  }>({ visualLogStart: 0, visualLogEnd: 0 });
+
+  const onCRowsRendered = useCallback((start: number, end: number) => {
+    setVisualCIndexRange({ visualLogStart: start, visualLogEnd: end });
+  }, []);
+
+  const scrollToLogLine = useCallback(
+    (index: number) => {
+      if (index < 0) {
+        return;
+      }
+      const list = logListRef.current;
+      list?.scrollToRow({
+        index,
+        align: "center",
+      });
+    },
+    [logListRef],
+  );
+
+  const scrollToCLine = useCallback(
+    (index: number) => {
+      if (index < 0 || cLines.length === 0) {
+        return;
+      }
+      const list = cListRef.current;
+      list?.scrollToRow({
+        index,
+        align: "center",
+      });
+    },
+    [cListRef, cLines],
+  );
 
   const setSelectedAndScroll = useCallback(
     (
@@ -1295,7 +1429,7 @@ export function MainContent({
       memSlotId: string = "",
     ) => {
       scrollToLogLine(nextInsLineVisualIdx);
-      scrollToCLine(nextCLineVisualIdx, cLines.length);
+      scrollToCLine(nextCLineVisualIdx);
       setSelectedState({ line: nextInsLineId, memSlotId, cLine: nextCLineId });
     },
     [logLines, cLineIdToVisualIdx],
@@ -1334,12 +1468,11 @@ export function MainContent({
       let max = 0;
 
       if (areCLinesInFocus) {
-        const range = getVisibleLogLineRange(cLines.length);
-        min = range.min;
-        max = range.max;
+        min = visualCIndexRange.visualLogStart;
+        max = visualCIndexRange.visualLogEnd;
       } else {
-        min = visualIndexRange.visualLogStart;
-        max = visualIndexRange.visualLogEnd;
+        min = visualLogIndexRange.visualLogStart;
+        max = visualLogIndexRange.visualLogEnd;
       }
       let page = max - min + 1;
       switch (e.key) {
@@ -1373,21 +1506,26 @@ export function MainContent({
       if (areCLinesInFocus) {
         const currentVisibleIdx =
           cLineIdToVisualIdx.get(selectedState.cLine) || 0;
-        let nextVisibleIdx = currentVisibleIdx + delta;
-        if (cLines[nextVisibleIdx] === "") {
-          nextVisibleIdx += delta;
+        const cLineId = siblingCLine(cLines, currentVisibleIdx, delta);
+
+        if (cLineId === "") {
+          return;
         }
+
+        let nextVisibleIdx = currentVisibleIdx;
+
         const logLines = verifierLogState.cSourceMap.cLineToLogLines.get(
           selectedState.cLine,
         );
         let logLineId = 0;
+
         if (logLines && logLines.size > 0) {
           [logLineId] = logLines;
         }
         const visualLogLineIdx = logLineIdxToVisualIdx.get(logLineId);
         setSelectedAndScroll(
           logLineId,
-          cLines[nextVisibleIdx],
+          cLineId,
           visualLogLineIdx === undefined ? -1 : visualLogLineIdx,
           nextVisibleIdx,
         );
@@ -1456,69 +1594,23 @@ export function MainContent({
     return arr;
   }, [selectedMemSlotId, selectedLine, verifierLogState]);
 
-  const scrollToLogLine = useCallback(
-    (index: number) => {
-      if (index < 0) {
-        return;
-      }
-      const list = logListRef.current;
-      list?.scrollToRow({
-        index,
-        align: "center",
-      });
-    },
-    [logListRef],
-  );
-
+  // When a new log is loaded go to the last instruction
   useEffect(() => {
-    const cLinesUpdated: string[] = [];
-    if (selectedMemSlotId !== "") {
-      const relevantCLineIds: Set<string> = new Set();
-      for (const idx of [selectedLine, ...memSlotDependencies]) {
-        const cLineId = verifierLogState.cSourceMap.logLineToCLine.get(idx);
-        if (cLineId) {
-          relevantCLineIds.add(cLineId);
-        }
-      }
-
-      verifierLogState.lines.forEach((line) => {
-        const idx = line.idx;
-        if (selectedLine === idx) {
-          return;
-        }
-        if (
-          line.type === ParsedLineType.UNRECOGNIZED ||
-          line.type === ParsedLineType.KNOWN_MESSAGE ||
-          (line.type === ParsedLineType.INSTRUCTION &&
-            !memSlotDependencies.includes(idx)) ||
-          (line.type === ParsedLineType.C_SOURCE &&
-            !relevantCLineIds.has(line.id))
-        ) {
-          return;
-        }
-
-        const cLine = verifierLogState.cSourceMap.logLineToCLine.get(idx);
-        if (cLine) {
-          const cLineEl = document.getElementById(`line-${cLine}`);
-          if (cLineEl) {
-            cLineEl.classList.add("dependency-line");
-            cLinesUpdated.push(cLine);
-          }
-        }
-      });
+    const visualIdx = logLineIdxToVisualIdx.get(verifierLogState.lastInsIdx);
+    if (visualIdx === undefined) {
+      return;
     }
-
-    return () => {
-      if (selectedMemSlotId !== "") {
-        cLinesUpdated.forEach((cLine) => {
-          const cLineEl = document.getElementById(`line-${cLine}`);
-          if (cLineEl) {
-            cLineEl.classList.remove("dependency-line");
-          }
-        });
-      }
-    };
-  }, [selectedLine, selectedMemSlotId, memSlotDependencies, verifierLogState]);
+    const clineId =
+      verifierLogState.cSourceMap.logLineToCLine.get(
+        verifierLogState.lastInsIdx,
+      ) || "";
+    setSelectedAndScroll(
+      verifierLogState.lastInsIdx,
+      "",
+      visualIdx,
+      cLineIdToVisualIdx.get(clineId) || 0,
+    );
+  }, [verifierLogState]);
 
   const depArrowState: DepArrowState = useMemo(() => {
     const arrowState = {
@@ -1603,7 +1695,7 @@ export function MainContent({
   const handleCLinesClick = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
       const target = e.target as HTMLElement;
-      const cline = target.closest(".c-source-line");
+      const cline = target.closest(".c-line");
       let clineId = "";
       if (cline) {
         clineId = cline.getAttribute("data-id") || "";
@@ -1692,7 +1784,7 @@ export function MainContent({
       if (cLineId) {
         const cLineIdx = cLineIdToVisualIdx.get(cLineId);
         if (cLineIdx !== undefined) {
-          scrollToCLine(cLineIdx, cLines.length);
+          scrollToCLine(cLineIdx);
         }
       }
       e.stopPropagation();
@@ -1757,8 +1849,8 @@ export function MainContent({
           }
         }
 
-        const min = visualIndexRange.visualLogStart;
-        const max = visualIndexRange.visualLogEnd;
+        const min = visualLogIndexRange.visualLogStart;
+        const max = visualLogIndexRange.visualLogEnd;
         const isVisible = (id: number) => {
           const visualIdx = logLineIdxToVisualIdx.get(id) || 0;
           return min < visualIdx && visualIdx < max;
@@ -1794,7 +1886,7 @@ export function MainContent({
       logLineIdxToVisualIdx,
       memSlotDependencies,
       selectedLine,
-      visualIndexRange,
+      visualLogIndexRange,
     ],
   );
 
@@ -1806,9 +1898,14 @@ export function MainContent({
     >
       <CSourceLines
         handleCLinesClick={handleCLinesClick}
-        verifierLogState={verifierLogState}
         showFullLog={visualLogState.showFullLog}
         handleFullLogToggle={handleFullLogToggle}
+        selectedState={selectedState}
+        memSlotDependencies={memSlotDependencies}
+        visualLogState={visualLogState}
+        cListRef={cListRef}
+        onCRowsRendered={onCRowsRendered}
+        testListHeight={testListHeight}
       />
       <div
         id="log-container"
