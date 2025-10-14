@@ -21,6 +21,8 @@ import {
   stackSlotIdForIndirectAccess,
   insEntersNewFrame,
   stackSlotIdFromDisplayId,
+  getVisibleLogLineRange,
+  siblingInsLine,
 } from "./utils";
 import { CSourceMap, getMemSlotDependencies } from "./analyzer";
 
@@ -1249,36 +1251,20 @@ const CSourceLines = React.memo(CSourceLinesRaw);
 export function MainContent({
   visualLogState,
   selectedState,
-  handleMainContentClick,
-  handleCLinesClick,
-  handleLogLinesClick,
+  setSelectedState,
   handleLogLinesOver,
   handleLogLinesOut,
-  handleStateRowClick,
   handleFullLogToggle,
-  onGotoStart,
-  onGotoEnd,
   logListRef,
-  visualLogStart,
-  visualLogEnd,
-  onLogRowsRendered,
   testListHeight,
 }: {
   visualLogState: VisualLogState;
   selectedState: LogLineState;
-  handleMainContentClick: (event: React.MouseEvent<HTMLDivElement>) => void;
-  handleCLinesClick: (event: React.MouseEvent<HTMLDivElement>) => void;
-  handleLogLinesClick: (event: React.MouseEvent<HTMLDivElement>) => void;
+  setSelectedState: (value: React.SetStateAction<LogLineState>) => void;
   handleLogLinesOver: (event: React.MouseEvent<HTMLDivElement>) => void;
   handleLogLinesOut: (event: React.MouseEvent<HTMLDivElement>) => void;
-  handleStateRowClick: (event: React.MouseEvent<HTMLDivElement>) => void;
   handleFullLogToggle: () => void;
-  onGotoStart: () => void;
-  onGotoEnd: () => void;
   logListRef: RefObject<ListImperativeAPI | null>;
-  visualLogStart: number;
-  visualLogEnd: number;
-  onLogRowsRendered: (start: number, end: number) => void;
   testListHeight: number | undefined;
 }) {
   const {
@@ -1290,6 +1276,157 @@ export function MainContent({
   } = visualLogState;
 
   const { line: selectedLine, memSlotId: selectedMemSlotId } = selectedState;
+
+  const [visualIndexRange, setVisualIndexRange] = useState<{
+    visualLogStart: number;
+    visualLogEnd: number;
+  }>({ visualLogStart: 0, visualLogEnd: 0 });
+
+  const onLogRowsRendered = useCallback((start: number, end: number) => {
+    setVisualIndexRange({ visualLogStart: start, visualLogEnd: end });
+  }, []);
+
+  const setSelectedAndScroll = useCallback(
+    (
+      nextInsLineId: number,
+      nextCLineId: string,
+      nextInsLineVisualIdx: number,
+      nextCLineVisualIdx: number,
+      memSlotId: string = "",
+    ) => {
+      scrollToLogLine(nextInsLineVisualIdx);
+      scrollToCLine(nextCLineVisualIdx, cLines.length);
+      setSelectedState({ line: nextInsLineId, memSlotId, cLine: nextCLineId });
+    },
+    [logLines, cLineIdToVisualIdx],
+  );
+
+  const onGotoStart = useCallback(() => {
+    if (logLines.length === 0) {
+      return;
+    }
+    const lineId = logLines[0].idx;
+    const clineId =
+      verifierLogState.cSourceMap.logLineToCLine.get(lineId) || "";
+    setSelectedAndScroll(lineId, "", 0, cLineIdToVisualIdx.get(clineId) || 0);
+  }, [logLines, verifierLogState]);
+
+  const onGotoEnd = useCallback(() => {
+    if (logLines.length === 0) {
+      return;
+    }
+    const lineId = logLines[logLines.length - 1].idx;
+    const clineId =
+      verifierLogState.cSourceMap.logLineToCLine.get(lineId) || "";
+    setSelectedAndScroll(
+      lineId,
+      "",
+      logLines.length - 1,
+      cLineIdToVisualIdx.get(clineId) || 0,
+    );
+  }, [logLines, verifierLogState]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      let delta = 0;
+      let areCLinesInFocus = selectedState.cLine !== "";
+      let min = 0;
+      let max = 0;
+
+      if (areCLinesInFocus) {
+        const range = getVisibleLogLineRange(cLines.length);
+        min = range.min;
+        max = range.max;
+      } else {
+        min = visualIndexRange.visualLogStart;
+        max = visualIndexRange.visualLogEnd;
+      }
+      let page = max - min + 1;
+      switch (e.key) {
+        case "ArrowDown":
+        case "j":
+          delta = 1;
+          break;
+        case "ArrowUp":
+        case "k":
+          delta = -1;
+          break;
+        case "PageDown":
+          delta = page;
+          break;
+        case "PageUp":
+          delta = -page;
+          break;
+        case "Home":
+          onGotoStart();
+          return;
+        case "End":
+          onGotoEnd();
+          return;
+        case "Escape":
+          setSelectedState({ line: 0, memSlotId: "", cLine: "" });
+          break;
+        default:
+          return;
+      }
+      e.preventDefault();
+      if (areCLinesInFocus) {
+        const currentVisibleIdx =
+          cLineIdToVisualIdx.get(selectedState.cLine) || 0;
+        let nextVisibleIdx = currentVisibleIdx + delta;
+        if (cLines[nextVisibleIdx] === "") {
+          nextVisibleIdx += delta;
+        }
+        const logLines = verifierLogState.cSourceMap.cLineToLogLines.get(
+          selectedState.cLine,
+        );
+        let logLineId = 0;
+        if (logLines && logLines.size > 0) {
+          [logLineId] = logLines;
+        }
+        const visualLogLineIdx = logLineIdxToVisualIdx.get(logLineId);
+        setSelectedAndScroll(
+          logLineId,
+          cLines[nextVisibleIdx],
+          visualLogLineIdx === undefined ? -1 : visualLogLineIdx,
+          nextVisibleIdx,
+        );
+      } else {
+        const currInsVisualIdx =
+          logLineIdxToVisualIdx.get(selectedState.line) || 0;
+        let nextInsVisualIdx = siblingInsLine(
+          logLines,
+          currInsVisualIdx,
+          delta,
+        );
+        const logLineId = logLines[nextInsVisualIdx].idx;
+        const cLineId =
+          verifierLogState.cSourceMap.logLineToCLine.get(logLineId) || "";
+        const visualCLineIdx = cLineIdToVisualIdx.get(cLineId);
+        setSelectedAndScroll(
+          logLineId,
+          "",
+          nextInsVisualIdx,
+          visualCLineIdx === undefined ? -1 : visualCLineIdx,
+        );
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [
+    logLines,
+    cLines,
+    cLineIdToVisualIdx,
+    selectedState,
+    verifierLogState,
+    logLineIdxToVisualIdx,
+    onGotoStart,
+    onGotoEnd,
+  ]);
 
   const memSlotDependencies: number[] = useMemo(() => {
     const lines = verifierLogState.lines;
@@ -1428,6 +1565,115 @@ export function MainContent({
     logLines,
   ]);
 
+  const handleLogLinesClick = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      const target = e.target as HTMLElement;
+      const memSlot = target.closest(".mem-slot");
+      let memSlotId = "";
+      if (memSlot) {
+        memSlotId = memSlot.getAttribute("data-id") || "";
+        // only stop bubbling if we clicked on a mem slot
+        e.stopPropagation();
+      }
+
+      const clickedLine = target.closest(".log-line");
+      if (clickedLine) {
+        const lineId = parseInt(
+          clickedLine.getAttribute("line-index") || "0",
+          10,
+        );
+        const parsedLine = verifierLogState.lines[lineId];
+        const clineId =
+          parsedLine.type == ParsedLineType.C_SOURCE
+            ? parsedLine.id
+            : verifierLogState.cSourceMap.logLineToCLine.get(lineId) || "";
+        const visualCLineIdx = cLineIdToVisualIdx.get(clineId);
+        setSelectedAndScroll(
+          lineId,
+          "",
+          -1,
+          visualCLineIdx === undefined ? -1 : visualCLineIdx,
+          memSlotId,
+        );
+      }
+    },
+    [logLines, verifierLogState, cLineIdToVisualIdx],
+  );
+
+  const handleCLinesClick = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      const target = e.target as HTMLElement;
+      const cline = target.closest(".c-source-line");
+      let clineId = "";
+      if (cline) {
+        clineId = cline.getAttribute("data-id") || "";
+      }
+      const logLines = verifierLogState.cSourceMap.cLineToLogLines.get(clineId);
+      if (logLines && logLines.size > 0) {
+        const [firstItem] = logLines;
+        setSelectedAndScroll(
+          firstItem,
+          clineId,
+          logLineIdxToVisualIdx.get(firstItem) || 0,
+          -1,
+        );
+      } else {
+        setSelectedState({ line: 0, memSlotId: "", cLine: clineId });
+      }
+    },
+    [verifierLogState, logLineIdxToVisualIdx, cLineIdToVisualIdx],
+  );
+
+  const handleStateRowClick = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      const target = e.target as HTMLElement;
+      const memSlot = target.closest(".state-row");
+      if (!memSlot) {
+        return;
+      }
+      let memSlotId = memSlot.getAttribute("data-id") || "";
+      e.stopPropagation();
+
+      setSelectedState((prevSelectedState) => {
+        let shouldScrollLogLines = true;
+
+        const parsedLine = verifierLogState.lines[selectedLine];
+        if (parsedLine.type == ParsedLineType.INSTRUCTION) {
+          const bpfIns = parsedLine.bpfIns;
+          if (
+            bpfIns.reads.includes(memSlotId) ||
+            bpfIns.writes.includes(memSlotId)
+          ) {
+            // the selected log line has the selectedMemSlotId
+            // no need to scroll the panel
+            shouldScrollLogLines = false;
+          }
+        }
+
+        if (shouldScrollLogLines) {
+          const deps = getMemSlotDependencies(
+            verifierLogState,
+            selectedLine,
+            memSlotId,
+          );
+          const arr = Array.from(deps);
+          arr.sort((a, b) => a - b);
+          const maxIdx = arr[arr.length - 1];
+          const visualIdx = logLineIdxToVisualIdx.get(maxIdx);
+          if (visualIdx !== undefined) {
+            scrollToLogLine(visualIdx);
+          }
+        }
+
+        return {
+          ...prevSelectedState,
+          memSlotId,
+        };
+      });
+    },
+    [verifierLogState, logLineIdxToVisualIdx, selectedLine],
+  );
+
   const handleStateLogLineClick = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
       const visualIdx = logLineIdxToVisualIdx.get(selectedLine);
@@ -1453,6 +1699,12 @@ export function MainContent({
     },
     [verifierLogState, cLines, cLineIdToVisualIdx, selectedLine],
   );
+
+  const handleMainContentClick = useCallback(() => {
+    setSelectedState((prevSelected) => {
+      return { ...prevSelected, memSlotId: "" };
+    });
+  }, []);
 
   const handleLogLinesClickSub = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
@@ -1505,8 +1757,8 @@ export function MainContent({
           }
         }
 
-        const min = visualLogStart;
-        const max = visualLogEnd;
+        const min = visualIndexRange.visualLogStart;
+        const max = visualIndexRange.visualLogEnd;
         const isVisible = (id: number) => {
           const visualIdx = logLineIdxToVisualIdx.get(id) || 0;
           return min < visualIdx && visualIdx < max;
@@ -1542,8 +1794,7 @@ export function MainContent({
       logLineIdxToVisualIdx,
       memSlotDependencies,
       selectedLine,
-      visualLogStart,
-      visualLogEnd,
+      visualIndexRange,
     ],
   );
 
