@@ -152,9 +152,9 @@ describe("App", () => {
     );
 
     const cSourceEl = document.getElementById("c-source-container");
-    const cSourceFile = cSourceEl?.querySelector(".c-source-file");
+    const cSourceContent = document.getElementById("c-source-content");
 
-    expect(cSourceFile).toBeVisible();
+    expect(cSourceContent).toBeVisible();
 
     const cSourceHideShow = cSourceEl?.querySelector(".hide-show-button");
 
@@ -163,7 +163,7 @@ describe("App", () => {
     }
 
     fireEvent(cSourceHideShow, createEvent.click(cSourceHideShow));
-    expect(cSourceFile).not.toBeVisible();
+    expect(cSourceContent).not.toBeVisible();
 
     const statePanelEl = document.getElementById("state-panel");
     const statePanelHeader = document.getElementById("state-panel-header");

@@ -163,18 +163,6 @@ h1 {
 
 /* C Source Lines */
 
-#c-source-container {
-  flex: 1;
-  min-width: 0;
-  gap: 0;
-  flex-grow: 1;
-}
-
-#c-source-content {
-  overflow-y: scroll;
-  height: 100%;
-}
-
 .c-source-panel {
   position: relative;
   border-right: 2px solid var(--mid-gray);
@@ -185,12 +173,12 @@ h1 {
 }
 
 .filename-header {
-  height: 18px;
   font-weight: bold;
   padding: 10px 0px 10px 10px;
   border-top: 2px solid var(--mid-gray);
   border-bottom: 2px solid var(--mid-gray);
   font-family: "Roboto", sans-serif;
+  box-sizing: border-box;
 }
 
 .c-source-file:first-child .filename-header {
@@ -206,13 +194,14 @@ h1 {
   overflow: auto;
 }
 
-.source-lines {
+.c-source-line {
   color: var(--dark-blue);
 }
 
 /* Log Lines */
 
-#log-container {
+#log-container,
+#c-source-container {
   flex: 1;
   min-width: 0;
   gap: 0;
@@ -220,7 +209,8 @@ h1 {
   position: relative;
 }
 
-#log-content {
+#log-content,
+#c-source-content {
   height: 100%;
 }
 
@@ -248,24 +238,8 @@ h1 {
   transform: rotate(90deg);
 }
 
-.line-numbers {
-  padding: 10px 8px;
-  background-color: var(--mid-gray-20);
-  border-right: 2px solid var(--mid-gray);
-  line-height: 1.4;
-  text-align: right;
-  color: var(--primary-dark);
-  user-select: none;
-  min-width: 3em;
-  white-space: pre;
-  height: fit-content;
-}
-
-#line-numbers-pc {
-  color: var(--primary-dark);
-}
-
-.pc-number {
+.pc-number,
+.line-number {
   color: var(--primary-dark);
   background-color: var(--mid-gray-20);
   border-right: 2px solid var(--mid-gray);
@@ -283,7 +257,6 @@ h1 {
 
 .source-lines {
   background: white;
-  padding: 10px;
   line-height: 1.4;
   white-space: pre;
   height: fit-content;
@@ -344,14 +317,14 @@ h1 {
   font-weight: bold;
 }
 
-.line-numbers-line,
 .dep-arrow,
 .log-line,
 .c-source-line {
   height: 20px;
 }
 
-.log-line {
+.log-line,
+.c-line {
   display: flex;
   white-space: nowrap;
 }
