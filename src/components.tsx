@@ -1604,13 +1604,16 @@ export function MainContent({
       verifierLogState.cSourceMap.logLineToCLine.get(
         verifierLogState.lastInsIdx,
       ) || "";
-    setSelectedAndScroll(
-      verifierLogState.lastInsIdx,
-      "",
-      visualIdx,
-      cLineIdToVisualIdx.get(clineId) || 0,
-    );
-  }, [verifierLogState]);
+    setTimeout(function () {
+      setSelectedAndScroll(
+        verifierLogState.lastInsIdx,
+        "",
+        visualIdx,
+        cLineIdToVisualIdx.get(clineId) || 0,
+        "",
+      );
+    }, 500);
+  }, [verifierLogState, logListRef]);
 
   const depArrowState: DepArrowState = useMemo(() => {
     const arrowState = {
