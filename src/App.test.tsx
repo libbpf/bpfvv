@@ -3,6 +3,7 @@
  */
 import "@testing-library/jest-dom";
 import { render, createEvent, fireEvent } from "@testing-library/react";
+import ldb from "localdata";
 import App from "./App";
 import {
   SAMPLE_LOG_DATA_1,
@@ -10,18 +11,56 @@ import {
   SAMPLE_LOG_DATA_ERORR,
 } from "./test-data";
 
+// Mock the localdata module
+jest.mock("localdata", () => ({
+  __esModule: true,
+  default: {
+    get: jest.fn((_, callback) => {
+      callback("");
+    }),
+    set: jest.fn(),
+    delete: jest.fn(),
+    list: jest.fn(),
+    getAll: jest.fn(),
+    clear: jest.fn(),
+  },
+}));
+
 // use screen.debug(); to log the whole DOM
 
 const DOM_EL_FAIL = "DOM Element missing";
 
+// Mock Date to return a consistent timestamp for snapshot tests
+const MOCK_DATE = new Date("2025-01-15T12:00:00.000Z");
+
 describe("App", () => {
   beforeEach(() => {
+    // Clear all mocks before each test
+    jest.clearAllMocks();
+
+    // Reset default mock implementation for ldb.get to return null (no stored logs)
+    (ldb.get as jest.Mock).mockImplementation((_, callback) => {
+      callback(null);
+    });
+
+    // Mock Date to return consistent timestamp
+    jest.spyOn(global, "Date").mockImplementation(() => {
+      const mockDate = MOCK_DATE;
+      mockDate.toLocaleTimeString = jest.fn().mockReturnValue("12:00:00 PM");
+      return mockDate;
+    });
+
     const mockObserverInstance = {
       observe: jest.fn(),
       unobserve: jest.fn(),
       disconnect: jest.fn(),
     };
     global.ResizeObserver = jest.fn(() => mockObserverInstance);
+  });
+
+  afterEach(() => {
+    // Restore Date mock
+    jest.restoreAllMocks();
   });
 
   it("renders the correct starting elements", () => {
