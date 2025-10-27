@@ -69,6 +69,8 @@ type HelperArg = {
   name: string | null;
 };
 
+export type StoredLogs = [string, string[]][];
+
 function isVoidHelperArg(arg: HelperArg) {
   return arg.type === "void" && arg.name === null && arg.star === null;
 }
@@ -200,33 +202,53 @@ declare global {
 }
 
 export function Examples({
+  storedLogs,
   handleLoadExample,
 }: {
-  handleLoadExample: (exampleLink: string) => Promise<void>;
+  storedLogs: StoredLogs;
+  handleLoadExample: (example: string, isLink: boolean) => Promise<void>;
 }) {
   const exampleLinks: [string, string][] = globalThis.exampleLinks || [];
 
-  const [selectedOption, setSelectedOption] = useState(
-    exampleLinks.length ? exampleLinks[0][1] : "",
+  const hasStoredLogs = storedLogs.length !== 0;
+
+  const [selectedOption, setSelectedOption] = useState("");
+
+  useEffect(() => {
+    setSelectedOption(
+      hasStoredLogs
+        ? storedLogs[0][0]
+        : exampleLinks.length
+          ? exampleLinks[0][1]
+          : "",
+    );
+  }, [storedLogs]);
+
+  const handleChange = useCallback(
+    (event: ChangeEvent<HTMLSelectElement>) => {
+      setSelectedOption(event.target.value);
+    },
+    [storedLogs],
   );
-  const handleChange = useCallback((event: ChangeEvent<HTMLSelectElement>) => {
-    setSelectedOption(event.target.value);
-  }, []);
 
   const onLoad = useCallback(() => {
-    handleLoadExample(selectedOption);
+    handleLoadExample(selectedOption, !hasStoredLogs);
   }, [selectedOption]);
 
-  if (exampleLinks && exampleLinks.length !== 0) {
+  const loadableLogs = hasStoredLogs
+    ? storedLogs.map((x) => [x[0], x[0]])
+    : exampleLinks;
+
+  if (loadableLogs && loadableLogs.length !== 0) {
     return (
       <div className="line-nav-item">
-        <label>Examples:</label>
+        <label>{hasStoredLogs ? "Previous Logs:" : "Examples:"}</label>
         <select
           id="log-example-dropdown"
           onChange={handleChange}
           value={selectedOption}
         >
-          {exampleLinks.map((pair) => {
+          {loadableLogs.map((pair) => {
             return (
               <option key={pair[1]} value={pair[1]}>
                 {pair[0]}

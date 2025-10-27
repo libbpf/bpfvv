@@ -1,5 +1,6 @@
 import React from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import ldb from "localdata";
 
 import {
   VerifierLogState,
@@ -18,6 +19,7 @@ import {
   ToolTip,
   Examples,
   CSourceRow,
+  StoredLogs,
 } from "./components";
 import { getCLineId, ParsedLine, ParsedLineType } from "./parser";
 
@@ -195,6 +197,7 @@ function App({ testListHeight }: { testListHeight?: number }) {
   );
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [storedLogs, setStoredLogs] = useState<StoredLogs>([]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -204,6 +207,19 @@ function App({ testListHeight }: { testListHeight?: number }) {
   const selectedLineVisualIdx = logLineIdxToVisualIdx.get(selectedLine) || 0;
   const hoveredLineVisualIdx =
     logLineIdxToVisualIdx.get(hoveredState.line) || 0;
+
+  useEffect(() => {
+    ldb.get("logs", function (value) {
+      try {
+        const logs: StoredLogs = JSON.parse(value);
+        if (logs) {
+          setStoredLogs(logs);
+        }
+      } catch (error) {
+        console.error("Could not parse logs from local storage", error);
+      }
+    });
+  }, []);
 
   const onClear = useCallback(() => {
     setVisualLogState(getEmptyVisualLogState());
@@ -229,11 +245,37 @@ function App({ testListHeight }: { testListHeight?: number }) {
     });
   }, [verifierLogState]);
 
-  const loadInputText = useCallback((text: string) => {
-    const newVerifierLogState = processRawLines(text.split("\n"));
+  const updateStoredLogs = useCallback(
+    (lines: string[], name: string = "") => {
+      const now = new Date();
+      const nextName = name
+        ? name
+        : `pasted log (${now.toDateString().toLowerCase()} - ${now.toLocaleTimeString().toLocaleLowerCase()})`;
+      // Only keep 5 stored logs for now
+      const nextStoredLogs: StoredLogs = [
+        [nextName, lines],
+        ...storedLogs.slice(0, 5),
+      ];
+      ldb.set("logs", JSON.stringify(nextStoredLogs));
+      setStoredLogs(nextStoredLogs);
+    },
+    [storedLogs],
+  );
+
+  const loadLog = useCallback((lines: string[]) => {
+    const newVerifierLogState = processRawLines(lines);
     setVisualLogState(getVisualLogState(newVerifierLogState, false));
     setIsLoading(false);
   }, []);
+
+  const loadInputText = useCallback(
+    (text: string) => {
+      const rawLines = text.split("\n");
+      loadLog(rawLines);
+      updateStoredLogs(rawLines);
+    },
+    [updateStoredLogs],
+  );
 
   const prepareNewLog = useCallback(() => {
     setSelectedState(getEmptyLogLineState());
@@ -250,20 +292,30 @@ function App({ testListHeight }: { testListHeight?: number }) {
   );
 
   const handleLoadExample = useCallback(
-    async (exampleLink: string) => {
+    async (example: string, isLink: boolean) => {
       prepareNewLog();
-      try {
-        const response = await fetch(exampleLink);
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
+      if (isLink) {
+        try {
+          const response = await fetch(example);
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          const result = await response.text();
+          const rawLines = result.split("\n");
+          loadLog(rawLines);
+        } catch (error) {
+          console.error("Error fetching data:", error);
         }
-        const result = await response.text();
-        loadInputText(result);
-      } catch (error) {
-        console.error("Error fetching data:", error);
+      } else {
+        const found = storedLogs.find((storedLog) => storedLog[0] === example);
+        if (!found) {
+          console.error("Couldn't load previous log", example);
+        } else {
+          loadLog(found[1]);
+        }
       }
     },
-    [loadInputText, prepareNewLog],
+    [loadInputText, prepareNewLog, storedLogs],
   );
 
   function getServerInjectedInputLink(): string | null {
@@ -344,6 +396,7 @@ function App({ testListHeight }: { testListHeight?: number }) {
           }
           rawLines = rawLines.concat(lines);
         }
+        updateStoredLogs(rawLines, fileBlob.name);
         const newVerifierLogState = processRawLines(rawLines);
         setVisualLogState(
           getVisualLogState(newVerifierLogState, visualLogState.showFullLog),
@@ -364,7 +417,10 @@ function App({ testListHeight }: { testListHeight?: number }) {
               Clear
             </button>
           </div>
-          <Examples handleLoadExample={handleLoadExample} />
+          <Examples
+            storedLogs={storedLogs}
+            handleLoadExample={handleLoadExample}
+          />
           <div className="line-nav-item">
             <div className="file-input-container">
               <input

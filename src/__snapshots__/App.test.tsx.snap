@@ -95,6 +95,28 @@ exports[`App renders the log visualizer when text is pasted 1`] = `
         <div
           class="line-nav-item"
         >
+          <label>
+            Previous Logs:
+          </label>
+          <select
+            id="log-example-dropdown"
+          >
+            <option
+              value="pasted log (wed jan 15 2025 - 12:00:00 pm)"
+            >
+              pasted log (wed jan 15 2025 - 12:00:00 pm)
+            </option>
+          </select>
+          <button
+            class="nav-button"
+            id="load-example"
+          >
+            Load
+          </button>
+        </div>
+        <div
+          class="line-nav-item"
+        >
           <div
             class="file-input-container"
           >
@@ -530,6 +552,28 @@ exports[`App renders the log visualizer when text is pasted 2`] = `
             id="clear"
           >
             Clear
+          </button>
+        </div>
+        <div
+          class="line-nav-item"
+        >
+          <label>
+            Previous Logs:
+          </label>
+          <select
+            id="log-example-dropdown"
+          >
+            <option
+              value="pasted log (wed jan 15 2025 - 12:00:00 pm)"
+            >
+              pasted log (wed jan 15 2025 - 12:00:00 pm)
+            </option>
+          </select>
+          <button
+            class="nav-button"
+            id="load-example"
+          >
+            Load
           </button>
         </div>
         <div
