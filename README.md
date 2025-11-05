@@ -4,9 +4,9 @@
 
 https://libbpf.github.io/bpfvv/
 
-BPF Verifier Visualizer is a tool for analysis of Linux Kernel BPF verifier log.
+BPF Verifier Visualizer is a tool to analyze Linux Kernel BPF verifier logs.
 
-The tools aims to help BPF programmers with debugging verification failures.
+The goal of bpfvv is to help BPF programmers debug verification failures.
 
 The user can load a text file, and the app will attempt to parse it as a verifier log. Successfully parsed lines produce a state which is then visualized in the UI. You can think of this as a primitive debugger UI, except it interprets a log and not a runtime state of a program.
 

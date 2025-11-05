@@ -2,17 +2,17 @@
 
 BPF Verifier Visualizer aims to help with analysis of Linux Kernel BPF verification logs.
 
-Just as any other debugging tool, **bpfvv** may help you better understand ***what** is happenning* with the verification of your BPF program.
+Like many other debugging tools, **bpfvv** may help you better understand **what** is happening with the verification of your BPF program but it is up to you to figure out **why** it is happening.
 
 But it is up to you to figure out ***why** is it happening*.
 
 # How to use bpfvv
 
-Go here: https://libbpf.github.io/bpfvv/
+The tool itself is hosted here: https://libbpf.github.io/bpfvv/
 
 You can load a  log by pasting it into the text box or choosing a local file.
 
-You can also use `url` query parameter linking to a raw log file, for example:
+You can also use the `url` query parameter to link to a raw log file, for example:
 ```
 https://libbpf.github.io/bpfvv/?url=https://gist.githubusercontent.com/theihor/e0002c119414e6b40e2192bd7ced01b1/raw/866bcc155c2ce848dcd4bc7fd043a97f39a2d370/gistfile1.txt
 ```
@@ -52,9 +52,9 @@ in order to display potentially useful information in interactive way.
 There are three main views of the program:
 * (on the left) C source view 
 * (in the middle) interactive instruction stream
-* (on the right) program state: known values of registers and stack slots *at selected log line*
+* (on the right) program state: known values of registers and stack slots for the *selected log line*
 
-The left and right views are hidable:
+The left and right views are collapsible
 
 https://github.com/user-attachments/assets/758d650b-22f1-49f0-ab46-ae1a089667a8
 
@@ -102,7 +102,7 @@ r0 = bpf_probe_read_user(dst: r1, size: r2, unsafe_ptr: r3)
 ```
 
 If bpfvv is aware of a helper signature, it knows the number and names of arguments and displays them in the format `name: reg`.
-For known helpers its name is also a documentation link.
+For known helpers its name is also a link to documentation for that helper.
 
 Notice also that the lines not recognized by the parser are greyed
 out. If you notice an unrecognized instruction, please submit a bug
@@ -113,21 +113,21 @@ report.
 The app computes a use-def analysis [^2] and you can interactively view dependencies between the instructions.
 
 The concept is simple. Every instruction may read some slots (registers, stack, memory) and write to others.
-Knowing these sets, it is possible to determine for a slot used by current instruction, where its value came from (from what slot in what instruction).
+Knowing these it is possible to determine, for a given slot, where its value came from, from what slot, and at what instruction.
 
 You can view the results of this analysis by clicking on some instruction operands (registers and stack slots).
 
-The selected slot is identified by a box. This selection changes the log view, greying out "irrelevant" instructions, and leaving only data-dependent instructions in the foreground.
+The selected slot is identified by a box around it. This selection changes the log view, greying out "irrelevant" instructions, and leaving only data-dependent instructions in the foreground.
 
-On the left side of the instruction stream the lines visualizing the dependenices are shown. The lines can be used for navigation.
+On the left side of the instruction stream are the lines visualizing the dependencies. The lines are interactive and can be used for navigation.
 
 https://github.com/user-attachments/assets/82ae80d6-314e-47bf-9892-f5dded4b9944
 
 #### Subprogram calls
 
 When there is a subprogram call in the log instruction stream, the 
-stack frames are tracked by the app when computing state. When subprogram
-call is detected its visualized in the main log view.
+stack frames are tracked by the app when computing state. When a subprogram
+call is detected it is visualized in the main log view.
 
 https://github.com/user-attachments/assets/14b2302e-9814-4d9a-ae94-e176727fd11a
 
@@ -137,7 +137,7 @@ The state panel shows the "current" state of the program, as reported in the pro
 The "current" state is identified by the selected line in the instruction stream view.
 
 Remember that the verifier log is a trace through the program.
-This means that a particular instruction may be visited more than once, and the state at the same instruction at different point of execution is usually also different. And so a log line roughly represents a particular point of the program execution, as interpreted by the BPF verifier.
+This means that a particular instruction may be visited more than once, and the state at the same instruction (but a different point of execution) is usually also different. And so a log line roughly represents a particular point of the program execution, as interpreted by the BPF verifier.
 
 The verifier reports changes in the program state like this:
 ```
@@ -147,20 +147,20 @@ After the semicolon `;`, there are expressions showing relevant register and sta
 
 The header of the state panel shows the context of the state: log line number, C line number, program counter (PC) and the stack frame index.
 
-And then, the known values of the registers and stack slots are displayed in a table.
+The known values of the registers and stack slots are displayed in a table.
 
 The background color of a row in the state panel indicates that the relevant value has been affected by the selected instruction.
-Rows marked with red-ish background indicate a "write" and the previous value is also often displayed, for example:
+Rows marked with red background indicate a "write" and the previous value is also often displayed, for example:
 ```
 r6	scalar(id=1) -> 0
 ```
-Means that current instruction changes the value of `r6` from `scalar(id=1)` to `0`.
+This means that current instruction changes the value of `r6` from `scalar(id=1)` to `0`.
 
-The values that are read by current instruction have blue-ish background.
+The values that are read by the current instruction have a blue background.
 
 Note that for "update" instructions (such as `r1 += 8`), the slot will be marked as written.
 
-This then allows to "step through" the instruction stream and watch how the values are changing, similar to classic debugger UIs.
+This then allows you to "step through" the instruction stream and watch how the values are changing, similar to classic debugger UIs.
 You can click on the lines that interest you, or use arrows to navigate.
 
 https://github.com/user-attachments/assets/c6b5b5b1-30fb-4309-a90a-1832a0a33502
@@ -173,10 +173,10 @@ https://github.com/user-attachments/assets/8f5d03cc-54a5-426b-8428-c8b11f4ccf11
 
 ### The C source view
 
-C source view panel (on the left) shows reconstructed C source lines.
+The C source view panel (on the left) shows reconstructed C source lines.
 
-Raw verifier log might contain source line information, and bpfvv attempts to reconstruct the source code and associate it with the instructions.
-Here is how it looks like in the raw log:
+A raw verifier log might contain source line information, and bpfvv attempts to reconstruct the source code and associate it with the instructions.
+Here is how it looks in the raw log:
 ```
 1800: R1=scalar() R10=fp0
 ; int rb_print(rbtree_t __arg_arena *rbtree) @ rbtree.bpf.c:507
@@ -187,7 +187,7 @@ Here is how it looks like in the raw log:
 
 The original source code is not available in the log of course. So bpfvv doesn't have enough information to even format it properly.
 
-However, it allows to see rough correspondence between BPF instructions and the original C source code.
+However, it allows you to see a rough correspondence between BPF instructions and the original C source code.
 
 Be aware though that this information is noisy and may be inaccurate, since it reached the visualizer through a long way:
 * the compiler generated DWARF with line info, which is already "best-effort"
@@ -200,13 +200,13 @@ https://github.com/user-attachments/assets/3e8c52f0-3823-4d5f-abbd-f7c2d8e31d19
 
 ### The bottom panel
 
-The bottom panel shows original log text for selected line and for the line where cursor is hovered on.
+The bottom panel shows original log text for the selected line and for the current hovered line.
 It is sometimes useful to check the source of the information displayed by the visualizer.
 
 
 ## Not frequently asked questions
 
-### What exactly "read" and "written" value means here?
+### What exactly do "read" and "written" values means here?
 
 Here is a couple of trivial examples:
 * `r1 = 0` this is a write to `r1`
@@ -218,10 +218,10 @@ Here is a couple of more complicated examples:
   * `r10` is effectively constant[^3], as it is always a pointer to the top of a BPF stack frame, so stores to `r10-offset` are writes to the stack slots, identified by `fp-off` or `fp[frame]-off` in the visualizer
 * `r1 = *(u64 *)(r2 -8)` this is a write to `r1` and a read of `r2`, however it may also be a read of the stack, if `r2` happens to contain a pointer to the stack slot 
 
-Most instructions have intrinsic "read" and "write" set, defined by its semantics. However context also matters, as you can see from the last example.
+Most instructions have intrinsic "read" and "write" sets, defined by its semantics. However context also matters, as you can see from the last example.
 
 The visualizer takes into account a few important things, when determining data dependencies:
-* it is aware of scratch and callee-saved registers semantics of subprogram/helper calls
+* it is aware of scratch and callee-saved register semantics of subprogram/helper calls
 * it is aware of the stack frames: we enter new stack memory in a subprogram, and pop back on exit
 * it is aware of indirect stack slot access and basic pointer arithmetic
 
@@ -230,7 +230,7 @@ The visualizer takes into account a few important things, when determining data 
 One counterintuitive thing about data dependencies in the context of BPF verification is that the instructions which don't do any arithmetic or memory stores can still change the progam state.
 
 Remember, we are looking at the BPF verifier log.
-BPF verifier simulates execution of a program, which requires maintaining a virtual state of the program.
+The BPF verifier simulates the execution of a program, which requires maintaining a virtual state of the program.
 This means that whenever the verifier gains some knowledge about a value (which is not necesarily an intrinsic write instruction), it will update the program state.
 
 For example, when processing conditional jumps such as `if (r2 == 0) goto pc+6`,
@@ -241,7 +241,7 @@ it in the verifier log.
 
 https://github.com/user-attachments/assets/94d271e2-f033-439b-8554-d9f8a66b4143
 
-### What if we write to memory or arena?
+### What if we write to memory or a BPF arena?
 
 Currently non-stack memory access is a "black hole" from the point of
 view of use-def analysis in this app. The reason is that it's
@@ -277,7 +277,7 @@ For example, you might see something like this:
 r8	ptr_or_null_node_data(id=9,ref_obj_id=9,off=16) -> ptr_node_data(ref_obj_id=9,off=16)
 ```
 
-The verifier reported different value, and that's what visualizer shows.
+The verifier reported a different value, and that's what bpfvv shows.
 
 ## Footnotes
 
