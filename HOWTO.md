@@ -1,10 +1,6 @@
 ### Disclaimer
 
-BPF Verifier Visualizer aims to help with analysis of Linux Kernel BPF verification logs.
-
 Like many other debugging tools, **bpfvv** may help you better understand **what** is happening with the verification of your BPF program but it is up to you to figure out **why** it is happening.
-
-But it is up to you to figure out ***why** is it happening*.
 
 # How to use bpfvv
 
@@ -133,8 +129,7 @@ https://github.com/user-attachments/assets/14b2302e-9814-4d9a-ae94-e176727fd11a
 
 ### The state panel
 
-The state panel shows the "current" state of the program, as reported in the provided log.
-The "current" state is identified by the selected line in the instruction stream view.
+The state panel displays the current state of the program based on the loaded log, with the current state determined by the line selected in the instruction stream view.
 
 Remember that the verifier log is a trace through the program.
 This means that a particular instruction may be visited more than once, and the state at the same instruction (but a different point of execution) is usually also different. And so a log line roughly represents a particular point of the program execution, as interpreted by the BPF verifier.
@@ -161,7 +156,7 @@ The values that are read by the current instruction have a blue background.
 Note that for "update" instructions (such as `r1 += 8`), the slot will be marked as written.
 
 This then allows you to "step through" the instruction stream and watch how the values are changing, similar to classic debugger UIs.
-You can click on the lines that interest you, or use arrows to navigate.
+You can click on the lines that interest you, or use arrow keys to navigate.
 
 https://github.com/user-attachments/assets/c6b5b5b1-30fb-4309-a90a-1832a0a33502
 
@@ -193,8 +188,6 @@ Be aware though that this information is noisy and may be inaccurate, since it r
 * the compiler generated DWARF with line info, which is already "best-effort"
 * DWARF was transformed into BTF with line data
 * BTF was processed by the verifier and available information was dumped interleaved with the program trace
-
-And that's what visualizer is working with.
 
 https://github.com/user-attachments/assets/3e8c52f0-3823-4d5f-abbd-f7c2d8e31d19
 
