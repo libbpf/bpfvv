@@ -62,6 +62,8 @@ function getVisibleLogLines(
 
 function getVisibleCLines(
   verifierLogState: VerifierLogState,
+  fileName: string = "",
+  pastedLines: string[] = [],
 ): [CSourceRow[], Map<string, number>] {
   const cLineIdToVisualIdx: Map<string, number> = new Map();
   const cLines: CSourceRow[] = [];
@@ -73,6 +75,24 @@ function getVisibleCLines(
       file,
     });
     ++j;
+
+    if (file === fileName && pastedLines.length > 0) {
+      pastedLines.forEach((lineText, i) => {
+        const lineNum = i + 1;
+        const sourceId = getCLineId(file, lineNum);
+        cLines.push({
+          type: "c_line",
+          file,
+          lineNum: i + 1,
+          lineText,
+          sourceId,
+          ignore: false,
+        });
+        cLineIdToVisualIdx.set(sourceId, j);
+        ++j;
+      });
+      continue;
+    }
 
     let unknownStart = 0;
     for (let i = range[0]; i < range[1]; ++i) {
@@ -144,6 +164,7 @@ const ContentRaw = ({
   handleLogLinesOut,
   handleFullLogToggle,
   testListHeight,
+  addPastedCSourceFile,
 }: {
   loadError: string | null;
   visualLogState: VisualLogState;
@@ -154,6 +175,7 @@ const ContentRaw = ({
   handleLogLinesOut: (event: React.MouseEvent<HTMLDivElement>) => void;
   handleFullLogToggle: () => void;
   testListHeight: number | undefined;
+  addPastedCSourceFile: (fileName: string, pastedLines: string[]) => void;
 }) => {
   if (loadError) {
     return <div>{loadError}</div>;
@@ -167,6 +189,7 @@ const ContentRaw = ({
         handleLogLinesOut={handleLogLinesOut}
         handleFullLogToggle={handleFullLogToggle}
         testListHeight={testListHeight}
+        addPastedCSourceFile={addPastedCSourceFile}
       />
     );
   } else {
@@ -267,6 +290,24 @@ function App({ testListHeight }: { testListHeight?: number }) {
     setVisualLogState(getVisualLogState(newVerifierLogState, false));
     setIsLoading(false);
   }, []);
+
+  const addPastedCSourceFile = useCallback(
+    (fileName: string, pastedLines: string[]) => {
+      setVisualLogState((prevState) => {
+        const [cLines, cLineIdToVisualIdx] = getVisibleCLines(
+          verifierLogState,
+          fileName,
+          pastedLines,
+        );
+        return {
+          ...prevState,
+          cLines,
+          cLineIdToVisualIdx,
+        };
+      });
+    },
+    [verifierLogState],
+  );
 
   const loadInputText = useCallback(
     (text: string) => {
@@ -452,6 +493,7 @@ function App({ testListHeight }: { testListHeight?: number }) {
           handleLogLinesOut={handleLogLinesOut}
           handleFullLogToggle={handleFullLogToggle}
           testListHeight={testListHeight}
+          addPastedCSourceFile={addPastedCSourceFile}
         />
         <div id="hint">
           <SelectedLineHint
