@@ -73,7 +73,7 @@ h1 {
   height: 40px;
   background-color: var(--mid-gray-20);
   font-family: "Roboto Mono", monospace;
-  z-index: 1;
+  z-index: 2;
 }
 
 .nav-arrow:hover {
@@ -179,6 +179,29 @@ h1 {
   border-bottom: 2px solid var(--mid-gray);
   font-family: "Roboto", sans-serif;
   box-sizing: border-box;
+  position: relative;
+  display: inline-block;
+  z-index: 1;
+  cursor: pointer;
+}
+
+.filename-tooltip {
+  background-color: #f8f8f8;
+  padding: 5px 8px;
+  border: 1px solid var(--mid-gray);
+  color: #000;
+  box-shadow: rgba(0, 0, 0, 0.24) 0px 3px 8px;
+  line-height: 20px;
+  position: absolute;
+  z-index: 1;
+  visibility: hidden;
+  top: 38px;
+  left: 1%;
+  font-weight: normal;
+}
+
+.filename-header:hover .filename-tooltip {
+  visibility: visible;
 }
 
 .c-source-file:first-child .filename-header {
@@ -554,6 +577,47 @@ h1 {
 .hide-show-button.hidden.left .hide-show-tooltip {
   right: auto;
   left: 30px;
+}
+
+/* C Source Paste Popup */
+.c-source-popup-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.c-source-popup-content {
+  background-color: white;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  max-width: 800px;
+  width: 90%;
+}
+
+.c-source-textarea {
+  width: 98%;
+  height: 400px;
+  margin-bottom: 10px;
+  padding: 1%;
+  border: 2px dashed var(--primary-dark);
+}
+
+.c-source-popup-error {
+  margin-bottom: 10px;
+  font-weight: bold;
+  color: var(--bright-red);
+}
+
+.c-source-button {
+  margin-right: 10px;
 }
 
 /* Footer */

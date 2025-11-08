@@ -14,6 +14,7 @@ import {
   BpfConditionalJmpInstruction,
   BpfTargetJmpInstruction,
   InstructionLine,
+  getCLineId,
 } from "./parser";
 import {
   BpfMemSlotMap,
@@ -821,6 +822,98 @@ export function SelectedLineHint({
   );
 }
 
+function CSourcePastePopup({
+  verifierLogState,
+  fileName,
+  onHideCSourcePaste,
+  addPastedCSourceFile,
+}: {
+  verifierLogState: VerifierLogState;
+  fileName: string;
+  onHideCSourcePaste: () => void;
+  addPastedCSourceFile: (fileName: string, pastedLines: string[]) => void;
+}) {
+  const [pastedContent, setPastedContent] = useState("");
+  const [mismatchError, setMismatcError] = useState(false);
+
+  const handleChange = useCallback(
+    (event: ChangeEvent<HTMLTextAreaElement>) => {
+      setMismatcError(false);
+      const pastedText = event.target.value;
+      setPastedContent(pastedText);
+      const pastedLines: string[] = pastedText.split("\n");
+      for (const [file] of verifierLogState.cSourceMap.fileRange) {
+        if (file !== fileName) {
+          continue;
+        }
+        pastedLines.some((lineText, i) => {
+          const lineNum = i + 1;
+          const sourceId = getCLineId(file, lineNum);
+          const sourceLine =
+            verifierLogState.cSourceMap.cSourceLines.get(sourceId);
+          if (sourceLine && !sourceLine.ignore) {
+            if (!lineText.includes(sourceLine.content)) {
+              setMismatcError(true);
+              return true;
+            }
+          }
+          return false;
+        });
+      }
+    },
+    [],
+  );
+
+  const handleConfirm = useCallback(() => {
+    addPastedCSourceFile(fileName, pastedContent.split("\n"));
+    onHideCSourcePaste();
+  }, [pastedContent]);
+
+  const handleClear = useCallback(() => {
+    setPastedContent("");
+    setMismatcError(false);
+  }, []);
+
+  const onContentClick = useCallback(
+    (event: React.MouseEvent<HTMLDivElement>) => {
+      event.stopPropagation();
+    },
+    [],
+  );
+
+  return (
+    <div onClick={onHideCSourcePaste} className="c-source-popup-overlay">
+      <div onClick={onContentClick} className="c-source-popup-content">
+        <h3>Paste contents of {fileName}</h3>
+        <textarea
+          className="c-source-textarea"
+          value={pastedContent}
+          onChange={handleChange}
+          placeholder="Paste the entire file contents"
+        />
+        {mismatchError && (
+          <div className="c-source-popup-error">
+            Pasted content does not match the verifier log.
+            <br />
+            Make sure the entire file contents are pasted and the line numbers
+            match
+          </div>
+        )}
+        <button
+          className="c-source-button"
+          onClick={handleConfirm}
+          disabled={mismatchError || pastedContent === ""}
+        >
+          Apply
+        </button>
+        <button className="c-source-button" onClick={handleClear}>
+          Clear
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function HideShowButton({
   isVisible,
   rightOpen,
@@ -1162,6 +1255,7 @@ type CSourceRowProps = {
   cLines: CSourceRow[];
   dependencyCLines: Set<string>;
   selectedCLine: string;
+  onShowCSourcePaste: (fileName: string) => void;
 };
 
 function CSourceRowHeight(index: number, { cLines }: CSourceRowProps) {
@@ -1181,8 +1275,13 @@ const CSourceRowComponent = ({
   cLines,
   dependencyCLines,
   selectedCLine,
+  onShowCSourcePaste,
 }: RowComponentProps<CSourceRowProps>) => {
   const item = cLines[index];
+
+  const onFilePasteClick = () => {
+    onShowCSourcePaste(item.file);
+  };
 
   if (item.type == "file_name") {
     const fileNameStyle = { ...style };
@@ -1190,8 +1289,15 @@ const CSourceRowComponent = ({
       fileNameStyle["borderTop"] = "0px";
     }
     return (
-      <div className="filename-header" style={fileNameStyle}>
-        {item.file}
+      <div
+        onClick={onFilePasteClick}
+        className="filename-header"
+        style={fileNameStyle}
+      >
+        {item.file} {"\u{1F4CB}"}
+        <div className="filename-tooltip">
+          Click to replace lines with actual source code
+        </div>
       </div>
     );
   }
@@ -1241,6 +1347,7 @@ function CSourceLinesRaw({
   handleFullLogToggle,
   handleCLinesClick,
   onCRowsRendered,
+  onShowCSourcePaste,
 }: {
   showFullLog: boolean;
   selectedState: LogLineState;
@@ -1251,6 +1358,7 @@ function CSourceLinesRaw({
   handleFullLogToggle: () => void;
   handleCLinesClick: (event: React.MouseEvent<HTMLDivElement>) => void;
   onCRowsRendered: (start: number, end: number) => void;
+  onShowCSourcePaste: (fileName: string) => void;
 }) {
   const buttonId = "csource-toggle";
 
@@ -1358,6 +1466,7 @@ function CSourceLinesRaw({
             cLines: visualLogState.cLines,
             dependencyCLines,
             selectedCLine,
+            onShowCSourcePaste,
           }}
         />
       </div>
@@ -1375,6 +1484,7 @@ export function MainContent({
   handleLogLinesOut,
   handleFullLogToggle,
   testListHeight,
+  addPastedCSourceFile,
 }: {
   visualLogState: VisualLogState;
   selectedState: LogLineState;
@@ -1383,6 +1493,7 @@ export function MainContent({
   handleLogLinesOut: (event: React.MouseEvent<HTMLDivElement>) => void;
   handleFullLogToggle: () => void;
   testListHeight: number | undefined;
+  addPastedCSourceFile: (fileName: string, pastedLines: string[]) => void;
 }) {
   const logListRef = useListRef(null);
   const cListRef = useListRef(null);
@@ -1409,6 +1520,19 @@ export function MainContent({
     visualLogStart: number;
     visualLogEnd: number;
   }>({ visualLogStart: 0, visualLogEnd: 0 });
+
+  const [cSourcePaste, setCSourcePaste] = useState<{
+    show: boolean;
+    fileName: string;
+  }>({ show: false, fileName: "" });
+
+  const onShowCSourcePaste = useCallback((fileName: string) => {
+    setCSourcePaste({ show: true, fileName });
+  }, []);
+
+  const onHideCSourcePaste = useCallback(() => {
+    setCSourcePaste({ show: false, fileName: "" });
+  }, []);
 
   const onCRowsRendered = useCallback((start: number, end: number) => {
     setVisualCIndexRange({ visualLogStart: start, visualLogEnd: end });
@@ -1484,6 +1608,10 @@ export function MainContent({
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (cSourcePaste.show) {
+        return;
+      }
+
       let delta = 0;
       let areCLinesInFocus = selectedState.cLine !== "";
       let min = 0;
@@ -1931,6 +2059,7 @@ export function MainContent({
         cListRef={cListRef}
         onCRowsRendered={onCRowsRendered}
         testListHeight={testListHeight}
+        onShowCSourcePaste={onShowCSourcePaste}
       />
       <div
         id="log-container"
@@ -1977,6 +2106,14 @@ export function MainContent({
         handleStateCLineClick={handleStateCLineClick}
         handleStateRowClick={handleStateRowClick}
       />
+      {cSourcePaste.show && (
+        <CSourcePastePopup
+          verifierLogState={verifierLogState}
+          onHideCSourcePaste={onHideCSourcePaste}
+          fileName={cSourcePaste.fileName}
+          addPastedCSourceFile={addPastedCSourceFile}
+        />
+      )}
     </div>
   );
 }
