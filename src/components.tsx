@@ -298,7 +298,7 @@ export function HoveredLineHint({
   }
   return (
     <div id="hint-hovered-line" className="hint-line">
-      <span>[hovered raw line] {visibleIdx + 1}:</span>&nbsp;
+      <span>[raw line] {visibleIdx + 1}:</span>&nbsp;
       {lines[hoveredLine].raw}
     </div>
   );
@@ -806,26 +806,6 @@ const StackSlotSpan = ({
     </span>
   );
 };
-
-export function SelectedLineHint({
-  selectedLine,
-  visualIdx,
-  lines,
-}: {
-  selectedLine: number;
-  visualIdx: number;
-  lines: ParsedLine[];
-}) {
-  if (lines.length === 0) {
-    return <></>;
-  }
-  return (
-    <div id="hint-selected-line" className="hint-line">
-      <span>[selected raw line] {visualIdx + 1}:</span>&nbsp;
-      {lines[selectedLine].raw}
-    </div>
-  );
-}
 
 function CSourcePastePopup({
   verifierLogState,

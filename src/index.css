@@ -43,12 +43,14 @@ h1 {
 
 .main-content {
   display: flex;
-  flex: 1;
   min-height: 0; /* Important for flex child to respect parent height */
   font-size: 14px;
   border: 2px solid var(--mid-gray);
   border-radius: 4px;
-  margin: 10px 16px 8px 16px;
+  margin: 10px 16px 0px 16px;
+  height: calc(
+    100% - 136px
+  ); /* This number is the height of the nav bar and the bottom hint container */
 }
 
 #input-text {
@@ -624,14 +626,19 @@ h1 {
 /* Footer */
 
 #hint {
-  padding: 0px 16px 16px 16px;
+  padding: 10px 16px;
   color: var(--primary-dark);
-  min-height: 40px;
+  min-height: 20px;
+  width: 100%;
   font-family: "Roboto", sans-serif;
+  position: absolute;
+  background-color: var(--mid-gray-20);
+  border-top: 2px solid var(--mid-gray);
+  bottom: 0px;
 }
 
 .hint-line {
-  font-size: 16px;
+  font-size: 14px;
   line-height: 20px;
 }
 

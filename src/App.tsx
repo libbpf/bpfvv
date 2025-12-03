@@ -15,7 +15,6 @@ import {
   LogLineState,
   HoveredLineHint,
   MainContent,
-  SelectedLineHint,
   ToolTip,
   Examples,
   CSourceRow,
@@ -229,9 +228,6 @@ function App({ testListHeight }: { testListHeight?: number }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { verifierLogState, logLineIdxToVisualIdx } = visualLogState;
-
-  const { line: selectedLine } = selectedState;
-  const selectedLineVisualIdx = logLineIdxToVisualIdx.get(selectedLine) || 0;
   const hoveredLineVisualIdx =
     logLineIdxToVisualIdx.get(hoveredState.line) || 0;
 
@@ -555,11 +551,6 @@ function App({ testListHeight }: { testListHeight?: number }) {
           addPastedCSourceFile={addPastedCSourceFile}
         />
         <div id="hint">
-          <SelectedLineHint
-            selectedLine={selectedLine}
-            visualIdx={selectedLineVisualIdx}
-            lines={verifierLogState.lines}
-          />
           <HoveredLineHint
             hoveredLine={hoveredState.line}
             visibleIdx={hoveredLineVisualIdx}
