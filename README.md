@@ -1,3 +1,7 @@
+> [!NOTE]  
+> bpfvv is **not** being actively developed and is in maintenance mode. It's been a fun and useful experiment when it was created.
+> However the relevance of this tool is now questionable as [BPF enters the agentic era](https://lwn.net/Articles/1075067/), and everyone is figuring out how to navigate it. That said, if you are using the app and notice usability-breaking bugs, don't hesitate to report them and tag the maintainers.
+
 [![CI](https://github.com/libbpf/bpfvv/actions/workflows/ci.yml/badge.svg)](https://github.com/libbpf/bpfvv/actions/workflows/ci.yml)
 
 **bpfvv** stands for BPF Verifier Visualizer
